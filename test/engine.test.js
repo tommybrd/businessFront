@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, openStore, setStaff, placeOrder, advance, nextDay, reserveUsed, RESERVE_CAPACITY, DAILY_COST, buyAutoCheckout } from '../dist/engine.js';
+import { createGame, openStore, setStaff, placeOrder, advance, nextDay, reserveUsed, RESERVE_CAPACITY, DAILY_COST, buyAutoCheckout, selectRestockEquipment, restockInTransit, restockerPosition, quoteOrder, configureAutoOrder, inventoryPosition } from '../dist/engine.js';
 
 test('orders are paid once and reject invalid quantities or unavailable funds without changing the game', () => {
   const s = createGame(), before = s.money;
@@ -27,7 +27,7 @@ test('deliveries wait for reception staff and do not overfill reserve', () => {
   const s = createGame(); setStaff(s, 'receiving', 0);
   const order = placeOrder(s, 'produce', 48, 'express'); openStore(s); advance(s, 40);
   assert.equal(s.orders[0].status, 'unloading'); assert.equal(s.orders[0].remaining, 48);
-  setStaff(s, 'receiving', 2); advance(s, 30);
+  setStaff(s, 'receiving', 1); advance(s, 30);
   assert.equal(s.orders.find(o => o.id === order.id).status, 'received');
   assert.ok(reserveUsed(s) <= RESERVE_CAPACITY);
   const full = createGame(); full.products.forEach(p => { p.reserve = 100; });
@@ -36,22 +36,22 @@ test('deliveries wait for reception staff and do not overfill reserve', () => {
   assert.equal(full.orders[0].remaining, 48); assert.ok(reserveUsed(full) <= RESERVE_CAPACITY);
 });
 
-test('a trading day closes exactly once and reconciles cash with purchases, sales and expenses', () => {
+test('days roll over without a pause and reconcile cash exactly once per closing', () => {
   const s = createGame(); const initial = s.money;
-  placeOrder(s, 'dairy', 96, 'regular'); openStore(s); advance(s, 720);
-  assert.equal(s.phase, 'closed'); assert.equal(s.minute, 1200); assert.equal(s.speed, 0);
-  assert.ok(s.sales > 0); assert.ok(s.sold > 0); assert.equal(s.customers.length, 0);
-  assert.equal(Math.round(s.money * 100), Math.round((initial + s.sales - s.spending - DAILY_COST) * 100));
-  const cash = s.money; advance(s, 720); assert.equal(s.money, cash);
-  const inventory = s.products.map(p => ({ shelf: p.shelf, reserve: p.reserve }));
-  nextDay(s); assert.equal(s.day, 2); assert.equal(s.phase, 'preparation'); assert.equal(s.sales, 0);
-  assert.deepEqual(s.products.map(p => ({ shelf: p.shelf, reserve: p.reserve })), inventory);
+  placeOrder(s, 'dairy', 96, 'regular'); openStore(s); s.speed = 6; advance(s, 720);
+  assert.equal(s.phase, 'open'); assert.equal(s.day, 2); assert.equal(s.minute, 480); assert.equal(s.speed, 6);
+  const summary = s.history.at(-1);
+  assert.ok(summary.sales > 0); assert.ok(summary.sold > 0); assert.equal(s.customers.length, 0);
+  assert.equal(Math.round(s.money * 100), Math.round((initial + summary.sales - summary.spending - DAILY_COST) * 100));
+  const cash = s.money; advance(s, 0); assert.equal(s.money, cash); assert.equal(s.history.length, 1);
+  assert.throws(() => nextDay(s));
+  assert.ok(s.products.some(p => p.shelf !== 42 || p.reserve !== 30));
 });
 
 test('without cashiers, abandoned baskets return to stock and no sales are invented', () => {
   const s = createGame(); setStaff(s, 'checkout', 0); const stock = s.products.reduce((n, p) => n + p.shelf + p.reserve, 0);
   openStore(s); advance(s, 720);
-  assert.equal(s.sales, 0); assert.equal(s.sold, 0); assert.ok(s.lost > 0);
+  assert.equal(s.sales, 0); assert.equal(s.sold, 0); assert.ok(s.history.at(-1).lost > 0);
   assert.equal(s.products.reduce((n, p) => n + p.shelf + p.reserve, 0), stock);
   assert.ok(s.products.every(p => p.shelf >= 0 && p.shelf <= p.capacity && p.reserve >= 0));
 });
@@ -66,14 +66,146 @@ test('several demand cycles preserve stock capacities and cash accounting', () =
   for (let day = 0; day < 10; day++) {
     const before = s.money;
     for (const p of s.products) if (s.money > 1000) placeOrder(s, p.id, 96, 'regular');
-    openStore(s);
+    if (day === 0) openStore(s);
     for (let minute = 0; minute < 720; minute++) {
       advance(s, 1);
       assert.ok(s.products.every(p => p.shelf >= 0 && p.shelf <= p.capacity && p.reserve >= 0));
       assert.ok(reserveUsed(s) <= RESERVE_CAPACITY);
     }
-    assert.equal(Math.round(s.money * 100), Math.round((before + s.sales - s.spending - DAILY_COST) * 100));
+    assert.equal(Math.round(s.money * 100), Math.round((before + s.history.at(-1).sales - s.history.at(-1).spending - DAILY_COST) * 100));
     if (s.phase === 'bankrupt') break;
-    nextDay(s);
+    assert.equal(s.phase, 'open');
   }
+});
+
+function isolatedRestocking(mode = 'small', workers = 1) {
+  const s = createGame();
+  setStaff(s, 'shelves', workers);
+  s.products.forEach(p => { p.shelf = p.capacity; p.reserve = 0; });
+  s.products[0].shelf = 0; s.products[0].reserve = 160;
+  s.arrivalCredit = -10000;
+  if (mode !== 'small') selectRestockEquipment(s, 'large');
+  if (mode === 'pallet') selectRestockEquipment(s, 'pallet');
+  openStore(s); return s;
+}
+
+test('restocking needs a human and goods reach a shelf only after loading and transport', () => {
+  const unmanned = isolatedRestocking('small', 0); advance(unmanned, 100);
+  assert.equal(unmanned.products[0].shelf, 0); assert.equal(restockInTransit(unmanned), 0);
+  const s = isolatedRestocking(); advance(s, 1);
+  assert.equal(s.restockers[0].phase, 'loading'); assert.equal(s.restockers[0].reserved, 8); assert.equal(s.restockers[0].load, 0);
+  assert.equal(s.products[0].reserve, 160); assert.equal(s.products[0].shelf, 0);
+  advance(s, 5);
+  assert.equal(s.restockers[0].phase, 'outbound'); assert.equal(s.products[0].shelf, 0);
+  const position = restockerPosition(s.restockers[0]); assert.ok(position.every(Number.isFinite));
+  for (let i = 0; i < 80 && s.products[0].shelf === 0; i++) advance(s, 1);
+  assert.ok(s.products[0].shelf > 0);
+  assert.equal(s.products[0].shelf + s.products[0].reserve + restockInTransit(s), 160);
+});
+
+test('equipment unlocks are sequential, charge once, and fail without changing state', () => {
+  const s = createGame(), initial = JSON.stringify(s);
+  assert.throws(() => selectRestockEquipment(s, 'pallet')); assert.equal(JSON.stringify(s), initial);
+  assert.throws(() => selectRestockEquipment(s, '__proto__')); assert.equal(JSON.stringify(s), initial);
+  selectRestockEquipment(s, 'large'); assert.equal(s.money, 7300); assert.equal(s.spending, 1200);
+  selectRestockEquipment(s, 'small'); selectRestockEquipment(s, 'large'); assert.equal(s.money, 7300);
+  const snapshot = JSON.stringify(s); s.money = 100;
+  assert.throws(() => selectRestockEquipment(s, 'pallet')); assert.equal(s.money, 100); assert.equal(s.restockMode, 'large');
+  Object.assign(s, JSON.parse(snapshot));
+  selectRestockEquipment(s, 'pallet'); assert.equal(s.money, 3700); assert.equal(s.spending, 4800);
+});
+
+test('larger equipment carries more stock in the same working period without creating goods', () => {
+  const results = ['small', 'large', 'pallet'].map(mode => {
+    const s = isolatedRestocking(mode); advance(s, 100);
+    assert.equal(s.products[0].shelf + s.products[0].reserve + restockInTransit(s), 160);
+    assert.ok(s.restockers.every(w => w.load >= 0));
+    return s.products[0].shelf;
+  });
+  assert.ok(results[1] > results[0], results.join(','));
+  assert.ok(results[2] > results[1], results.join(','));
+});
+
+test('an equipment change applies to the next trip and does not enlarge a current load', () => {
+  const s = isolatedRestocking(); advance(s, 1); selectRestockEquipment(s, 'large');
+  assert.equal(s.restockers[0].mode, 'small'); assert.equal(s.restockers[0].reserved, 8);
+  for (let i = 0; i < 100 && !s.restockers[0].completed; i++) advance(s, 1);
+  advance(s, 1);
+  assert.equal(s.restockers[0].mode, 'large'); assert.equal(s.restockers[0].reserved, 24);
+});
+
+test('reassigning a restocker returns carried goods and closing clears transport jobs', () => {
+  const s = isolatedRestocking('pallet'); advance(s, 8); assert.equal(restockInTransit(s), 48);
+  setStaff(s, 'shelves', 0); assert.equal(restockInTransit(s), 0); assert.equal(s.products[0].reserve, 160);
+  setStaff(s, 'shelves', 1); advance(s, 712);
+  assert.equal(s.phase, 'open'); assert.equal(s.day, 2); assert.equal(restockInTransit(s), 0);
+  assert.ok(s.restockers.every(w => w.phase === 'idle'));
+  assert.equal(s.products[0].shelf + s.products[0].reserve, 160);
+  assert.equal(s.restockMode, 'pallet'); assert.equal(s.restockUnlocked.pallet, true);
+});
+
+test('several restockers coordinate loads and reserve capacity during deliveries and returns', () => {
+  const s = isolatedRestocking('pallet', 4);
+  s.products.forEach(p => { p.reserve = 100; });
+  placeOrder(s, 'dairy', 120, 'express');
+  for (let i = 0; i < 720; i++) {
+    advance(s, 1);
+    assert.ok(reserveUsed(s) + restockInTransit(s) <= RESERVE_CAPACITY);
+    assert.ok(s.products.every(p => p.shelf <= p.capacity && p.shelf >= 0 && p.reserve >= 0));
+    if (i === 35) { setStaff(s, 'shelves', 0); setStaff(s, 'shelves', 4); }
+  }
+  assert.equal(restockInTransit(s), 0);
+});
+
+test('quantity discounts and delivery fees are reflected in the actual cost of a paid order', () => {
+  const quotes = [12, 48, 120, 240].map(n => quoteOrder('produce', n, 'regular'));
+  for (let i = 1; i < quotes.length; i++) {
+    assert.ok(quotes[i].unitPrice < quotes[i - 1].unitPrice);
+    assert.ok(quotes[i].landedUnitCost < quotes[i - 1].landedUnitCost);
+  }
+  assert.equal(quotes[0].deliveryFee, 35); assert.equal(quoteOrder('produce', 48, 'express').deliveryFee, 75);
+  assert.equal(quotes[0].totalCost, 56.6);
+  const s = createGame(), before = s.money, order = placeOrder(s, 'produce', 120, 'regular');
+  assert.equal(order.cost, quotes[2].totalCost); assert.equal(s.money, before - order.cost);
+  assert.throws(() => quoteOrder('produce', 48, '__proto__'));
+});
+
+test('automatic orders wait for opening, account for incoming goods and do not repeat pending orders', () => {
+  const s = createGame();
+  configureAutoOrder(s, 'produce', { enabled: true, threshold: 100, quantity: 120, supplierId: 'regular' });
+  assert.equal(s.orders.length, 0); assert.equal(s.money, 8500);
+  openStore(s); advance(s, 1);
+  assert.equal(s.orders.length, 1); assert.equal(s.orders[0].source, 'automatic');
+  assert.equal(inventoryPosition(s, 'produce'), 192);
+  advance(s, 20); assert.equal(s.orders.length, 1);
+  const snapshot = JSON.stringify(s.autoOrders);
+  assert.throws(() => configureAutoOrder(s, 'produce', { enabled: true, threshold: -1, quantity: 12, supplierId: 'regular' }));
+  assert.equal(JSON.stringify(s.autoOrders), snapshot);
+});
+
+test('automatic orders count restocking cargo and stop when funds cannot cover goods plus delivery', () => {
+  const s = isolatedRestocking();
+  configureAutoOrder(s, 'produce', { enabled: true, threshold: 155, quantity: 120, supplierId: 'regular' });
+  advance(s, 8); assert.ok(restockInTransit(s) > 0); assert.equal(inventoryPosition(s, 'produce'), 160); assert.equal(s.orders.length, 0);
+  const poor = createGame(); poor.money = 20;
+  configureAutoOrder(poor, 'produce', { enabled: true, threshold: 100, quantity: 120, supplierId: 'regular' });
+  openStore(poor); advance(poor, 2);
+  assert.equal(poor.orders.length, 0); assert.equal(poor.money, 20); assert.match(poor.autoOrders.produce.lastError, /Trésorerie/);
+});
+
+test('reserve staff control preparation and reserved goods remain physically in the warehouse', () => {
+  const s = isolatedRestocking('pallet'); setStaff(s, 'reserve', 0); advance(s, 30);
+  assert.equal(s.restockers[0].phase, 'loading'); assert.equal(s.restockers[0].load, 0);
+  assert.equal(s.restockers[0].reserved, 48); assert.equal(s.products[0].reserve, 160); assert.equal(s.products[0].shelf, 0);
+  setStaff(s, 'reserve', 1); advance(s, 5);
+  assert.equal(s.restockers[0].phase, 'outbound'); assert.equal(s.restockers[0].load, 48); assert.equal(s.products[0].reserve, 112);
+});
+
+test('automatic restocking and purchasing preserve settings and stocks across continuous days', () => {
+  const s = createGame();
+  configureAutoOrder(s, 'produce', { enabled: true, threshold: 72, quantity: 120, supplierId: 'regular' });
+  openStore(s); s.speed = 3; advance(s, 1440);
+  assert.equal(s.day, 3); assert.equal(s.phase, 'open'); assert.equal(s.speed, 3); assert.equal(s.history.length, 2);
+  assert.equal(s.autoOrders.produce.enabled, true); assert.equal(s.autoOrders.produce.quantity, 120);
+  assert.equal(restockInTransit(s), 0); assert.ok(s.products.every(p => p.reserve >= 0 && p.shelf <= p.capacity));
 });

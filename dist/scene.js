@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
+import { RESTOCK_EQUIPMENT, RESTOCK_SHELVES, restockerPosition } from './engine.js';
+import { createKeyboardCameraControls } from './camera-controls.js';
 
 const COLORS = { green: 0x285c46, floor: 0xeef2e9, wall: 0xc9d6c8, steel: 0x859287 };
-const shelfPositions = [[-6, -2], [0, -2], [6, -2], [-6, 2], [0, 2], [6, 2]];
+const shelfPositions = RESTOCK_SHELVES;
 
 export function createStoreScene(canvas, state, onSelect) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -17,7 +19,8 @@ export function createStoreScene(canvas, state, onSelect) {
   controls.target.set(0, 0, 0); controls.enableDamping = true; controls.dampingFactor = 0.1;
   controls.minZoom = 0.7; controls.maxZoom = 1.8;
   controls.minPolarAngle = Math.PI / 5; controls.maxPolarAngle = Math.PI / 2.6;
-  controls.enablePan = false;
+  controls.enablePan = true; controls.screenSpacePanning = false;
+  const keyboardCamera = createKeyboardCameraControls(camera, controls);
   scene.add(new THREE.HemisphereLight(0xffffff, 0xa3b59e, 2.4));
   const sun = new THREE.DirectionalLight(0xfff8e9, 3.2);
   sun.position.set(-12, 25, 14); sun.castShadow = true;
@@ -56,16 +59,16 @@ export function createStoreScene(canvas, state, onSelect) {
   box(store, 0.2, 0.28, 15.8, 11.4, 0.18, 0, 0xc7d4c3);
   box(store, 8.8, 0.8, 0.2, -6.5, 0.45, -4.1, 0xd2ddca);
   box(store, 8.8, 0.8, 0.2, 6.5, 0.45, -4.1, 0xd2ddca);
-  box(store, 0.2, 0.9, 3.6, 0, 0.5, -5.9, 0xd2ddca);
+  box(store, 0.2, 0.9, 2.3, 0, 0.5, -6.35, 0xd2ddca);
   const reserve = new THREE.Group(), dock = new THREE.Group(); store.add(reserve, dock);
-  const reserveBoxes = [];
-  for (let i = 0; i < 12; i++) {
-    const group = new THREE.Group(); group.position.set(-9.3 + (i % 6) * 1.55, 0, -6.4 + Math.floor(i / 6) * 1.2);
-    box(group, 1.1, 0.12, 0.8, 0, 0.17, 0, 0xa78659);
-    box(group, 0.96, 0.65, 0.68, 0, 0.55, 0, i % 2 ? 0xcbb78c : 0xbca778);
-    box(group, 0.08, 0.66, 0.7, 0, 0.56, 0, 0xe8d7ad);
-    reserve.add(group); reserveBoxes.push(group);
-  }
+  const reserveZones = state.products.map((product, i) => {
+    const group = new THREE.Group(); group.position.set(-9.2 + (i % 3) * 3.5, 0, -6.9 + Math.floor(i / 3) * 1.75);
+    box(group, 3.05, 0.025, 1.4, 0, 0.15, 0, product.color, false);
+    box(group, 2.45, 0.1, 1.05, 0, 0.24, 0, 0xac926f);
+    const crates = [];
+    for (let n = 0; n < 8; n++) crates.push(box(group, 0.75, 0.44, 0.45, n % 2 ? 0.6 : -0.6, 0.51 + Math.floor(n / 4) * 0.45, n % 4 < 2 ? -0.26 : 0.26, product.color));
+    reserve.add(group); return { group, crates };
+  });
   const deliveryBoxes = [];
   for (let i = 0; i < 6; i++) {
     const group = new THREE.Group(); group.position.set(1.5 + i * 1.4, 0, -6);
@@ -127,6 +130,56 @@ export function createStoreScene(canvas, state, onSelect) {
     }
     return { group, body, legs, arms, route: [], key: '', walk: 0 };
   }
+  function restockVehicle(mode) {
+    const group = new THREE.Group(), pallet = mode === 'pallet';
+    const w = mode === 'small' ? 0.58 : 1.05, d = mode === 'small' ? 0.62 : 1.1;
+    group.position.z = mode === 'small' ? 0.67 : 1;
+    if (pallet) {
+      for (const x of [-0.3, 0.3]) box(group, 0.17, 0.1, 1.35, x, 0.2, 0.1, 0xd59b38);
+      box(group, 0.6, 0.28, 0.3, 0, 0.34, -0.6, 0xd59b38);
+      box(group, 0.07, 0.68, 0.07, 0, 0.78, -0.67, COLORS.steel);
+      box(group, 0.5, 0.06, 0.06, 0, 1.1, -0.67, 0x365546);
+      box(group, w, 0.12, d, 0, 0.35, 0, 0xb29267);
+    } else {
+      box(group, w, 0.12, d, 0, 0.35, 0, 0x55796d);
+      for (const x of [-w / 2, w / 2]) {
+        box(group, 0.035, 0.48, d, x, 0.64, 0, COLORS.steel);
+        box(group, 0.035, 0.17, 0.035, x, 0.9, -d / 2, COLORS.steel);
+      }
+      box(group, w, 0.07, 0.05, 0, 1, -d / 2, mode === 'small' ? 0x528875 : 0x547aaf);
+      box(group, w, 0.32, 0.035, 0, 0.57, d / 2, COLORS.steel);
+    }
+    const wheels = [];
+    for (const x of [-w / 2 + 0.08, w / 2 - 0.08]) for (const z of [-d / 2 + 0.08, d / 2 - 0.08]) {
+      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.06, 8), material(0x36483d));
+      wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.22, z); group.add(wheel); wheels.push(wheel);
+    }
+    const cargo = [];
+    for (let i = 0; i < 8; i++) cargo.push(box(group, w * 0.38, 0.23, d * 0.36, (i % 2 ? 1 : -1) * w * 0.23, 0.54 + Math.floor(i / 4) * 0.24, (i % 4 < 2 ? -1 : 1) * d * 0.23, 0xc8ab77));
+    return { group, cargo, wheels, mode };
+  }
+  function displayRestocker(actor, worker, running, seconds, minuteFraction) {
+    const mode = worker.phase === 'idle' ? state.restockMode : worker.mode;
+    if (!actor.equipment || actor.equipment.mode !== mode) {
+      if (actor.equipment) { actor.group.remove(actor.equipment.group); actor.equipment.group.traverse(object => { if (object.geometry) object.geometry.dispose(); }); }
+      actor.equipment = restockVehicle(mode); actor.group.add(actor.equipment.group);
+    }
+    actor.equipment.group.visible = true;
+    const position = restockerPosition(worker, minuteFraction), old = actor.group.position;
+    const dx = position[0] - old.x, dz = position[1] - old.z;
+    const moving = running > 0 && ['outbound', 'returning'].includes(worker.phase);
+    if (moving && Math.hypot(dx, dz) > 0.001) actor.group.rotation.y = Math.atan2(dx, dz);
+    else if (worker.phase === 'stocking') actor.group.rotation.y = Math.PI;
+    else if (worker.phase === 'loading' || worker.phase === 'idle') actor.group.rotation.y = Math.PI / 2;
+    old.set(position[0], 0.09, position[1]);
+    if (moving) actor.walk += seconds * running * 6;
+    const stride = moving ? Math.sin(actor.walk) * 0.35 : 0;
+    actor.legs[0].rotation.x = stride; actor.legs[1].rotation.x = -stride;
+    actor.arms.forEach(arm => { arm.rotation.x = -0.65; });
+    const product = state.products.find(p => p.id === worker.productId);
+    actor.equipment.cargo.forEach((crate, i) => { crate.visible = i < Math.ceil(worker.load / RESTOCK_EQUIPMENT[mode].capacity * 8); crate.material = material(product?.color || 0xc8ab77); });
+    if (moving) actor.equipment.wheels.forEach(wheel => { wheel.rotation.x += seconds * running * 8; });
+  }
   const customers = new Map();
   const employees = Array.from({ length: 8 }, (_, i) => {
     const actor = person(0x397654, true); actor.group.position.set(-8 + i * 0.65, 0.09, -4.7); scene.add(actor.group); actor.role = ''; return actor;
@@ -151,12 +204,16 @@ export function createStoreScene(canvas, state, onSelect) {
     actor.arms[0].rotation.x = -stride * 0.7; actor.arms[1].rotation.x = stride * 0.7;
     actor.body.position.y = 0.72 + (moving ? Math.abs(Math.sin(actor.walk)) * 0.025 : 0);
   }
-  function update(delta, now, selected) {
+  function update(delta, now, selected, minuteFraction = 0) {
+    keyboardCamera.update(delta / 1000);
     controls.update();
     const seconds = delta / 1000, running = state.phase === 'open' ? state.speed : 0;
     const used = state.products.reduce((sum, p) => sum + p.reserve, 0);
-    reserveBoxes.forEach((p, i) => { p.visible = i < Math.ceil(used / 50); });
-    replaceText(reserve, 'sign', `RÉSERVE · ${used} / 600`, -5.5, 2.45, -6.5, { worldWidth: 4.8 });
+    reserveZones.forEach((zone, i) => {
+      const product = state.products[i]; zone.crates.forEach((crate, n) => { crate.visible = n < Math.ceil(product.reserve / 40); });
+      replaceText(zone.group, 'stock', `${product.short} · ${product.reserve}`, 0, 1.6, 0, { worldWidth: 2.5, size: 33 });
+    });
+    replaceText(reserve, 'sign', `RÉSERVE · ${used} / 600`, -5.5, 2.75, -7.5, { worldWidth: 4.8 });
     const arrived = state.orders.filter(o => o.status === 'unloading');
     deliveryBoxes.forEach((p, i) => { p.visible = i < arrived.length; });
     replaceText(dock, 'sign', arrived.length ? `QUAI · ${arrived.length} livraison(s)` : 'QUAI DE LIVRAISON', 5.3, 2.45, -6.5, { worldWidth: 4.8 });
@@ -194,20 +251,25 @@ export function createStoreScene(canvas, state, onSelect) {
       }
       walk(actor, seconds, 14 * running, now);
     }
-    const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving')];
-    let checkoutIndex = 0, shelfIndex = 0, receivingIndex = 0;
+    const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.reserve).fill('reserve'), ...Array(state.staff.receiving).fill('receiving')];
+    let checkoutIndex = 0, shelfIndex = 0, reserveIndex = 0, receivingIndex = 0;
     employees.forEach((actor, i) => {
       const role = roles[i] || 'idle';
       if (actor.role !== role) { actor.role = role; actor.key = ''; actor.route = []; }
+      if (actor.equipment) actor.equipment.group.visible = role === 'shelves';
       if (role === 'checkout') {
         const lane = checkoutIndex++; setDestination(actor, lane < 4 ? -5.4 + lane * 4 : 9.6, 6.75, `cashier-${lane}`);
       } else if (role === 'shelves') {
-        const index = shelfIndex++, available = state.products.map((p, n) => ({ p, n })).filter(({ p }) => p.reserve > 0 && p.shelf < p.capacity).sort((a, b) => a.p.shelf - b.p.shelf);
-        if (running && available.length && !actor.route.length) {
-          const shelf = available[index % available.length].n;
-          if (actor.key.startsWith('restock')) setDestination(actor, -2.4 + index * 0.3, -4.65, `pickup-${now}`, false);
-          else { const [x, z] = shelfPositions[shelf]; setDestination(actor, x + 1.8, z + 1.3, `restock-${now}`); }
-        }
+        const worker = state.restockers[shelfIndex++];
+        displayRestocker(actor, worker, running, seconds, minuteFraction);
+        return;
+      } else if (role === 'reserve') {
+        const index = reserveIndex++, loading = state.restockers.filter(w => w.phase === 'loading'), job = loading[index];
+        if (job && running) {
+          const productIndex = state.products.findIndex(p => p.id === job.productId), zone = reserveZones[productIndex].group.position;
+          const preparing = job.remaining > job.total / 2;
+          setDestination(actor, preparing ? zone.x + 1.25 : -2.7 + index * 0.6, preparing ? zone.z : -4.85, `prepare-${job.id}-${job.productId}-${preparing}`, true);
+        } else setDestination(actor, -8 + index * 0.65, -4.65, `warehouse-idle-${index}`, true);
       } else if (role === 'receiving') {
         const index = receivingIndex++;
         if (!actor.route.length) {
@@ -232,8 +294,9 @@ export function createStoreScene(canvas, state, onSelect) {
   resize();
   window.addEventListener('pagehide', () => {
     controls.dispose(); renderer.dispose();
+    keyboardCamera.dispose();
     scene.traverse(object => { if (object.geometry) object.geometry.dispose(); if (object.material?.map) object.material.map.dispose(); });
     for (const m of materials.values()) m.dispose();
   }, { once: true });
-  return { update };
+  return { update, resetCamera: () => { keyboardCamera.reset(); controls.reset(); } };
 }

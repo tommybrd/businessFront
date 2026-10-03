@@ -8,10 +8,11 @@
   <title>Market Front — Direction du magasin</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23102b27'/%3E%3Cpath d='M6 11h20l-2 10H9L6 7H3' fill='none' stroke='%23b8ee81' stroke-width='2.5'/%3E%3Ccircle cx='11' cy='25' r='2' fill='%23b8ee81'/%3E%3Ccircle cx='23' cy='25' r='2' fill='%23b8ee81'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./replenishment.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Direction du magasin <span class="version">v0.1</span></p></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Direction du magasin <span class="version">v0.2</span></p></div></div>
     <div class="day-clock"><span id="day-label">Jour 1</span><strong id="clock">07:30</strong><span id="phase-label" class="phase">Préparation</span></div>
     <div class="time-controls" role="group" aria-label="Vitesse du jeu"><button data-speed="0" class="active" aria-label="Pause" title="Pause — barre d’espace">Ⅱ</button><button data-speed="1">×1</button><button data-speed="3">×3</button><button data-speed="6">×6</button></div>
   </header>
@@ -25,12 +26,12 @@
     <div class="workspace">
       <section class="store-area" aria-label="Vue d’ensemble du supermarché">
         <div class="store-heading"><div><h2>Votre supermarché</h2><p id="store-status">Préparez les commandes et les équipes avant l’ouverture.</p></div><button class="primary" id="main-action">Ouvrir le magasin</button></div>
-        <div class="map-wrap"><canvas id="store-map" width="1000" height="680" role="img" aria-label="Vue 3D animée du supermarché : six rayons, une réserve, un quai et quatre caisses. Faites glisser pour tourner la vue, utilisez la molette pour zoomer. Les stocks sont aussi disponibles dans le panneau Rayons."></canvas><div class="map-legend"><span><i class="legend-dot customer-dot"></i>Clients</span><span><i class="legend-dot staff-dot"></i>Équipes</span><span>Glisser : tourner · Molette : zoomer</span></div></div>
+        <div class="map-wrap"><canvas id="store-map" width="1000" height="680" role="img" aria-label="Vue 3D du magasin. ZQSD pour se déplacer, A et E pour tourner, molette pour zoomer. Les stocks sont aussi accessibles dans le panneau Rayons."></canvas><div class="map-legend"><span><i class="legend-dot customer-dot"></i>Clients</span><span><i class="legend-dot staff-dot"></i>Équipes</span><span class="camera-help">ZQSD : déplacer · A/E : tourner · Molette : zoomer</span><button id="reset-camera" class="tiny-button">Recentrer</button></div></div>
         <div class="bottom-row"><div class="event-box"><span class="eyebrow">AUJOURD’HUI</span><h3 id="event-title">Journée habituelle</h3><p id="event-hint">Rush de midi et sortie des bureaux.</p><div class="event-next" id="event-next"></div></div><div class="journal"><div class="journal-heading"><h3>Journal du magasin</h3><span>En direct</span></div><ul id="log"></ul></div></div>
       </section>
       <aside class="management" aria-label="Gestion du magasin">
         <div class="panel-title"><h2>Bureau du directeur</h2><span class="badge" id="team-badge">8 employés</span></div>
-        <div class="tabs" role="tablist" aria-label="Gestion"><button id="tab-rayons" role="tab" aria-selected="true" aria-controls="management-content" data-tab="rayons">Rayons</button><button id="tab-equipes" role="tab" aria-selected="false" aria-controls="management-content" data-tab="equipes">Équipes</button><button id="tab-fournisseurs" role="tab" aria-selected="false" aria-controls="management-content" data-tab="fournisseurs">Livraisons</button><button id="tab-finances" role="tab" aria-selected="false" aria-controls="management-content" data-tab="finances">Finances</button></div>
+        <div class="tabs" role="tablist" aria-label="Gestion"><button id="tab-rayons" role="tab" aria-selected="true" aria-controls="management-content" data-tab="rayons">Rayons</button><button id="tab-reserve" role="tab" aria-selected="false" aria-controls="management-content" data-tab="reserve">Réserve</button><button id="tab-equipes" role="tab" aria-selected="false" aria-controls="management-content" data-tab="equipes">Équipes</button><button id="tab-fournisseurs" role="tab" aria-selected="false" aria-controls="management-content" data-tab="fournisseurs">Livraisons</button><button id="tab-finances" role="tab" aria-selected="false" aria-controls="management-content" data-tab="finances">Finances</button></div>
         <div id="management-content" role="tabpanel" aria-labelledby="tab-rayons"></div>
         <div class="director-note"><strong>À vous de décider.</strong><p>Le stock en réserve ne se vend qu’une fois en rayon. Gardez des équipes disponibles pour chaque étape.</p></div>
       </aside>
