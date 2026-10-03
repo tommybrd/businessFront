@@ -5,21 +5,21 @@ Nom de travail d'un jeu de gestion de supermarché. Le joueur est le directeur e
 ## Première version
 
 - Magasin en plein écran, commandes en surimpression et panneaux contextuels au clic sur les rayons, emplacements de réserve, caisses, employés et quai.
-- Six rayons avec articles individuels et jauges de stock ; réserve organisée par produit avec une capacité propre à chaque famille.
-- Parking clients, passage piéton, routes, accès de livraison et arbres autour du magasin. Les voitures et piétons représentent les clients de la simulation, sans gestion des places pour le moment.
+- Six rayons plus rapprochés, avec articles individuels et jauges intégrées aux meubles ; chiffres de stock accessibles au clic, sans grandes étiquettes flottantes ; réserve organisée par produit avec une capacité propre à chaque famille.
+- Parking clients extérieur relié à la route principale, rues périphériques, trottoirs, passages piétons, accès de livraison, arbres et commerces voisins autour du magasin. Le cadrage initial montre les abords et les voitures suivent les voies d’accès et l’allée centrale du parking. Les voitures et piétons représentent les clients de la simulation, sans gestion des places pour le moment.
 - Vue 3D simplifiée, clients avec chariots, employés et camions animés. Rotation, déplacement et zoom de la caméra.
 - Clients, paniers, attente en caisse et abandons.
-- Huit employés à répartir entre encaissement, préparation des chariots, mise en rayon et déchargement des livraisons. Tenues vertes distinctes par métier ; les employés non affectés ne sont pas montrés.
+- Effectifs sans plafond, choisis par équipe : encaissement, mise en rayon et déchargement des livraisons. Les salaires suivent les effectifs présents à la fermeture (85 € par employé et par jour, plus 160 € de fonctionnement et les frais quotidiens des caisses). Tenues vertes distinctes par métier ; les employés non affectés ne sont pas montrés.
 - Réserve organisée par produit, avec emplacements 3D et détail des stocks et des unités réservées aux chargements.
-- Réapprovisionnement par chargements : petit chariot (8 unités), grand chariot (24 unités), puis lève-palette (48 unités), toujours avec un employé.
-- Deux fournisseurs avec prix et délais différents. Les palettes du quai se vident pendant les chargements sur transpalette, puis les marchandises sont transportées et rangées par produit.
-- Remises par quantité, frais de livraison par commande et déclenchements automatiques configurables par produit.
+- Réapprovisionnement par chargements : petit chariot (8 unités), chariot moyen (24 unités), puis grand chariot (48 unités), toujours avec un employé.
+- Deux fournisseurs avec prix et délais différents. Chaque palette quitte le quai entière sur un transpalette et se vide progressivement pendant le rangement dans son emplacement de réserve. La dernière palette d’une commande peut être partielle.
+- Commandes fournisseurs manuelles, remises par quantité et frais de livraison par commande.
 - Trésorerie du magasin, compte personnel du directeur, salaire quotidien réglable, TVA et impôt avec paiement automatique ou manuel.
 - Agrandissements séparés des rayons, de la réserve et de la zone de paiement ; possibilité de jeter du stock non engagé pour libérer l’emplacement d’un produit.
 - Journées calmes, rush de midi, week-end, Black Friday et fêtes.
 - Journées en continu, vitesse conservée et bilans consultables sans arrêter le magasin.
 
-Cette version constitue une boucle jouable. Le placement libre des rayons, le recrutement, les produits périssables et les contrats fournisseurs restent à développer. Les parties ne sont pas encore sauvegardées entre deux rechargements.
+Cette version constitue une boucle jouable. Le placement libre des rayons, la gestion RH, les produits périssables et les contrats fournisseurs restent à développer. Les parties ne sont pas encore sauvegardées entre deux rechargements.
 
 ## Pistes pour approfondir la chaîne
 
@@ -27,9 +27,9 @@ Priorités de déchargement et de mise en rayon, emplacements de réserve, quais
 
 ## Réapprovisionnement
 
-Dans **Équipes → Réserve → rayons**, le directeur choisit le matériel de l’équipe. Le petit chariot est inclus. Les grands chariots coûtent 1 200 € pour équiper l’équipe ; les lève-palettes se débloquent ensuite pour 3 600 €. Le matériel acheté reste disponible les jours suivants et peut être sélectionné sans être payé à nouveau.
+Dans **Équipes → Réserve → rayons**, le directeur choisit le matériel de l’équipe. Le petit chariot est inclus. Les chariots moyens coûtent 1 200 € pour équiper l’équipe ; les grands chariots se débloquent ensuite pour 3 600 €. Le transpalette est réservé au déchargement des livraisons. Le matériel acheté reste disponible les jours suivants et peut être sélectionné sans être payé à nouveau.
 
-Les préparateurs en réserve chargent les lots, avec un chargement préparé à la fois par préparateur. Les employés de mise en rayon les transportent par les allées, remplissent le rayon, puis reviennent. Les grandes capacités réduisent les allers-retours, avec un chargement et un déplacement plus longs. Les achats s’appliquent aux prochains chargements ; les trajets en cours conservent leur matériel. Sans préparateur, les équipements restent en attente. Sans employé de mise en rayon, ils ne fonctionnent pas.
+Les employés de mise en rayon prennent eux-mêmes les articles dans l’emplacement de réserve du produit, chargent leur chariot, le transportent par les allées et remplissent le rayon avant de revenir. Les chargements sont simultanés et ne dépendent pas d’une équipe de préparation séparée. Les grandes capacités réduisent les allers-retours, avec un chargement et un déplacement plus longs. Les trajets en cours conservent leur matériel. Sans employé de mise en rayon, les chariots ne fonctionnent pas.
 
 Les unités transportées sont suivies séparément : elles ne sont pas encore vendables en rayon. Les chargements coordonnent les places disponibles pour éviter de remplir plusieurs fois le même rayon. Réaffecter un employé ou fermer le magasin ramène son éventuel chargement restant en réserve. Le déchargement préserve la place nécessaire à ces retours.
 
@@ -37,19 +37,19 @@ Le bouton **Remplir** d’un rayon demande un réapprovisionnement prioritaire d
 
 Dans **Réserve**, chaque produit affiche son stock physique, sa propre capacité et la part affectée à des chargements. Le stock quitte la réserve uniquement lorsque la préparation du chargement est terminée. Chaque famille dispose initialement de 100 places ; la saturation d’une famille ne bloque pas le rangement d’une autre. Le déchargement protège aussi les places nécessaires aux marchandises sur les équipements et aux retours de paniers.
 
-**Jeter du stock** retire uniquement des unités non réservées, sans remboursement. Les commandes automatiques restent actives si elles ont été configurées. Les transpalettes de déchargement déplacent jusqu’à 48 unités à la fois ; les produits en transport ne sont pas comptés deux fois dans les commandes en cours. Réaffecter le manutentionnaire ou terminer la journée ramène son chargement au quai.
+**Jeter du stock** retire uniquement des unités non réservées, sans remboursement. Les transpalettes de déchargement déplacent une palette entière de 48 unités au maximum ; ils attendent si la réserve du produit ne peut pas accueillir tout son contenu. Les cartons sont rangés progressivement à destination ; les produits en transport ne sont pas comptés deux fois dans les commandes en cours. Réaffecter le manutentionnaire ou terminer la journée ramène son chargement au quai.
 
 ## Agrandissements
 
-Chaque zone a deux agrandissements payants. Les rayons passent de 64 à 96 puis 128 articles par rayon (3 000 € puis 5 000 €). La réserve passe de 100 à 150 puis 200 places **par famille** (2 500 € puis 4 500 €). La zone de paiement passe de quatre à six puis huit caisses (2 000 € puis 3 500 €). Les dimensions du bâtiment et les équipements changent en 3D. Les agrandissements ne créent aucun employé supplémentaire ; il faut réaffecter les huit employés existants.
+Chaque zone a deux agrandissements payants. Les rayons passent de 64 à 96 puis 128 articles par rayon (3 000 € puis 5 000 €). La réserve passe de 100 à 150 puis 200 places **par famille** (2 500 € puis 4 500 €). La zone de paiement passe de quatre à six puis huit caisses (2 000 € puis 3 500 €). Les dimensions du bâtiment et les équipements changent en 3D. Les effectifs se choisissent librement dans Équipes, indépendamment des agrandissements. Chaque caisse installée coûte aussi 5 € de fonctionnement par jour, même fermée ; une caisse automatique ajoute 8 € par jour, indépendamment de son achat. Ces coûts et les salaires sont détaillés séparément dans Finances et payés une seule fois à la clôture. Les caisses physiques limitent toujours le nombre de postes d’encaissement actifs ; les caissiers supplémentaires attendent un poste disponible.
 
 ## Commandes fournisseurs
 
-L’onglet **Livraisons** compare les quantités de 12, 48, 120 et 240 unités, avec le prix après remise et le coût livré par article. Centrale Nord facture 35 € de livraison et applique 4 %, 8 % puis 12 % de remise à partir de 48, 120 et 240 unités. Express Marché facture 75 € et applique 2 %, 5 % puis 8 %. Les prix unitaires sont arrondis au centime avant le calcul de la commande. Les frais sont facturés une fois par commande mono-produit.
+L’onglet **Livraisons** compare les quantités de 12, 24, 48, 120 et 240 unités, avec le prix après remise et le coût livré par article. Centrale Nord facture 35 € de livraison et applique 4 %, 8 % puis 12 % de remise à partir de 48, 120 et 240 unités. Express Marché facture 75 € et applique 2 %, 5 % puis 8 %. Les prix unitaires sont arrondis au centime avant le calcul de la commande. Les frais sont facturés une fois par commande mono-produit.
 
-Les quantités se choisissent dans une liste de lots standards de 12, 24, 48, 120 ou 240 unités, pour les commandes manuelles comme automatiques. Un réglage d’une autre quantité valide reste affiché s’il a été enregistré par les actions partagées. Un accès en surimpression montre le nombre de livraisons en route ou au quai. Le suivi détaillé est placé avant le formulaire de commande, avec le délai, les articles restant sur les palettes et les articles en transport vers la réserve.
+Les quantités se choisissent directement dans cinq carrés : **12, 24, 48, 120 ou 240 unités**. Le prix, la remise et le coût livré se mettent à jour dès le choix du lot ou du fournisseur. Un accès en surimpression montre les livraisons en route ou au quai. Le suivi détaillé précède le formulaire et affiche le délai, les palettes au quai et les articles en transport ou rangement.
 
-Le directeur peut activer un seuil et définir une quantité et un fournisseur pour chaque produit. Le stock suivi comprend les rayons, la réserve, les marchandises sur les équipements de réapprovisionnement et de déchargement, ainsi que les livraisons en cours. Une commande en attente empêche les commandes automatiques supplémentaires pour le même produit. Si la trésorerie ne couvre pas les produits et les frais, le jeu signale le blocage et réessaie pendant l’ouverture. L’automatisme est désactivé au début d’une nouvelle partie.
+Les commandes récurrentes automatiques ont été retirées : seuls les achats explicitement demandés au fournisseur sont exécutés. Les employés continuent à réapprovisionner les rayons à partir du stock disponible.
 
 ## Compte personnel et taxes
 
@@ -63,7 +63,7 @@ La fiscalité du jeu est simplifiée : l’impôt est de 20 % du résultat quoti
 
 **ZQSD** déplace la caméra par rapport à la vue, **A/E** la fait tourner, la molette zoome. La souris permet aussi de tourner et de déplacer la vue. **Recentrer** retrouve le cadrage initial. Les touches ne déplacent pas la caméra pendant la saisie dans un champ ou la consultation d’un bilan.
 
-La première ouverture se déclenche manuellement. Ensuite, le jour suivant démarre automatiquement avec la même vitesse, les mêmes stocks, équipes, équipements et seuils. Les charges sont payées une fois par journée. Le bilan est accessible dans **Finances** pendant que le jeu continue. Seule la faillite termine la partie.
+La première ouverture se déclenche manuellement. Ensuite, le jour suivant démarre automatiquement avec la même vitesse, les mêmes stocks, équipes et équipements. Les charges sont payées une fois par journée. Le bilan est accessible dans **Finances** pendant que le jeu continue. Seule la faillite termine la partie.
 
 ## Développement
 
@@ -84,3 +84,13 @@ Le serveur local affiche son adresse, par défaut http://localhost:3000. Les fic
 Le dépôt est indépendant d'Emergency Front. La branche principale est `main`. Les fichiers de `dist/` sont suivis dans Git et constituent directement la version publiée.
 
 La destination Sites est enregistrée dans `.openai/hosting.json`. Une publication doit correspondre à un commit poussé, puis à une version déployée avec succès. Aucun identifiant secret ne doit être enregistré dans Git.
+
+
+## To-do : fonctions support et compétitivité
+
+Idées demandées pour de prochaines versions, non implémentées :
+
+- [ ] Direction RH / DRH : aide au recrutement, à l’organisation et au dimensionnement des équipes, avec une progression à définir. Pour l’instant, aucun plafond d’effectif.
+- [ ] Achats et négociation fournisseurs : comparer les offres, négocier les contrats et obtenir des prix d’achat plus compétitifs.
+- [ ] Analyse des prix et marges : aider le directeur à choisir des prix de vente compétitifs et à suivre la rentabilité par produit.
+- [ ] Autres fonctions support : assistance à la gestion des stocks, aux prévisions de demande et à la trésorerie.

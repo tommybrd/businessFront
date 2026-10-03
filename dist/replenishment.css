@@ -25,14 +25,7 @@
 .quantity-tiers th:first-child,.quantity-tiers td:first-child{text-align:left}
 .quantity-tiers td{text-align:right;border-top:1px solid var(--line);padding:7px 6px}
 .selected-tier{background:#eef5e8;color:#315e3b;font-weight:600}
-.auto-order-section{border-top:1px solid var(--line);padding-top:18px;margin-top:18px}
-.auto-order-section h3{font-size:16px;margin-bottom:8px}
-.auto-order-section label{display:block;font-size:14px;font-weight:600;margin-bottom:6px}
-.auto-order-section input:not([type=checkbox]),.auto-order-section select{width:100%;border:1px solid #cad8ce;padding:9px;border-radius:7px;color:var(--ink);background:white;min-height:42px;margin-bottom:12px}
-.auto-order-section .auto-enable{display:flex;align-items:center;gap:9px;margin-bottom:14px}
 .auto-enable input{width:18px;height:18px;accent-color:var(--green)}
-.auto-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
-.auto-status{font-size:14px;line-height:1.5;color:var(--muted);margin-top:10px}
 .map-legend{flex-wrap:wrap;pointer-events:none}
 .map-legend .camera-help{font-size:13px}
 .map-legend button{pointer-events:auto;min-height:28px;padding:3px 8px;font-size:13px}

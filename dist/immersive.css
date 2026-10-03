@@ -86,8 +86,19 @@ button:focus-visible,input:focus-visible,select:focus-visible,canvas:focus-visib
 .equipment-card strong,.equipment-card p{font-size:14px}
 .selected-equipment{background:#304e38;border-color:#a4cb82}
 .selected-equipment button:disabled{color:#d3edb9;background:#3f643b;border-color:#799e5f}
-.order-form select,.order-form input,.auto-order-section input:not([type=checkbox]),.auto-order-section select{color:var(--ink);background:#263f34;border-color:#58745f;font-size:15px}
+.order-form select,.order-form input{color:var(--ink);background:#263f34;border-color:#58745f;font-size:15px}
 .price-preview{background:#304933;border-radius:5px;margin-top:6px}
+.quantity-picker{border:0;padding:0;margin:16px 0;min-inline-size:0}
+.quantity-picker legend{font-size:14px;margin-bottom:9px;color:#bdccc4}
+.quantity-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.order-form .quantity-tile{display:block;position:relative;margin:0;padding:0;cursor:pointer}
+.order-form .quantity-tile input{position:absolute;opacity:0;width:1px;height:1px;min-height:0;padding:0;margin:0}
+.quantity-face{display:flex;aspect-ratio:1;min-height:44px;align-items:center;justify-content:center;flex-direction:column;gap:4px;border:1px solid #58745f;background:#263f34;border-radius:5px}
+.quantity-face strong{font-size:21px;font-variant-numeric:tabular-nums}
+.quantity-face small{font-size:11px;white-space:nowrap}
+.quantity-tile:hover .quantity-face{border-color:#badf91}
+.quantity-tile input:checked+.quantity-face{background:#bce994;color:#20392b;border-color:#d8f4be;box-shadow:inset 0 0 0 1px #d8f4be}
+.quantity-tile input:focus-visible+.quantity-face{outline:3px solid #f4d68a;outline-offset:3px}
 .selected-tier{background:#375435;color:#d3efb4}
 .quantity-tiers{font-size:14px}.quantity-tiers th{font-size:13px}
 .quote-row{font-size:14px}

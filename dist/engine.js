@@ -17,23 +17,32 @@ export const EVENTS = [
   { name: 'Black Friday', factor: 2.3, hint: 'Forte demande en maison et entretien.', focus: 5 },
   { name: 'Préparatifs des fêtes', factor: 1.9, hint: 'Les produits frais et les boissons sont très demandés.', focus: 4 },
 ];
-export const STAFF_TOTAL = 8;
 export const RESERVE_CAPACITY = 600;
-export const DAILY_COST = STAFF_TOTAL * 85 + 160;
+export const STAFF_DAILY_WAGE = 85;
+export const staffCount = s => Object.values(s.staff).reduce((sum, n) => sum + n, 0);
+export const dailyCosts = s => staffCount(s) * STAFF_DAILY_WAGE + checkoutDailyCosts(s) + 160;
 export const STORE_EXPANSIONS = {
   checkout: { name: 'Zone de paiement', costs: [2000, 3500] },
   shelves: { name: 'Rayons', costs: [3000, 5000] },
   reserve: { name: 'Réserve', costs: [2500, 4500] },
 };
 export const checkoutCount = s => 4 + s.expansions.checkout * 2;
+export const checkoutDailyCosts = s => checkoutCount(s) * 5 + (s.autoCheckout ? 8 : 0);
 export const receivingInTransit = s => s.receivers.reduce((sum, worker) => sum + worker.load, 0);
 export const RESTOCK_EQUIPMENT = {
   small: { name: 'Petit chariot', capacity: 8, cost: 0, loading: 2, stockRate: 2, travelSpeed: 1.8, requires: null },
-  large: { name: 'Grand chariot', capacity: 24, cost: 1200, loading: 3, stockRate: 4, travelSpeed: 1.7, requires: 'small' },
-  pallet: { name: 'Lève-palette', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 1.5, requires: 'large' },
+  medium: { name: 'Chariot moyen', capacity: 24, cost: 1200, loading: 3, stockRate: 4, travelSpeed: 1.7, requires: 'small' },
+  large: { name: 'Grand chariot', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 1.5, requires: 'medium' },
 };
 export const RESTOCK_PICKUP = [-2.4, -4.65];
-export const RESTOCK_SHELVES = [[-6, -2], [0, -2], [6, -2], [-6, 2], [0, 2], [6, 2]];
+export const RESTOCK_SHELVES = [[-6, -2.45], [0, -2.45], [6, -2.45], [-6, 0.5], [0, 0.5], [6, 0.5]];
+export const reserveProductPosition = index => [-9.2 + (index % 3) * 3.5, -6.9 + Math.floor(index / 3) * 1.75];
+export function deliveryPalletPosition(s, order, pallet) {
+  const index = order.dockSlot;
+  return [1.4 + (index % 3) * 3.3 + (pallet.index % 2) * 1.25, -6.6 - Math.floor(index / 3) * 3.5 - s.expansions.reserve * 3 - Math.floor(pallet.index / 2) * 1.15];
+}
+const newRestocker = id => ({ id, phase: 'idle', mode: 'small', productId: null, load: 0, reserved: 0, remaining: 0, total: 0, pickup: [RESTOCK_PICKUP[0] + (id % 4) * 0.6, RESTOCK_PICKUP[1] - Math.floor(id / 4) * 0.65], destination: [...RESTOCK_PICKUP], path: [], completed: 0 });
+const newReceiver = id => ({ id, phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, pickup: [5 + (id % 6) * 0.55, -5.3], destination: [5, -5.3], path: [] });
 export const restockInTransit = s => s.restockers.reduce((sum, worker) => sum + worker.load, 0);
 const round = n => Math.round(n * 100) / 100;
 export const currentEvent = s => EVENTS[(s.day - 1) % EVENTS.length];
@@ -43,17 +52,16 @@ export const clock = minute => `${String(Math.floor(minute / 60)).padStart(2, '0
 export function createGame(seed = 73471) {
   return {
     day: 1, minute: 450, money: 8500, phase: 'preparation', speed: 0,
-    seed, nextId: 1, staff: { checkout: 2, shelves: 4, reserve: 1, receiving: 1 },
+    seed, nextId: 1, staff: { checkout: 2, shelves: 5, receiving: 1 },
     products: PRODUCTS.map(p => ({ ...p, shelf: 42, reserve: 30, reserveCapacity: 100 })),
-    autoOrders: Object.fromEntries(PRODUCTS.map(p => [p.id, { enabled: false, threshold: 24, quantity: 120, supplierId: 'regular', lastError: null }])),
     orders: [], customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
     satisfaction: 100, autoCheckout: false, checkoutCredit: 0,
     directorSalary: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
     vatCollected: 0, vatDeductible: 0, vatCredit: 0, vatDue: 0, profitTaxDue: 0, taxPaidToday: 0, autoPayTaxes: true,
-    restockMode: 'small', restockUnlocked: { small: true, large: false, pallet: false }, restockRequests: [],
-    restockers: Array.from({ length: STAFF_TOTAL }, (_, id) => ({ id, phase: 'idle', mode: 'small', productId: null, load: 0, reserved: 0, remaining: 0, total: 0, destination: [...RESTOCK_PICKUP], path: [], completed: 0 })),
+    restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false }, restockRequests: [],
+    restockers: Array.from({ length: 5 }, (_, id) => newRestocker(id)),
     expansions: { checkout: 0, shelves: 0, reserve: 0 }, discarded: 0,
-    receivers: Array.from({ length: STAFF_TOTAL }, (_, id) => ({ id, phase: 'idle', productId: null, orderId: null, load: 0, reserved: 0, remaining: 0, total: 0, pickup: [5 + id * 0.55, -5.3], destination: [5, -5.3], path: [] })),
+    receivers: [newReceiver(0)],
     arrivalCredit: 0, elapsed: 0, history: [], summary: null,
     log: [{ text: 'Bienvenue, directeur. Préparez vos équipes et vos premières commandes.', kind: 'info', time: '07:30' }],
   };
@@ -67,11 +75,14 @@ function log(s, text, kind = 'info') {
   s.log = s.log.slice(0, 16);
 }
 export function setStaff(s, role, amount) {
-  if (!Object.hasOwn(s.staff, role) || !Number.isInteger(amount) || amount < 0 || amount > STAFF_TOTAL) throw new Error('Affectation invalide.');
-  if (Object.entries(s.staff).reduce((sum, [key, n]) => sum + (key === role ? amount : n), 0) > STAFF_TOTAL) throw new Error('Tous les employés sont déjà affectés. Libérez un poste avant de renforcer cette équipe.');
+  if (!Object.hasOwn(s.staff, role) || !Number.isSafeInteger(amount) || amount < 0) throw new Error('Effectif invalide.');
   s.staff[role] = amount;
-  if (role === 'shelves') for (const worker of s.restockers.slice(amount)) resetRestocker(s, worker);
-  if (role === 'receiving') for (const worker of s.receivers.slice(amount)) resetReceiver(s, worker);
+  const workers = role === 'shelves' ? s.restockers : role === 'receiving' ? s.receivers : null;
+  if (workers) {
+    for (const worker of workers.slice(amount)) (role === 'shelves' ? resetRestocker : resetReceiver)(s, worker);
+    workers.length = Math.min(workers.length, amount);
+    while (workers.length < amount) workers.push((role === 'shelves' ? newRestocker : newReceiver)(workers.length));
+  }
   return { ...s.staff };
 }
 export function expandStore(s, zone) {
@@ -102,7 +113,7 @@ export function selectRestockEquipment(s, mode) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Préparez la prochaine journée pour équiper l’équipe.');
   const equipment = RESTOCK_EQUIPMENT[mode];
   if (!s.restockUnlocked[mode]) {
-    if (equipment.requires && !s.restockUnlocked[equipment.requires]) throw new Error('Débloquez d’abord le grand chariot.');
+    if (equipment.requires && !s.restockUnlocked[equipment.requires]) throw new Error('Débloquez d’abord le chariot moyen.');
     if (s.money < equipment.cost) throw new Error('Trésorerie insuffisante pour équiper l’équipe.');
     s.money = round(s.money - equipment.cost); s.spending = round(s.spending + equipment.cost);
     s.vatDeductible = round(s.vatDeductible + equipment.cost / 6);
@@ -123,7 +134,7 @@ export function requestRestock(s, productId) {
     s.restockRequests.push(productId);
     log(s, `Remplissage prioritaire demandé : ${product.name}.`);
   }
-  return { productId, waitingForStaff: !s.staff.shelves || !s.staff.reserve };
+  return { productId, waitingForStaff: !s.staff.shelves };
 }
 function resetRestocker(s, worker) {
   if (worker.load > 0) s.products.find(p => p.id === worker.productId).reserve += worker.load;
@@ -132,7 +143,7 @@ function resetRestocker(s, worker) {
 function beginRestockPhase(worker, phase, duration) {
   worker.phase = phase; worker.remaining = duration; worker.total = duration;
 }
-const restockPickup = worker => [RESTOCK_PICKUP[0] + worker.id * 0.45, RESTOCK_PICKUP[1]];
+const restockPickup = worker => worker.pickup || [...RESTOCK_PICKUP];
 export function restockerPosition(worker, minuteFraction = 0) {
   if (worker.phase === 'idle' || worker.phase === 'loading') return worker.pickup ? [...worker.pickup] : restockPickup(worker);
   if (worker.phase === 'stocking') return [...worker.destination];
@@ -152,7 +163,7 @@ export function restockerPosition(worker, minuteFraction = 0) {
 }
 function restockTravel(worker, returning = false) {
   const [x, z] = worker.destination;
-  const path = [restockPickup(worker), [9.5, RESTOCK_PICKUP[1]], [9.5, z], [x, z]];
+  const path = [restockPickup(worker), [0, RESTOCK_PICKUP[1]], [0, -3.75], [9.5, -3.75], [9.5, z], [x, z]];
   worker.path = returning ? path.reverse() : path;
   const distance = worker.path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - worker.path[i][0], p[1] - worker.path[i][1]), 0);
   beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.ceil(distance / RESTOCK_EQUIPMENT[worker.mode].travelSpeed));
@@ -163,7 +174,6 @@ function updateRestocking(s) {
     const jobs = s.restockers.filter(w => w.productId === id && w.phase !== 'returning');
     return p.reserve - jobs.reduce((sum, w) => sum + w.reserved, 0) > 0 && p.capacity - p.shelf - jobs.reduce((sum, w) => sum + w.load + w.reserved, 0) > 0;
   });
-  let loadingSlots = s.staff.reserve;
   for (const worker of s.restockers.slice(0, s.staff.shelves)) {
     if (worker.phase === 'idle') {
       const candidates = s.products.map((p, index) => {
@@ -179,7 +189,8 @@ function updateRestocking(s) {
       const target = candidates[0]; if (!target) continue;
       worker.mode = s.restockMode; worker.productId = target.p.id;
       worker.reserved = Math.min(RESTOCK_EQUIPMENT[worker.mode].capacity, target.available, target.need);
-      const [x, z] = RESTOCK_SHELVES[target.index]; worker.destination = [x + 1.8, z + 2.4];
+      const [x, z] = RESTOCK_SHELVES[target.index]; worker.destination = [x + 1.8, z + 1.45];
+      const [rx, rz] = reserveProductPosition(target.index); worker.pickup = [rx, rz + 0.65];
       beginRestockPhase(worker, 'loading', RESTOCK_EQUIPMENT[worker.mode].loading);
       continue;
     }
@@ -190,7 +201,6 @@ function updateRestocking(s) {
       if (!worker.load || product.shelf === product.capacity) restockTravel(worker, true);
       continue;
     }
-    if (worker.phase === 'loading') { if (loadingSlots <= 0) continue; loadingSlots--; }
     worker.remaining--;
     if (worker.remaining > 0) continue;
     if (worker.phase === 'loading') {
@@ -220,34 +230,18 @@ export function inventoryPosition(s, productId) {
   const unloading = s.receivers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
   return product.shelf + product.reserve + carried + incoming + unloading;
 }
-export function configureAutoOrder(s, productId, rule) {
-  if (!Object.hasOwn(s.autoOrders, productId) || !rule || typeof rule.enabled !== 'boolean' || !Number.isInteger(rule.threshold) || rule.threshold < 0 || rule.threshold > 600) throw new Error('Le seuil doit être un entier entre 0 et 600.');
-  quoteOrder(productId, rule.quantity, rule.supplierId);
-  s.autoOrders[productId] = { enabled: rule.enabled, threshold: rule.threshold, quantity: rule.quantity, supplierId: rule.supplierId, lastError: null };
-  return { ...s.autoOrders[productId] };
-}
-export function placeOrder(s, productId, quantity, supplierId, source = 'manual') {
+export function placeOrder(s, productId, quantity, supplierId) {
   const quote = quoteOrder(productId, quantity, supplierId);
   const product = s.products.find(p => p.id === productId), supplier = SUPPLIERS[supplierId];
   if (s.phase === 'closed' || s.phase === 'bankrupt') throw new Error('Préparez la journée suivante avant de commander.');
   const cost = quote.totalCost;
   if (cost > s.money) throw new Error('Trésorerie insuffisante pour cette commande.');
-  const order = { ...quote, id: s.nextId++, remaining: quantity, cost, source, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
+  const pallets = Array.from({ length: Math.ceil(quantity / 48) }, (_, index) => ({ index, quantity: Math.min(48, quantity - index * 48), remaining: Math.min(48, quantity - index * 48), status: 'dock' }));
+  const order = { ...quote, id: s.nextId++, remaining: quantity, cost, source: 'manual', pallets, dockSlot: null, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
   s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.orders.push(order);
   s.vatDeductible = round(s.vatDeductible + cost / 6);
-  log(s, `${source === 'automatic' ? 'Auto : ' : ''}${quantity} unités de ${product.short.toLowerCase()} chez ${supplier.name}. Livraison : ${quote.deliveryFee} €.`);
+  log(s, `${quantity} unités de ${product.short.toLowerCase()} chez ${supplier.name}. Livraison : ${quote.deliveryFee} €.`);
   return { ...order };
-}
-function triggerAutomaticOrders(s) {
-  for (const product of s.products) {
-    const rule = s.autoOrders[product.id]; if (!rule.enabled) continue;
-    if (inventoryPosition(s, product.id) > rule.threshold || s.orders.some(o => o.productId === product.id && o.status !== 'received')) { rule.lastError = null; continue; }
-    try { placeOrder(s, product.id, rule.quantity, rule.supplierId, 'automatic'); rule.lastError = null; }
-    catch (error) {
-      if (rule.lastError !== error.message) log(s, `Commande auto de ${product.short.toLowerCase()} bloquée : ${error.message}`, 'warning');
-      rule.lastError = error.message;
-    }
-  }
 }
 export function buyAutoCheckout(s) {
   if (s.autoCheckout) throw new Error('La caisse automatique est déjà installée.');
@@ -312,20 +306,21 @@ function closeStore(s) {
     if (c.value > 0 && s.staff.checkout > 0) recordSale(s, c);
     else { returnBasket(s, c); s.lost++; }
   }
-  s.customers = []; s.money = round(s.money - DAILY_COST); s.speed = 0;
+  const operatingCost = dailyCosts(s);
+  s.customers = []; s.money = round(s.money - operatingCost); s.speed = 0;
   const salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money)));
   s.money = round(s.money - salaryPaid); s.personalCash = round(s.personalCash + salaryPaid);
   if (salaryPaid) { s.personalTransactions.unshift({ day: s.day, amount: salaryPaid, label: 'Salaire du directeur' }); s.personalTransactions = s.personalTransactions.slice(0, 16); }
   if (salaryPaid < s.directorSalary) log(s, 'Le salaire du directeur est limité par la trésorerie disponible.', 'warning');
   const vatBalance = round(s.vatCollected - s.vatDeductible - s.vatCredit), vatCharged = Math.max(0, vatBalance);
   s.vatCredit = Math.max(0, -vatBalance); s.vatDue = round(s.vatDue + vatCharged);
-  const taxableProfit = round(Math.max(0, s.sales - s.vatCollected - (s.spending - s.vatDeductible) - DAILY_COST - salaryPaid));
+  const taxableProfit = round(Math.max(0, s.sales - s.vatCollected - (s.spending - s.vatDeductible) - operatingCost - salaryPaid));
   const profitTax = round(taxableProfit * 0.2); s.profitTaxDue = round(s.profitTaxDue + profitTax);
   if (s.autoPayTaxes) settleTaxes(s);
   s.phase = s.money < -1000 ? 'bankrupt' : 'closed';
-  s.summary = { day: s.day, sales: s.sales, spending: s.spending, expenses: DAILY_COST + salaryPaid, salaryPaid, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - DAILY_COST - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
+  s.summary = { day: s.day, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
   s.history.push({ ...s.summary });
-  log(s, `Fermeture. ${s.sold} clients encaissés. Charges : ${DAILY_COST} €.`, s.summary.net >= 0 ? 'success' : 'warning');
+  log(s, `Fermeture. ${s.sold} clients encaissés. Charges : ${operatingCost} €.`, s.summary.net >= 0 ? 'success' : 'warning');
   if (s.phase === 'closed') {
     const completedDay = s.summary;
     nextDay(s); openStore(s); s.speed = runningSpeed; s.summary = completedDay;
@@ -350,8 +345,10 @@ function spawnCustomer(s) {
 }
 function resetReceiver(s, worker) {
   const order = s.orders.find(o => o.id === worker.orderId);
+  const pallet = order?.pallets[worker.palletIndex];
   if (order && worker.load) { order.remaining += worker.load; order.status = 'unloading'; }
-  Object.assign(worker, { phase: 'idle', productId: null, orderId: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], destination: [...worker.pickup] });
+  if (pallet && (worker.load || worker.reserved)) { pallet.status = 'dock'; pallet.remaining = worker.load || worker.reserved; }
+  Object.assign(worker, { phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], destination: [...worker.pickup] });
 }
 function receiverTravel(worker, returning = false) {
   const [x, z] = worker.destination;
@@ -370,27 +367,29 @@ function updateReceiving(s) {
   };
   for (const worker of s.receivers.slice(0, s.staff.receiving)) {
     if (worker.phase === 'idle') {
-      worker.pickup = [5 + worker.id * 0.55, -5.3 - s.expansions.reserve * 3];
-      const order = s.orders.find(o => o.status === 'unloading' && spaceFor(o.productId) > 0 && o.remaining - s.receivers.filter(w => w.orderId === o.id).reduce((sum, w) => sum + w.reserved, 0) > 0);
+      const order = s.orders.find(o => o.status === 'unloading' && o.pallets.some(p => p.status === 'dock' && p.remaining <= spaceFor(o.productId)));
       if (!order) continue;
-      const space = spaceFor(order.productId);
-      const allocated = s.receivers.filter(w => w.orderId === order.id).reduce((sum, w) => sum + w.reserved, 0);
+      const pallet = order.pallets.find(p => p.status === 'dock' && p.remaining <= spaceFor(order.productId));
       worker.productId = order.productId; worker.orderId = order.id;
-      worker.reserved = Math.min(48, order.remaining - allocated, space);
+      worker.palletIndex = pallet.index; worker.reserved = pallet.remaining; pallet.status = 'reserved';
+      const [px, pz] = deliveryPalletPosition(s, order, pallet); worker.pickup = [px, pz + 1];
       const i = s.products.findIndex(p => p.id === order.productId);
-      worker.destination = [-9.2 + (i % 3) * 3.5, -5.9 + Math.floor(i / 3) * 1.75];
+      const [rx, rz] = reserveProductPosition(i); worker.destination = [rx, rz + 0.65];
       beginRestockPhase(worker, 'loading', 3);
       continue;
     }
     if (worker.phase === 'storing') {
       const product = s.products.find(p => p.id === worker.productId), quantity = Math.min(12, worker.load);
       product.reserve += quantity; worker.load -= quantity;
-      if (!worker.load) receiverTravel(worker, true);
+      const pallet = s.orders.find(o => o.id === worker.orderId).pallets[worker.palletIndex];
+      pallet.remaining = worker.load;
+      if (!worker.load) { pallet.status = 'stored'; receiverTravel(worker, true); }
     } else {
       worker.remaining--; if (worker.remaining > 0) continue;
       if (worker.phase === 'loading') {
         const order = s.orders.find(o => o.id === worker.orderId);
         order.remaining -= worker.reserved; worker.load = worker.reserved; worker.reserved = 0;
+        order.pallets[worker.palletIndex].status = 'transport';
         receiverTravel(worker);
       } else if (worker.phase === 'outbound') beginRestockPhase(worker, 'storing', 0);
       else if (worker.phase === 'returning') resetReceiver(s, worker);
@@ -403,6 +402,9 @@ function updateReceiving(s) {
 function minuteStep(s) {
   s.minute++; s.elapsed++;
   for (const order of s.orders) if (order.status === 'transit' && order.eta <= s.elapsed) {
+    const occupied = new Set(s.orders.filter(o => o.status === 'unloading').map(o => o.dockSlot));
+    let slot = 0; while (occupied.has(slot)) slot++;
+    order.dockSlot = slot;
     order.status = 'unloading'; log(s, `Livraison de ${order.quantity} unités arrivée au quai.`, 'success');
   }
   updateReceiving(s);
@@ -448,7 +450,6 @@ function minuteStep(s) {
     s.satisfaction = Math.min(100, s.satisfaction + 0.03);
   }
   if (!queue.length) s.checkoutCredit = Math.min(1, s.checkoutCredit);
-  if (s.minute < 1200) triggerAutomaticOrders(s);
   if (s.minute >= 1200) closeStore(s);
 }
 export function advance(s, minutes) {

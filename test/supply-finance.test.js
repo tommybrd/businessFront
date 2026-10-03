@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, openStore, setStaff, advance, placeOrder, inventoryPosition, receivingInTransit, restockerPosition, requestRestock, expandStore, checkoutCount, discardReserve, setDirectorSalary, reinvestPersonalCash, payTaxes, setAutomaticTaxPayment, selectRestockEquipment } from '../dist/engine.js';
+import { createGame, openStore, setStaff, advance, placeOrder, inventoryPosition, receivingInTransit, restockerPosition, requestRestock, expandStore, checkoutCount, discardReserve, setDirectorSalary, reinvestPersonalCash, payTaxes, setAutomaticTaxPayment, selectRestockEquipment, dailyCosts, checkoutDailyCosts, buyAutoCheckout } from '../dist/engine.js';
 
 function quietGame() {
-  const s = createGame(); setStaff(s, 'shelves', 0); setStaff(s, 'checkout', 0); setStaff(s, 'reserve', 0);
+  const s = createGame(); setStaff(s, 'shelves', 0); setStaff(s, 'checkout', 0);
   s.arrivalCredit = -10000; return s;
 }
 function finishDay(s, saleValue = 0) {
@@ -39,7 +39,7 @@ test('human pallet transport preserves incoming goods through reallocation, capa
   assert.ok(s.receivers.every(w => w.load <= 48)); assert.ok(restockerPosition(s.receivers[0]).every(Number.isFinite));
   setStaff(s, 'receiving', 0); assert.equal(receivingInTransit(s), 0); assert.equal(inventoryPosition(s, 'produce'), total);
   setStaff(s, 'receiving', 2); advance(s, 80);
-  assert.equal(s.products[0].reserve, 100); assert.equal(s.orders[0].remaining, 20);
+  assert.equal(s.products[0].reserve, 96); assert.equal(s.orders[0].remaining, 24);
   discardReserve(s, 'produce', 20); advance(s, 80);
   assert.equal(s.products[0].reserve, 100); assert.equal(s.orders[0].status, 'received');
   assert.equal(inventoryPosition(s, 'produce'), total - 20); assert.equal(s.money, cash);
@@ -68,7 +68,7 @@ test('VAT, profit tax and salary settle once at closing and personal reinvestmen
   const s = quietGame(); const initial = s.money; setDirectorSalary(s, 100); placeOrder(s, 'produce', 12, 'regular');
   const summary = finishDay(s, 1200);
   assert.equal(summary.vatCollected, 200); assert.equal(summary.vatDeductible, 9.43); assert.equal(summary.vatCharged, 190.57);
-  assert.equal(summary.taxableProfit, 12.83); assert.equal(summary.profitTax, 2.57); assert.equal(summary.taxPaid, 193.14);
+  assert.equal(summary.taxableProfit, 502.83); assert.equal(summary.profitTax, 100.57); assert.equal(summary.taxPaid, 291.14);
   assert.equal(summary.salaryPaid, 100); assert.equal(s.personalCash, 100);
   assert.equal(Math.round(s.money * 100), Math.round((initial + summary.net) * 100));
   const cash = s.money; advance(s, 0); assert.equal(s.money, cash); assert.equal(s.personalCash, 100);
@@ -78,17 +78,17 @@ test('VAT, profit tax and salary settle once at closing and personal reinvestmen
 
 test('manual tax payment clears liabilities without charging them again on the next closing', () => {
   const s = quietGame(); setAutomaticTaxPayment(s, false); const first = finishDay(s, 1200);
-  assert.equal(first.taxPaid, 0); assert.equal(s.vatDue, 200); assert.equal(s.profitTaxDue, 32);
-  const cash = s.money, payment = payTaxes(s); assert.equal(payment.paid, 232); assert.equal(s.money, cash - 232);
+  assert.equal(first.taxPaid, 0); assert.equal(s.vatDue, 200); assert.equal(s.profitTaxDue, 130);
+  const cash = s.money, payment = payTaxes(s); assert.equal(payment.paid, 330); assert.equal(s.money, cash - 330);
   assert.equal(s.vatDue + s.profitTaxDue, 0); assert.throws(() => payTaxes(s));
-  const next = finishDay(s, 0); assert.equal(next.taxPaid, 232); assert.equal(next.net, -840 - 232);
-  assert.equal(s.money, cash - 232 - 840);
+  const next = finishDay(s, 0); assert.equal(next.taxPaid, 330); assert.equal(next.net, -350 - 330);
+  assert.equal(s.money, cash - 330 - 350);
 });
 
 test('deductible VAT is carried forward and offsets later collected VAT', () => {
-  const s = quietGame(); selectRestockEquipment(s, 'large'); const first = finishDay(s);
+  const s = quietGame(); selectRestockEquipment(s, 'medium'); const first = finishDay(s);
   assert.equal(first.vatCharged, 0); assert.equal(s.vatCredit, 200);
-  const next = finishDay(s, 1200); assert.equal(next.vatCharged, 0); assert.equal(s.vatCredit, 0); assert.equal(next.profitTax, 32);
+  const next = finishDay(s, 1200); assert.equal(next.vatCharged, 0); assert.equal(s.vatCredit, 0); assert.equal(next.profitTax, 130);
 });
 
 test('closing returns pallet cargo to the dock while preserving a continuous day and paid order', () => {
@@ -101,8 +101,8 @@ test('closing returns pallet cargo to the dock while preserving a continuous day
 
 test('two busy continuous days keep per-product capacity and cash reconciliation with both transport teams', () => {
   const s = createGame(723), initial = 100000; s.money = initial;
-  setStaff(s, 'shelves', 2); setStaff(s, 'reserve', 2); setStaff(s, 'receiving', 2);
-  selectRestockEquipment(s, 'large'); selectRestockEquipment(s, 'pallet');
+  setStaff(s, 'shelves', 2); setStaff(s, 'receiving', 2);
+  selectRestockEquipment(s, 'medium'); selectRestockEquipment(s, 'large');
   expandStore(s, 'reserve'); setDirectorSalary(s, 200);
   for (const p of s.products) placeOrder(s, p.id, 120, 'regular');
   openStore(s);
@@ -113,9 +113,52 @@ test('two busy continuous days keep per-product capacity and cash reconciliation
       const unloading = s.receivers.filter(w => w.productId === p.id).reduce((sum, w) => sum + w.load + w.reserved, 0);
       const baskets = s.customers.reduce((sum, c) => sum + c.basket.filter(item => item.index === index).reduce((n, item) => n + item.quantity, 0), 0);
       assert.ok(p.shelf >= 0 && p.shelf <= p.capacity);
-      assert.ok(p.reserve >= 0 && p.reserve + restocking + unloading + baskets <= p.reserveCapacity);
+      // Baskets can return to the vacancies left in the shelf; only overflow needs reserve space.
+      const prepared = s.restockers.filter(w => w.productId === p.id).reduce((sum, w) => sum + w.reserved, 0);
+      const basketOverflow = Math.max(0, baskets - Math.max(0, p.capacity - p.shelf - restocking - prepared));
+      assert.ok(p.reserve >= 0 && p.reserve + restocking + unloading + basketOverflow <= p.reserveCapacity);
     }
   }
   assert.equal(s.day, 3); assert.equal(s.history.length, 2); assert.equal(s.personalCash, 400);
   assert.equal(Math.round(s.money * 100), Math.round((initial + s.history.reduce((sum, day) => sum + day.net, 0)) * 100));
+});
+
+
+test('receivers lift whole pallets, wait for enough space, and unpack only at the reserve', () => {
+  const s = quietGame(); s.products[0].reserve = 76;
+  const order = placeOrder(s, 'produce', 48, 'express'); openStore(s); advance(s, 45);
+  assert.equal(s.orders[0].remaining, 48); assert.equal(receivingInTransit(s), 0);
+  assert.equal(s.orders[0].pallets[0].status, 'dock');
+  discardReserve(s, 'produce', 24); advance(s, 1);
+  assert.equal(s.receivers[0].reserved, 48); assert.equal(s.orders[0].remaining, 48);
+  advance(s, 3);
+  assert.equal(s.receivers[0].load, 48); assert.equal(s.orders[0].remaining, 0);
+  assert.equal(s.orders[0].pallets[0].status, 'transport'); assert.equal(s.products[0].reserve, 52);
+  for (let i = 0; i < 50 && s.receivers[0].phase !== 'storing'; i++) advance(s, 1);
+  assert.equal(s.receivers[0].load, 48); advance(s, 1);
+  assert.equal(s.receivers[0].load, 36); assert.equal(s.orders[0].pallets[0].remaining, 36); assert.equal(s.products[0].reserve, 64);
+  advance(s, 30); assert.equal(s.orders.find(o => o.id === order.id).status, 'received'); assert.equal(s.products[0].reserve, 100);
+});
+
+test('several receivers reserve distinct pallets, including the last partial pallet, and release uncollected reservations', () => {
+  const s = quietGame(); s.products[0].reserve = 0; expandStore(s, 'reserve'); setStaff(s, 'receiving', 12);
+  placeOrder(s, 'produce', 120, 'express'); openStore(s); advance(s, 30);
+  assert.deepEqual(s.receivers.filter(w => w.reserved).map(w => w.reserved), [48, 48, 24]);
+  assert.equal(new Set(s.receivers.filter(w => w.reserved).map(w => w.palletIndex)).size, 3);
+  setStaff(s, 'receiving', 0);
+  assert.ok(s.orders[0].pallets.every(p => p.status === 'dock')); assert.equal(s.orders[0].remaining, 120);
+  setStaff(s, 'receiving', 3); advance(s, 60);
+  assert.equal(s.orders[0].status, 'received'); assert.equal(s.products[0].reserve, 120);
+});
+
+
+test('cash-register operating costs and staff wages are charged once at closing and follow equipment and headcount', () => {
+  const s = quietGame(); assert.equal(checkoutDailyCosts(s), 20);
+  expandStore(s, 'checkout'); assert.equal(checkoutDailyCosts(s), 30);
+  buyAutoCheckout(s); assert.equal(checkoutDailyCosts(s), 38);
+  setStaff(s, 'checkout', 12); const cash = s.money, costs = dailyCosts(s);
+  openStore(s); s.minute = 1199; s.arrivalCredit = -10000; advance(s, 1);
+  assert.equal(s.history[0].expenses, 13 * 85 + 38 + 160);
+  assert.equal(s.money, cash - costs); assert.equal(s.history[0].net, -costs - 5500);
+  advance(s, 0); assert.equal(s.money, cash - costs);
 });

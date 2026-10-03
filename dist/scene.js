@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
-import { RESTOCK_EQUIPMENT, RESTOCK_SHELVES, restockerPosition, checkoutCount } from './engine.js';
+import { RESTOCK_EQUIPMENT, RESTOCK_SHELVES, restockerPosition, checkoutCount, reserveProductPosition, deliveryPalletPosition } from './engine.js';
 import { createKeyboardCameraControls } from './camera-controls.js';
 import { productUnit, staffOutfit, createSurroundings } from './scene-details.js';
 
@@ -50,22 +50,10 @@ export function createStoreScene(canvas, state, onSelect) {
     const sprite = textSprite(text, options); sprite.userData.text = text; sprite.position.set(x, y, z);
     group.add(sprite); group.userData[key] = sprite;
   }
-  function stockLabel(shelf, product) {
-    const key = `${product.shelf}/${product.capacity}`;
-    if (shelf.group.userData.stockCard?.userData.text === key) return;
-    const old = shelf.group.userData.stockCard;
-    if (old) { shelf.group.remove(old); old.material.map.dispose(); old.material.dispose(); }
-    const surface = document.createElement('canvas'); surface.width = 512; surface.height = 164;
-    const context = surface.getContext('2d');
-    context.fillStyle = '#203a32f2'; context.beginPath(); context.roundRect(0, 0, 512, 164, 12); context.fill();
-    context.fillStyle = '#eef2e3'; context.textAlign = 'center'; context.font = '600 36px system-ui'; context.fillText(product.name, 256, 48, 476);
-    context.font = '500 34px system-ui'; context.fillStyle = product.shelf < 12 ? '#ffc090' : '#d2e9bb'; context.fillText(`${product.shelf} / ${product.capacity} en rayon`, 256, 96);
-    context.fillStyle = '#4c6252'; context.fillRect(26, 120, 460, 15);
-    context.fillStyle = product.shelf < 12 ? '#efaa73' : product.color; context.fillRect(26, 120, 460 * product.shelf / product.capacity, 15);
-    const texture = new THREE.CanvasTexture(surface); texture.colorSpace = THREE.SRGBColorSpace;
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-    sprite.scale.set(3.9, 3.9 * 164 / 512, 1); sprite.position.set(0, 2.45 + state.expansions.shelves * 0.5, 0);
-    sprite.userData.text = key; shelf.group.add(sprite); shelf.group.userData.stockCard = sprite;
+  function plaque(text, worldWidth = 3) {
+    const sprite = textSprite(text, { worldWidth, size: 34, background: '#203a32f2', color: '#eef2e3' });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(worldWidth, worldWidth * 96 / 512), new THREE.MeshBasicMaterial({ map: sprite.material.map, transparent: true, side: THREE.DoubleSide }));
+    sprite.material.dispose(); return mesh;
   }
   const surroundings = createSurroundings(scene, box, material, textSprite);
   const store = new THREE.Group(); scene.add(store);
@@ -83,31 +71,35 @@ export function createStoreScene(canvas, state, onSelect) {
   const reserve = new THREE.Group(), dock = new THREE.Group(); store.add(reserve, dock);
   reserve.userData.selection = { view: 'reserve' }; dock.userData.selection = { view: 'fournisseurs' };
   const reserveZones = state.products.map((product, i) => {
-    const group = new THREE.Group(); group.position.set(-9.2 + (i % 3) * 3.5, 0, -6.9 + Math.floor(i / 3) * 1.75);
+    const group = new THREE.Group(), [x, z] = reserveProductPosition(i); group.position.set(x, 0, z);
     group.userData.selection = { view: 'reserve', productId: product.id };
     box(group, 3.05, 0.025, 1.4, 0, 0.15, 0, product.color, false);
     box(group, 2.45, 0.1, 1.05, 0, 0.24, 0, 0xac926f);
     const crates = [];
     for (let n = 0; n < 8; n++) crates.push(box(group, 0.75, 0.44, 0.45, n % 2 ? 0.6 : -0.6, 0.51 + Math.floor(n / 4) * 0.45, n % 4 < 2 ? -0.26 : 0.26, product.color));
+    const sign = plaque(product.short, 2.3); sign.position.set(0, 0.5, 0.74); group.add(sign);
     reserve.add(group); return { group, crates };
   });
   const deliveryPallets = new Map();
   const shelves = state.products.map((product, index) => {
     const group = new THREE.Group(), [x, z] = shelfPositions[index]; group.position.set(x, 0, z); store.add(group);
     group.userData.selection = { view: 'rayons', productId: product.id };
-    box(group, 4.1, 0.25, 1.45, 0, 0.22, 0, 0xb9c8ae);
-    const boards = [0.42, 0.92, 1.42, 1.92].map(level => box(group, 4.1, 0.1, 1.45, 0, level, 0, 0xd1dbc5));
+    box(group, 5.4, 0.25, 1.45, 0, 0.22, 0, 0xb9c8ae);
+    const boards = [0.42, 0.92, 1.42, 1.92].map(level => box(group, 5.4, 0.1, 1.45, 0, level, 0, 0xd1dbc5));
     const posts = [];
-    for (const px of [-1.95, 1.95]) for (const pz of [-0.65, 0.65]) posts.push(box(group, 0.09, 1.35, 0.09, px, 0.84, pz, COLORS.steel));
-    box(group, 4.1, 0.18, 0.14, 0, 1.45, 0.76, product.color);
+    for (const px of [-2.6, 2.6]) for (const pz of [-0.65, 0.65]) posts.push(box(group, 0.09, 1.35, 0.09, px, 0.84, pz, COLORS.steel));
+    box(group, 5.4, 0.18, 0.14, 0, 1.45, 0.76, product.color);
     const units = [];
     for (let i = 0; i < 128; i++) {
       const unit = productUnit(product, i, box, material);
-      unit.position.set(-1.65 + (i % 8) * 0.47, 0.48 + Math.floor(i / 32) * 0.5, -0.49 + Math.floor((i % 32) / 8) * 0.31);
+      unit.position.set(-2.1 + (i % 8) * 0.6, 0.48 + Math.floor(i / 32) * 0.5, -0.49 + Math.floor((i % 32) / 8) * 0.31);
       group.add(unit); units.push(unit);
     }
-    const selection = box(group, 4.7, 0.015, 2.05, 0, 0.1, 0, 0xc6e49f, false); selection.visible = false;
-    return { group, units, boards, posts, selection };
+    const selection = box(group, 5.7, 0.015, 2.05, 0, 0.1, 0, 0xc6e49f, false); selection.visible = false;
+    box(group, 5.1, 0.09, 0.04, 0, 0.31, 0.75, 0x4c6252);
+    const stockBar = box(group, 5.1, 0.09, 0.05, 0, 0.31, 0.78, product.color, false);
+    const sign = plaque(product.short, 2.2); sign.position.set(0, 1.12, 0.77); group.add(sign);
+    return { group, units, boards, posts, selection, stockBar };
   });
   const checkouts = [];
   const laneX = (i, lanes) => (i - (lanes - 1) / 2) * (lanes <= 4 ? 4 : 3);
@@ -157,14 +149,15 @@ export function createStoreScene(canvas, state, onSelect) {
   }
   function restockVehicle(mode) {
     const group = new THREE.Group(), pallet = mode === 'pallet';
-    const w = mode === 'small' ? 0.58 : 1.05, d = mode === 'small' ? 0.62 : 1.1;
+    const w = mode === 'small' ? 0.58 : mode === 'medium' ? 0.82 : 1.05, d = mode === 'small' ? 0.62 : mode === 'medium' ? 0.9 : 1.1;
+    let palletBase = null;
     group.position.z = mode === 'small' ? 0.67 : 1;
     if (pallet) {
       for (const x of [-0.3, 0.3]) box(group, 0.17, 0.1, 1.35, x, 0.2, 0.1, 0xd59b38);
       box(group, 0.6, 0.28, 0.3, 0, 0.34, -0.6, 0xd59b38);
       box(group, 0.07, 0.68, 0.07, 0, 0.78, -0.67, COLORS.steel);
       box(group, 0.5, 0.06, 0.06, 0, 1.1, -0.67, 0x365546);
-      box(group, w, 0.12, d, 0, 0.35, 0, 0xb29267);
+      palletBase = box(group, w, 0.12, d, 0, 0.35, 0, 0xb29267);
     } else {
       box(group, w, 0.12, d, 0, 0.35, 0, 0x55796d);
       for (const x of [-w / 2, w / 2]) {
@@ -180,8 +173,8 @@ export function createStoreScene(canvas, state, onSelect) {
       wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.22, z); group.add(wheel); wheels.push(wheel);
     }
     const cargo = [];
-    for (let i = 0; i < 8; i++) cargo.push(box(group, w * 0.38, 0.23, d * 0.36, (i % 2 ? 1 : -1) * w * 0.23, 0.54 + Math.floor(i / 4) * 0.24, (i % 4 < 2 ? -1 : 1) * d * 0.23, 0xc8ab77));
-    return { group, cargo, wheels, mode };
+    for (let i = 0; i < (pallet ? 4 : 8); i++) cargo.push(box(group, w * 0.38, pallet ? 0.43 : 0.23, d * 0.36, (i % 2 ? 1 : -1) * w * 0.23, (pallet ? 0.62 : 0.54) + Math.floor(i / 4) * 0.24, (i % 4 < 2 ? -1 : 1) * d * 0.23, 0xc8ab77));
+    return { group, cargo, wheels, mode, palletBase };
   }
   function displayRestocker(actor, worker, running, seconds, minuteFraction) {
     const mode = worker.phase === 'idle' ? state.restockMode : worker.mode;
@@ -211,23 +204,25 @@ export function createStoreScene(canvas, state, onSelect) {
       actor.equipment = restockVehicle('pallet'); actor.group.add(actor.equipment.group);
     }
     actor.equipment.group.visible = true;
-    const position = worker.phase === 'idle' ? [5 + worker.id * 0.55, -5.3 - state.expansions.reserve * 3] : restockerPosition(worker, minuteFraction), old = actor.group.position;
+    const position = restockerPosition(worker, minuteFraction), old = actor.group.position;
     const dx = position[0] - old.x, dz = position[1] - old.z, moving = running > 0 && ['outbound', 'returning'].includes(worker.phase);
     if (moving && Math.hypot(dx, dz) > 0.001) actor.group.rotation.y = Math.atan2(dx, dz);
     else if (worker.phase === 'storing') actor.group.rotation.y = Math.PI;
-    else if (worker.phase === 'idle' || worker.phase === 'loading') actor.group.rotation.y = -Math.PI / 2;
+    else if (worker.phase === 'idle' || worker.phase === 'loading') actor.group.rotation.y = Math.PI;
     old.set(position[0], 0.09, position[1]);
     if (moving) actor.walk += seconds * running * 6;
     const stride = moving ? Math.sin(actor.walk) * 0.35 : 0;
     actor.legs[0].rotation.x = stride; actor.legs[1].rotation.x = -stride; actor.arms.forEach(a => { a.rotation.x = -0.65; });
     const product = state.products.find(p => p.id === worker.productId);
-    actor.equipment.cargo.forEach((crate, i) => { crate.visible = i < Math.ceil(worker.load / 6); crate.material = material(product?.color || 0xc8ab77); });
+    actor.equipment.cargo.forEach((crate, i) => { crate.visible = i < Math.ceil(worker.load / 12); crate.material = material(product?.color || 0xc8ab77); });
+    actor.equipment.palletBase.visible = worker.load > 0;
     if (moving) actor.equipment.wheels.forEach(wheel => { wheel.rotation.x += seconds * running * 8; });
   }
   const customers = new Map();
-  const employees = Array.from({ length: 8 }, (_, i) => {
-    const actor = person(0x397654, true); actor.group.position.set(-8 + i * 0.65, 0.09, -4.7); scene.add(actor.group); actor.role = ''; return actor;
-  });
+  const employees = [];
+  function addEmployee() {
+    const actor = person(0x397654, true); actor.group.position.set(0, 0.09, -4.7); scene.add(actor.group); actor.role = ''; employees.push(actor);
+  }
   function setDestination(actor, x, z, key, direct = false) {
     if (actor.key === key) return;
     actor.key = key;
@@ -264,32 +259,35 @@ export function createStoreScene(canvas, state, onSelect) {
     surroundings.update(seconds, running, state.expansions);
     reserveZones.forEach((zone, i) => {
       const product = state.products[i]; zone.crates.forEach((crate, n) => { crate.visible = n < Math.ceil(product.reserve / 40); });
-      replaceText(zone.group, 'stock', `${product.short} · ${product.reserve} / ${product.reserveCapacity}`, 0, 1.6, 0, { worldWidth: 2.75, size: 32, background: '#203a32f2', color: '#eef2e3' });
     });
-    replaceText(reserve, 'sign', 'RÉSERVE · STOCK PAR PRODUIT', -5.5, 2.9, -8.2 - back, { worldWidth: 5.2, background: '#203a32f2', color: '#eef2e3' });
+    replaceText(reserve, 'sign', 'RÉSERVE', -5.5, 0.5, -8.2 - back, { worldWidth: 5.2, background: '#203a32f2', color: '#eef2e3' });
     const arrived = state.orders.filter(o => o.status === 'unloading');
     const arrivedIds = new Set(arrived.map(o => o.id));
     for (const [id, value] of deliveryPallets) if (!arrivedIds.has(id)) {
       dock.remove(value.group); value.group.traverse(o => { o.geometry?.dispose(); if (o.material?.map) { o.material.map.dispose(); o.material.dispose(); } }); deliveryPallets.delete(id);
     }
-    arrived.forEach((order, index) => {
+    arrived.forEach(order => {
       let value = deliveryPallets.get(order.id);
       if (!value) {
-        const group = new THREE.Group(), crates = [], product = state.products.find(p => p.id === order.productId);
+        const group = new THREE.Group(), pallets = [], product = state.products.find(p => p.id === order.productId);
         group.userData.orderId = order.id; group.userData.selection = { view: 'fournisseurs', productId: order.productId };
-        for (let pallet = 0; pallet < Math.ceil(order.quantity / 48); pallet++) {
-          const x = (pallet % 2) * 1.25, z = Math.floor(pallet / 2) * -1.15;
-          box(group, 1.1, 0.13, 0.95, x, 0.2, z, 0xa78659);
-          for (let crate = 0; crate < 4; crate++) crates.push(box(group, 0.45, 0.43, 0.38, x + (crate % 2 ? 0.25 : -0.25), 0.48, z + (crate < 2 ? -0.21 : 0.21), product.color));
+        for (const pallet of order.pallets) {
+          const model = new THREE.Group(), crates = [];
+          model.userData.palletIndex = pallet.index;
+          box(model, 1.1, 0.13, 0.95, 0, 0.2, 0, 0xa78659);
+          for (let crate = 0; crate < 4; crate++) crates.push(box(model, 0.45, 0.43, 0.38, crate % 2 ? 0.25 : -0.25, 0.48, crate < 2 ? -0.21 : 0.21, product.color));
+          group.add(model); pallets.push({ group: model, crates });
         }
-        dock.add(group); value = { group, crates }; deliveryPallets.set(order.id, value);
+        dock.add(group); value = { group, pallets }; deliveryPallets.set(order.id, value);
       }
-      value.group.position.set(1.4 + (index % 3) * 3.3, 0, -6.6 - Math.floor(index / 3) * 3.5 - back);
-      value.crates.forEach((crate, i) => { crate.visible = i < Math.ceil(order.remaining / 12); });
-      const product = state.products.find(p => p.id === order.productId);
-      replaceText(value.group, 'label', `${product.short} · ${order.remaining} au quai`, 0.5, 1.2, 0, { worldWidth: 2.5, size: 32, background: '#203a32f2', color: '#eef2e3' });
+      order.pallets.forEach((pallet, index) => {
+        const model = value.pallets[index], [x, z] = deliveryPalletPosition(state, order, pallet);
+        model.group.position.set(x, 0, z);
+        model.group.visible = ['dock', 'reserved'].includes(pallet.status);
+        model.crates.forEach((crate, i) => { crate.visible = i < Math.ceil(pallet.remaining / 12); });
+      });
     });
-    replaceText(dock, 'sign', arrived.length ? `QUAI · ${arrived.length} livraison(s)` : 'QUAI DE LIVRAISON', 5.3, 2.45, -6.5, { worldWidth: 4.8 });
+    replaceText(dock, 'sign', 'QUAI DE LIVRAISON', 5.3, 0.4, -5.1, { worldWidth: 4.8 });
     const approaching = state.orders.find(o => o.status === 'transit' && o.eta - state.elapsed < 15);
     truck.visible = arrived.length > 0 || !!approaching;
     truck.position.z = -9.1 - back;
@@ -300,7 +298,8 @@ export function createStoreScene(canvas, state, onSelect) {
       shelf.boards.forEach((board, n) => { board.visible = n < 2 + state.expansions.shelves; });
       shelf.posts.forEach(post => { post.scale.y = (1.35 + state.expansions.shelves * 0.5) / 1.35; post.position.y = 0.84 + state.expansions.shelves * 0.25; });
       shelf.selection.visible = selected === p.id;
-      stockLabel(shelf, p);
+      const ratio = p.shelf / p.capacity; shelf.stockBar.scale.x = ratio; shelf.stockBar.position.x = -5.1 * (1 - ratio) / 2;
+      shelf.stockBar.material = material(p.shelf < 12 ? 0xefaa73 : p.color);
     });
     const lanes = checkoutCount(state);
     checkouts.forEach((checkout, i) => {
@@ -338,8 +337,9 @@ export function createStoreScene(canvas, state, onSelect) {
       }
       walk(actor, seconds, 14 * running, now);
     }
-    const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.reserve).fill('reserve'), ...Array(state.staff.receiving).fill('receiving')];
-    let checkoutIndex = 0, shelfIndex = 0, reserveIndex = 0, receivingIndex = 0;
+    const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving')];
+    while (employees.length < roles.length) addEmployee();
+    let checkoutIndex = 0, shelfIndex = 0, receivingIndex = 0;
     employees.forEach((actor, i) => {
       const role = roles[i] || 'idle';
       actor.group.visible = role !== 'idle'; if (role === 'idle') return;
@@ -351,18 +351,11 @@ export function createStoreScene(canvas, state, onSelect) {
       }
       if (actor.equipment) actor.equipment.group.visible = role === 'shelves' || role === 'receiving';
       if (role === 'checkout') {
-        const lane = checkoutIndex++; setDestination(actor, lane < lanes ? laneX(lane, lanes) + 1.1 : auto.position.x, 6.75 + front, `cashier-${lane}-${lanes}-${front}`);
+        const lane = checkoutIndex++; setDestination(actor, lane < lanes ? laneX(lane, lanes) + 1.1 : -9 + ((lane - lanes) % 12) * 0.65, lane < lanes ? 6.75 + front : 7.3 + front + Math.floor((lane - lanes) / 12) * 0.6, `cashier-${lane}-${lanes}-${front}`);
       } else if (role === 'shelves') {
         const worker = state.restockers[shelfIndex++];
         displayRestocker(actor, worker, running, seconds, minuteFraction);
         return;
-      } else if (role === 'reserve') {
-        const index = reserveIndex++, loading = state.restockers.filter(w => w.phase === 'loading'), job = loading[index];
-        if (job && running) {
-          const productIndex = state.products.findIndex(p => p.id === job.productId), zone = reserveZones[productIndex].group.position;
-          const preparing = job.remaining > job.total / 2;
-          setDestination(actor, preparing ? zone.x + 1.25 : -2.7 + index * 0.6, preparing ? zone.z : -4.85, `prepare-${job.id}-${job.productId}-${preparing}`, true);
-        } else setDestination(actor, -8 + index * 0.65, -4.65, `warehouse-idle-${index}`, true);
       } else if (role === 'receiving') {
         const worker = state.receivers[receivingIndex++]; displayReceiver(actor, worker, running, seconds, minuteFraction); return;
       }
@@ -390,7 +383,7 @@ export function createStoreScene(canvas, state, onSelect) {
   canvas.addEventListener('pointercancel', () => { pointerStart = null; });
   canvas.addEventListener('pointermove', event => { if (!event.buttons) canvas.style.cursor = selectAt(event) ? 'pointer' : 'grab'; });
   const resize = () => {
-    const bounds = canvas.getBoundingClientRect(), aspect = bounds.width / Math.max(1, bounds.height), halfHeight = Math.max(14, 17 / aspect);
+    const bounds = canvas.getBoundingClientRect(), aspect = bounds.width / Math.max(1, bounds.height), halfHeight = Math.max(17, 17 / aspect);
     camera.left = -halfHeight * aspect; camera.right = halfHeight * aspect; camera.top = halfHeight; camera.bottom = -halfHeight;
     camera.updateProjectionMatrix(); renderer.setSize(bounds.width, bounds.height, false);
   };
