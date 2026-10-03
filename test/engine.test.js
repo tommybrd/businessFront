@@ -42,7 +42,7 @@ test('days roll over without a pause and reconcile cash exactly once per closing
   assert.equal(s.phase, 'open'); assert.equal(s.day, 2); assert.equal(s.minute, 480); assert.equal(s.speed, 6);
   const summary = s.history.at(-1);
   assert.ok(summary.sales > 0); assert.ok(summary.sold > 0); assert.equal(s.customers.length, 0);
-  assert.equal(Math.round(s.money * 100), Math.round((initial + summary.sales - summary.spending - DAILY_COST) * 100));
+  assert.equal(Math.round(s.money * 100), Math.round((initial + summary.net) * 100));
   const cash = s.money; advance(s, 0); assert.equal(s.money, cash); assert.equal(s.history.length, 1);
   assert.throws(() => nextDay(s));
   assert.ok(s.products.some(p => p.shelf !== 42 || p.reserve !== 30));
@@ -72,7 +72,7 @@ test('several demand cycles preserve stock capacities and cash accounting', () =
       assert.ok(s.products.every(p => p.shelf >= 0 && p.shelf <= p.capacity && p.reserve >= 0));
       assert.ok(reserveUsed(s) <= RESERVE_CAPACITY);
     }
-    assert.equal(Math.round(s.money * 100), Math.round((before + s.history.at(-1).sales - s.history.at(-1).spending - DAILY_COST) * 100));
+    assert.equal(Math.round(s.money * 100), Math.round((before + s.history.at(-1).net) * 100));
     if (s.phase === 'bankrupt') break;
     assert.equal(s.phase, 'open');
   }

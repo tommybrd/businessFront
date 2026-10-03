@@ -9,34 +9,46 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23102b27'/%3E%3Cpath d='M6 11h20l-2 10H9L6 7H3' fill='none' stroke='%23b8ee81' stroke-width='2.5'/%3E%3Ccircle cx='11' cy='25' r='2' fill='%23b8ee81'/%3E%3Ccircle cx='23' cy='25' r='2' fill='%23b8ee81'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="./replenishment.css">
+  <link rel="stylesheet" href="./immersive.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Direction du magasin <span class="version">v0.2</span></p></div></div>
-    <div class="day-clock"><span id="day-label">Jour 1</span><strong id="clock">07:30</strong><span id="phase-label" class="phase">Préparation</span></div>
-    <div class="time-controls" role="group" aria-label="Vitesse du jeu"><button data-speed="0" class="active" aria-label="Pause" title="Pause — barre d’espace">Ⅱ</button><button data-speed="1">×1</button><button data-speed="3">×3</button><button data-speed="6">×6</button></div>
-  </header>
-  <main>
-    <section class="metrics" aria-label="Indicateurs du magasin">
-      <div class="metric"><span>Trésorerie</span><strong id="money">8 500 €</strong><small id="cash-change">Budget disponible</small></div>
-      <div class="metric"><span>Ventes du jour</span><strong id="sales">0 €</strong><small id="sold">0 clients encaissés</small></div>
-      <div class="metric"><span>Dans le magasin</span><strong id="customers">0 <em>clients</em></strong><small id="queue">0 en attente de caisse</small></div>
-      <div class="metric"><span>Satisfaction</span><strong id="satisfaction">100 <em>%</em></strong><small id="lost">0 départs sans achat</small></div>
-    </section>
-    <div class="workspace">
-      <section class="store-area" aria-label="Vue d’ensemble du supermarché">
-        <div class="store-heading"><div><h2>Votre supermarché</h2><p id="store-status">Préparez les commandes et les équipes avant l’ouverture.</p></div><button class="primary" id="main-action">Ouvrir le magasin</button></div>
-        <div class="map-wrap"><canvas id="store-map" width="1000" height="680" role="img" aria-label="Vue 3D du magasin. ZQSD pour se déplacer, A et E pour tourner, molette pour zoomer. Les stocks sont aussi accessibles dans le panneau Rayons."></canvas><div class="map-legend"><span><i class="legend-dot customer-dot"></i>Clients</span><span><i class="legend-dot staff-dot"></i>Équipes</span><span class="camera-help">ZQSD : déplacer · A/E : tourner · Molette : zoomer</span><button id="reset-camera" class="tiny-button">Recentrer</button></div></div>
-        <div class="bottom-row"><div class="event-box"><span class="eyebrow">AUJOURD’HUI</span><h3 id="event-title">Journée habituelle</h3><p id="event-hint">Rush de midi et sortie des bureaux.</p><div class="event-next" id="event-next"></div></div><div class="journal"><div class="journal-heading"><h3>Journal du magasin</h3><span>En direct</span></div><ul id="log"></ul></div></div>
-      </section>
-      <aside class="management" aria-label="Gestion du magasin">
-        <div class="panel-title"><h2>Bureau du directeur</h2><span class="badge" id="team-badge">8 employés</span></div>
-        <div class="tabs" role="tablist" aria-label="Gestion"><button id="tab-rayons" role="tab" aria-selected="true" aria-controls="management-content" data-tab="rayons">Rayons</button><button id="tab-reserve" role="tab" aria-selected="false" aria-controls="management-content" data-tab="reserve">Réserve</button><button id="tab-equipes" role="tab" aria-selected="false" aria-controls="management-content" data-tab="equipes">Équipes</button><button id="tab-fournisseurs" role="tab" aria-selected="false" aria-controls="management-content" data-tab="fournisseurs">Livraisons</button><button id="tab-finances" role="tab" aria-selected="false" aria-controls="management-content" data-tab="finances">Finances</button></div>
-        <div id="management-content" role="tabpanel" aria-labelledby="tab-rayons"></div>
-        <div class="director-note"><strong>À vous de décider.</strong><p>Le stock en réserve ne se vend qu’une fois en rayon. Gardez des équipes disponibles pour chaque étape.</p></div>
-      </aside>
-    </div>
+  <main class="game-world" aria-label="Supermarché et ses abords">
+    <canvas id="store-map" tabindex="0" role="img" aria-label="Magasin en 3D : cliquez sur les rayons, la réserve, les caisses ou le quai pour les gérer. ZQSD pour se déplacer, A et E pour tourner, molette pour zoomer."></canvas>
   </main>
+  <header class="topbar hud-surface">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Directeur du magasin <span class="version">v0.3</span></p></div></div>
+    <div class="day-clock"><span id="day-label">Jour 1</span><strong id="clock">07:30</strong><span id="phase-label" class="phase">Préparation</span></div>
+    <button id="event-toggle" class="event-chip" aria-controls="journal-panel" aria-expanded="false"><span aria-hidden="true">◷</span><span id="event-title">Journée habituelle</span></button>
+    <div class="time-controls" role="group" aria-label="Vitesse du jeu"><button data-speed="0" class="active" aria-label="Pause" title="Pause — barre d’espace">Ⅱ</button><button data-speed="1">×1</button><button data-speed="3">×3</button><button data-speed="6">×6</button></div>
+    <button class="primary" id="main-action">Ouvrir le magasin</button>
+  </header>
+  <section class="hud-metrics hud-surface" aria-label="Indicateurs du magasin">
+    <button class="hud-metric" data-open="finances"><span>Trésorerie</span><strong id="money">8 500 €</strong></button>
+    <button class="hud-metric" data-open="finances"><span>Ventes</span><strong id="sales">0 €</strong></button>
+    <button class="hud-metric" data-open="caisses"><span>Clients</span><strong id="customers">0</strong></button>
+    <button class="hud-metric" data-open="caisses"><span>Satisfaction</span><strong id="satisfaction">100 %</strong></button>
+  </section>
+  <button id="delivery-status" class="delivery-status hud-surface" data-open="fournisseurs" hidden aria-label="Voir les commandes et livraisons en cours"></button>
+  <nav class="world-tools hud-surface" aria-label="Gestion du magasin">
+    <button data-open="rayons" title="Rayons"><span aria-hidden="true">▥</span><span>Rayons</span></button>
+    <button data-open="reserve" title="Réserve"><span aria-hidden="true">▤</span><span>Réserve</span></button>
+    <button data-open="caisses" title="Caisses"><span aria-hidden="true">€</span><span>Caisses</span></button>
+    <button data-open="equipes" title="Équipes"><span aria-hidden="true">♟</span><span>Équipes</span></button>
+    <button data-open="fournisseurs" title="Livraisons"><span aria-hidden="true">▱</span><span>Livraisons</span></button>
+    <button data-open="finances" title="Finances"><span aria-hidden="true">▧</span><span>Finances</span></button>
+    <button id="journal-toggle" title="Journal" aria-controls="journal-panel" aria-expanded="false"><span aria-hidden="true">≡</span><span>Journal</span></button>
+  </nav>
+  <aside id="management-panel" class="management hud-surface" aria-label="Gestion du magasin" hidden>
+    <div class="panel-title"><div><span class="eyebrow" id="panel-context">DIRECTION DU MAGASIN</span><h2 id="panel-heading">Rayons</h2></div><button id="close-panel" class="icon-button" aria-label="Fermer la gestion">×</button></div>
+    <div class="tabs" role="tablist" aria-label="Gestion"><button id="tab-rayons" role="tab" aria-selected="true" aria-controls="management-content" data-tab="rayons">Rayons</button><button id="tab-reserve" role="tab" aria-selected="false" aria-controls="management-content" data-tab="reserve">Réserve</button><button id="tab-caisses" role="tab" aria-selected="false" aria-controls="management-content" data-tab="caisses">Caisses</button><button id="tab-equipes" role="tab" aria-selected="false" aria-controls="management-content" data-tab="equipes">Équipes</button><button id="tab-fournisseurs" role="tab" aria-selected="false" aria-controls="management-content" data-tab="fournisseurs">Livraisons</button><button id="tab-finances" role="tab" aria-selected="false" aria-controls="management-content" data-tab="finances">Finances</button></div>
+    <div id="management-content" role="tabpanel" aria-labelledby="tab-rayons"></div>
+  </aside>
+  <aside id="journal-panel" class="journal hud-surface" aria-label="Journal et calendrier du magasin" hidden>
+    <div class="journal-heading"><h2>Journal du magasin</h2><button id="close-journal" class="icon-button" aria-label="Fermer le journal">×</button></div>
+    <div class="event-box"><span class="eyebrow">AUJOURD’HUI</span><p id="event-hint"></p><div class="event-next" id="event-next"></div></div>
+    <ul id="log"></ul>
+  </aside>
+  <footer class="world-footer"><p id="store-status" class="hud-surface">Cliquez sur une zone du magasin pour la gérer.</p><div class="camera-controls hud-surface"><span>ZQSD : déplacer · A/E : tourner · Molette : zoomer</span><button id="reset-camera" class="tiny-button">Recentrer</button></div></footer>
   <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
   <dialog id="day-summary" aria-labelledby="summary-title"><div class="summary-inner"><span class="eyebrow">FERMETURE DU MAGASIN</span><h2 id="summary-title">Bilan de la journée</h2><div id="summary-body"></div><button id="summary-action" class="primary">Préparer le lendemain</button></div></dialog>
   <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
