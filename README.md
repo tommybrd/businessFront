@@ -5,10 +5,10 @@ Nom de travail d'un jeu de gestion de supermarché. Le joueur est le directeur e
 ## Première version
 
 - Magasin en plein écran, commandes en surimpression et panneaux contextuels au clic sur les rayons, emplacements de réserve, caisses, employés et quai.
-- Six rayons plus rapprochés, avec articles individuels serrés sur trois niveaux et quatre rangées en profondeur et jauges intégrées aux meubles ; chiffres de stock accessibles au clic, sans grandes étiquettes flottantes ; réserve organisée par produit avec une capacité propre à chaque famille.
+- Six rayons plus rapprochés, avec articles individuels serrés sur cinq niveaux, 24 articles en façade et cinq rangées en profondeur et jauges intégrées aux meubles ; chiffres de stock accessibles au clic, sans grandes étiquettes flottantes ; réserve organisée par produit avec une capacité propre à chaque famille.
 - Parking clients extérieur relié à la route principale, rues périphériques, trottoirs, passages piétons, accès de livraison, arbres et commerces voisins autour du magasin. Le cadrage initial montre les abords et les voitures suivent les voies d’accès et l’allée centrale du parking. Les voitures et piétons représentent les clients de la simulation, sans gestion des places pour le moment.
 - Vue 3D simplifiée, clients avec caddies vides puis remplis des articles réellement pris en rayon, employés et camions animés. Rotation, déplacement et zoom de la caméra.
-- Clients, paniers, attente en caisse et abandons.
+- Clients, paniers, attente en caisse et abandons. Chaque caisse traite un seul client à la fois, avec un temps d’encaissement lié au panier. Les caisses sont tournées de 90° ; après paiement les clients passent devant le comptoir puis rejoignent la sortie.
 - Effectifs sans plafond, choisis par équipe : encaissement, mise en rayon et déchargement des livraisons. Les salaires suivent les effectifs présents à la fermeture (85 € par employé et par jour, plus 160 € de fonctionnement et les frais quotidiens des caisses). Tenues vertes distinctes par métier ; les employés non affectés ne sont pas montrés.
 - Réserve organisée par produit sur des racks à trois niveaux, avec cartons correspondant au stock réel, emplacements 3D et détail des stocks et des unités réservées aux chargements.
 - Réapprovisionnement par chargements : petit chariot (8 unités), chariot moyen (24 unités), puis grand chariot (48 unités), toujours avec un employé.
@@ -19,7 +19,7 @@ Nom de travail d'un jeu de gestion de supermarché. Le joueur est le directeur e
 - Journées calmes, rush de midi, week-end, Black Friday et fêtes.
 - Journées en continu, vitesse conservée et bilans consultables sans arrêter le magasin.
 
-Les rayons commencent avec 180 articles chacun ; chaque article visible correspond à une unité de stock. Le panneau flottant « Réserve » a été retiré, les emplacements restent accessibles au clic ou depuis le menu.
+Les rayons commencent avec 480 articles chacun ; chaque article visible correspond à une unité de stock. Le panneau flottant « Réserve » a été retiré, les emplacements restent accessibles au clic ou depuis le menu.
 
 Cette version constitue une boucle jouable. Le placement libre des rayons, la gestion RH, les produits périssables et les contrats fournisseurs restent à développer. Les caddies des clients ayant abandonné leurs achats redeviennent vides quand les produits sont remis en stock. Les parties ne sont pas encore sauvegardées entre deux rechargements.
 
@@ -43,13 +43,15 @@ Dans **Réserve**, chaque produit affiche son stock physique, sa propre capacit�
 
 ## Agrandissements
 
-Chaque zone a deux agrandissements payants. Les rayons passent de 240 à 320 puis 400 articles par rayon (3 000 € puis 5 000 €). La réserve passe de 100 à 150 puis 200 places **par famille** (2 500 € puis 4 500 €). La zone de paiement passe de quatre à six puis huit caisses (2 000 € puis 3 500 €). Les dimensions du bâtiment et les équipements changent en 3D. Les effectifs se choisissent librement dans Équipes, indépendamment des agrandissements. Chaque caisse installée coûte aussi 5 € de fonctionnement par jour, même fermée ; une caisse automatique ajoute 8 € par jour, indépendamment de son achat. Ces coûts et les salaires sont détaillés séparément dans Finances et payés une seule fois à la clôture. Les caisses physiques limitent toujours le nombre de postes d’encaissement actifs ; les caissiers supplémentaires attendent un poste disponible.
+Chaque zone a deux agrandissements payants. Les rayons passent de 600 à 720 puis 840 articles par rayon (3 000 € puis 5 000 €). La réserve passe de 100 à 150 puis 200 places **par famille** (2 500 € puis 4 500 €). La zone de paiement passe de quatre à six puis huit caisses (2 000 € puis 3 500 €). Les dimensions du bâtiment et les équipements changent en 3D. Les effectifs se choisissent librement dans Équipes, indépendamment des agrandissements. Chaque caisse installée coûte aussi 5 € de fonctionnement par jour, même fermée ; une caisse automatique ajoute 8 € par jour, indépendamment de son achat. Ces coûts et les salaires sont détaillés séparément dans Finances et payés une seule fois à la clôture. Les caisses physiques limitent toujours le nombre de postes d’encaissement actifs ; les caissiers supplémentaires attendent un poste disponible.
+
+Les files sont affectées aux postes ouverts. Fermer un poste remet son client en attente sans le facturer. À la fermeture du magasin, seul le client déjà servi à chaque poste termine son paiement ; les paniers non servis sont remis en stock.
 
 ## Commandes fournisseurs
 
-L’onglet **Livraisons** compare les quantités de 12, 24, 48, 120 et 240 unités, avec le prix après remise et le coût livré par article. Centrale Nord facture 35 € de livraison et applique 4 %, 8 % puis 12 % de remise à partir de 48, 120 et 240 unités. Express Marché facture 75 € et applique 2 %, 5 % puis 8 %. Les prix unitaires sont arrondis au centime avant le calcul de la commande. Les remises sont calculées par lot de produit. Une livraison flash est facturée immédiatement ; le groupage mutualise les frais une fois par fournisseur.
+L’onglet **Livraisons** compare les quantités de 12, 24, 48, 120, 240, 480, 720 et 1 000 unités, avec le prix après remise et le coût livré par article. Centrale Nord facture 35 € de livraison et applique 4 %, 8 % puis 12 % de remise à partir de 48, 120 et 240 unités. Express Marché facture 75 € et applique 2 %, 5 % puis 8 %. Le bandeau des livraisons montre les palettes et quantités par produit encore dans les camions. Les commandes acceptent des quantités entières de 12 à 1 000 par produit : le dernier carton et la dernière palette peuvent être partiels. Les prix unitaires sont arrondis au centime avant le calcul de la commande. Les remises sont calculées par lot de produit. Une livraison flash est facturée immédiatement ; le groupage mutualise les frais une fois par fournisseur.
 
-Les quantités se choisissent directement dans cinq carrés : **12, 24, 48, 120 ou 240 unités**. Le prix, la remise et le coût livré se mettent à jour dès le choix du lot ou du fournisseur. Un accès en surimpression montre les livraisons en route ou au quai. Le suivi détaillé précède le formulaire et affiche chaque camion, son contenu par produit et quantité, son délai, sa manœuvre et ses palettes restantes. **Voir les quais** cadre la caméra sur les trois accès de livraison.
+Les quantités se choisissent directement dans huit carrés : **12, 24, 48, 120, 240, 480, 720 ou 1 000 unités**. Le prix, la remise et le coût livré se mettent à jour dès le choix du lot ou du fournisseur. Un accès en surimpression montre les livraisons en route ou au quai. Le suivi détaillé précède le formulaire et affiche chaque camion, son contenu par produit et quantité, le détail de chaque palette (articles, cartons pleins, carton partiel et état), son délai, sa manœuvre et ses palettes restantes. **Voir les quais** cadre la caméra sur les trois accès de livraison.
 
 Depuis un rayon, **Réapprovisionner** demande le remplissage depuis la réserve. Depuis la réserve, **Commander** propose deux achats :
 
@@ -86,7 +88,7 @@ npm run check
 npm test
 ```
 
-Le serveur local affiche son adresse, par défaut http://localhost:3000. Les fichiers publics sont dans `dist/`. `dist/engine.js` contient la simulation indépendamment de l'interface ; `dist/game.js` contient l'interface ; `dist/scene.js` gère la scène 3D et ses animations, avec les modèles d’articles, tenues et abords dans `dist/scene-details.js`. `dist/delivery-logistics.js` suit les manœuvres et les quais ; `dist/delivery-scene.js` représente les camions et leurs palettes réelles. Un navigateur avec WebGL est nécessaire. Les déplacements sont une représentation simplifiée de la simulation, avec des parcours d’allée prédéfinis.
+Le serveur local affiche son adresse, par défaut http://localhost:3000. Les fichiers publics sont dans `dist/`. `dist/engine.js` contient la simulation indépendamment de l'interface ; `dist/checkout-flow.js` suit les files et l’encaissement par poste ; `dist/game.js` contient l'interface ; `dist/scene.js` gère la scène 3D et ses animations, avec les modèles d’articles, tenues et abords dans `dist/scene-details.js`. `dist/delivery-logistics.js` suit les manœuvres et les quais ; `dist/delivery-scene.js` représente les camions et leurs palettes réelles. Un navigateur avec WebGL est nécessaire. Les déplacements sont une représentation simplifiée de la simulation, avec des parcours d’allée prédéfinis.
 
 ## Git et publication
 

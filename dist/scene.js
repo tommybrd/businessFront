@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
-import { RESTOCK_EQUIPMENT, RESTOCK_SHELVES, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, restockerPosition, checkoutCount, reserveProductPosition } from './engine.js';
+import { RESTOCK_EQUIPMENT, RESTOCK_SHELVES, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, restockerPosition, checkoutCount, activeCheckoutLanes, reserveProductPosition } from './engine.js';
 import { createKeyboardCameraControls } from './camera-controls.js';
 import { createDeliveryYard } from './delivery-scene.js';
 import { productUnit, shelfStock, stockCarton, staffOutfit, createSurroundings } from './scene-details.js';
@@ -93,9 +93,9 @@ export function createStoreScene(canvas, state, onSelect) {
     const group = new THREE.Group(), [x, z] = shelfPositions[index]; group.name = `shelf-${product.id}`; group.position.set(x, 0, z); store.add(group);
     group.userData.selection = { view: 'rayons', productId: product.id };
     box(group, 5.4, 0.25, 1.45, 0, 0.22, 0, 0xb9c8ae);
-    const boards = [0.42, 0.84, 1.26, 1.68, 2.1].map(level => box(group, 5.4, 0.1, 1.45, 0, level, 0, 0xd1dbc5));
+    const boards = Array.from({ length: SHELF_INITIAL_LEVELS + 2 }, (_, n) => .42 + n * .38).map(level => box(group, 5.4, 0.1, 1.45, 0, level, 0, 0xd1dbc5));
     const posts = [];
-    for (const px of [-2.6, 2.6]) for (const pz of [-0.65, 0.65]) posts.push(box(group, 0.09, 1.53, 0.09, px, 0.94, pz, COLORS.steel));
+    for (const px of [-2.6, 2.6]) for (const pz of [-0.65, 0.65]) posts.push(box(group, 0.09, 2.05, 0.09, px, 1.2, pz, COLORS.steel));
     box(group, 5.4, 0.18, 0.14, 0, 1.45, 0.76, product.color);
     const units = shelfStock(product, SHELF_UNITS_PER_LEVEL * (SHELF_INITIAL_LEVELS + 2), SHELF_UNITS_PER_LEVEL, group, box, material);
     const selection = box(group, 5.7, 0.015, 2.05, 0, 0.1, 0, 0xc6e49f, false); selection.visible = false;
@@ -108,6 +108,7 @@ export function createStoreScene(canvas, state, onSelect) {
   const laneX = (i, lanes) => (i - (lanes - 1) / 2) * (lanes <= 4 ? 4 : 3);
   for (let i = 0; i < 8; i++) {
     const group = new THREE.Group(); group.position.set(-6.5 + i * 4, 0, 6); store.add(group);
+    group.name = `checkout-${i}`; group.rotation.y = -Math.PI / 2;
     group.userData.selection = { view: 'caisses' };
     box(group, 2.2, 0.9, 1, 0, 0.5, 0, 0x82a98c);
     box(group, 1.3, 0.1, 1.08, -0.4, 1, 0, 0x365647);
@@ -118,11 +119,12 @@ export function createStoreScene(canvas, state, onSelect) {
     checkouts.push({ group, light });
   }
   const auto = new THREE.Group(); auto.position.set(9.2, 0, 6); store.add(auto);
-  auto.userData.selection = { view: 'caisses' };
+  auto.userData.selection = { view: 'caisses' }; auto.name = 'checkout-auto'; auto.rotation.y = -Math.PI / 2;
   box(auto, 0.95, 0.9, 0.75, 0, 0.5, 0, 0x90b877);
   box(auto, 0.68, 0.4, 0.1, 0, 1.14, 0, 0x244b3c);
   const autoSign = textSprite('AUTO', { worldWidth: 1.2 }); autoSign.position.set(0, 1.8, 0); auto.add(autoSign);
   const entrance = textSprite('ENTRÉE', { worldWidth: 2.1, color: '#506649' }); entrance.position.set(9.5, 0.25, 7.5); store.add(entrance);
+  const exitSign = textSprite('SORTIE', { worldWidth: 1.8, color: '#506649' }); exitSign.position.set(7.3, .25, 7.5); store.add(exitSign);
   function person(color, staff = false) {
     const group = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.34, 3, 8), material(color)); body.position.y = 0.72; body.castShadow = true; group.add(body);
@@ -162,8 +164,8 @@ export function createStoreScene(canvas, state, onSelect) {
     }
     let count = 0;
     for (const item of customer.basket) for (let n = 0; n < item.quantity; n++) {
-      const unit = productUnit(state.products[item.index], count, box, material); unit.scale.setScalar(.65);
-      unit.position.set(-.18 + (count % 3) * .18, .47 + Math.floor(count / 9) * .19, -.18 + Math.floor((count % 9) / 3) * .18);
+      const unit = productUnit(state.products[item.index], count, box, material); unit.scale.setScalar(.85);
+      unit.position.set(count % 2 ? .13 : -.13, .48 + Math.floor(count / 6) * .23, .21 - Math.floor((count % 6) / 2) * .21);
       unit.userData.productId = state.products[item.index].id; actor.cartContents.add(unit); count++;
     }
     actor.cartContents.userData.articleCount = count;
@@ -281,16 +283,16 @@ export function createStoreScene(canvas, state, onSelect) {
     backWall.scale.x = (10.7 + wide / 2) / 10.7; backWall.position.x = -6.05 - wide / 4; backWall.position.z = -7.9 - back;
     leftWall.position.set(-11.4 - wide / 2, 0.9, (front - back) / 2); leftWall.scale.z = (15.8 + front + back) / 15.8;
     rightWall.position.set(11.4 + wide / 2, 0.18, (front - back) / 2); rightWall.scale.z = leftWall.scale.z;
-    entrance.position.z = 7.5 + front;
+    entrance.position.z = 7.5 + front; exitSign.position.z = 7.5 + front;
     surroundings.update(seconds, running, state.expansions);
     reserveZones.forEach((zone, i) => {
       const product = state.products[i]; zone.crates.forEach((crate, n) => { crate.visible = n < Math.ceil(product.reserve / 12); });
     });
     deliveryYard.update(minuteFraction);
     shelves.forEach((shelf, i) => {
-      const p = state.products[i]; shelf.units.update(p.shelf);
+      const p = state.products[i]; shelf.units.update(p.shelf, SHELF_INITIAL_LEVELS + state.expansions.shelves);
       shelf.boards.forEach((board, n) => { board.visible = n < SHELF_INITIAL_LEVELS + state.expansions.shelves; });
-      shelf.posts.forEach(post => { post.scale.y = (1.53 + state.expansions.shelves * 0.42) / 1.53; post.position.y = 0.94 + state.expansions.shelves * 0.21; });
+      shelf.posts.forEach(post => { post.scale.y = (2.05 + state.expansions.shelves * .38) / 2.05; post.position.y = 1.2 + state.expansions.shelves * .19; });
       shelf.selection.visible = selected === p.id;
       const ratio = p.shelf / p.capacity; shelf.stockBar.scale.x = ratio; shelf.stockBar.position.x = -5.1 * (1 - ratio) / 2;
       shelf.stockBar.material = material(p.shelf < 12 ? 0xefaa73 : p.color);
@@ -304,7 +306,14 @@ export function createStoreScene(canvas, state, onSelect) {
     auto.visible = state.autoCheckout;
     const liveIds = new Set(state.customers.map(c => c.id));
     for (const [id, actor] of customers) if (!liveIds.has(id)) {
-      if (!actor.exiting) { updateCustomerCart(actor, actor.customer); actor.exiting = true; setDestination(actor, actor.home[0], actor.home[1] + front, 'exit'); }
+      if (!actor.exiting) {
+        updateCustomerCart(actor, actor.customer); actor.exiting = true;
+        if (actor.customer.paid) {
+          const lane = actor.customer.checkoutLane, x = lane === 'auto' ? auto.position.x - .85 : laneX(lane, lanes) - .85;
+          actor.key = 'paid-exit'; actor.arrivalRoute = null;
+          actor.route = [[x, 6 + front], [x, 7.7 + front], [7.3, 7.7 + front], [7.3, 10 + front], [actor.home[0], actor.home[1] + front]];
+        } else setDestination(actor, actor.home[0], actor.home[1] + front, 'exit');
+      }
       walk(actor, seconds, 15 * running, now);
       if (!actor.route.length) {
         scene.remove(actor.group);
@@ -313,7 +322,7 @@ export function createStoreScene(canvas, state, onSelect) {
         customers.delete(id);
       }
     }
-    const queue = state.customers.filter(c => c.stage === 'queue');
+    const queue = state.customers.filter(c => c.stage === 'queue'), activeLanes = activeCheckoutLanes(state);
     for (const customer of state.customers) {
       let actor = customers.get(customer.id);
       if (!actor) {
@@ -327,10 +336,13 @@ export function createStoreScene(canvas, state, onSelect) {
         const item = customer.items[Math.min(customer.itemIndex, customer.items.length - 1)], [x, z] = shelfPositions[item.index];
         setDestination(actor, x - 1.2 + (customer.id % 4) * 0.7, z + 1.3, `shelf-${customer.itemIndex}`);
       } else {
-        const index = queue.indexOf(customer), staffed = Math.max(1, Math.min(lanes, state.staff.checkout));
-        setDestination(actor, laneX(index % staffed, lanes) - 0.5, 4.85 + front - Math.floor(index / staffed) * 0.6, `queue-${index}-${staffed}-${front}`);
+        const lane = customer.checkoutLane ?? activeLanes[0] ?? 0;
+        const x = lane === 'auto' ? auto.position.x - .85 : laneX(lane, lanes) - .85;
+        const index = queue.filter(c => c.checkoutLane === customer.checkoutLane).indexOf(customer);
+        const z = customer.stage === 'checkout' ? 5.65 + front : 4.65 + front - Math.max(0, index) * .85;
+        setDestination(actor, x, z, `${customer.stage}-${lane}-${index}-${lanes}-${front}`);
       }
-      walk(actor, seconds, 14 * running, now); actor.arms.forEach(arm => { arm.rotation.x = -.65; });
+      walk(actor, seconds, 14 * running, now); actor.arms.forEach(arm => { arm.rotation.x = -.65; }); if (!actor.route.length && customer.stage !== 'shopping') actor.group.rotation.y = 0;
     }
     const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving')];
     while (employees.length < roles.length) addEmployee();
@@ -346,7 +358,7 @@ export function createStoreScene(canvas, state, onSelect) {
       }
       if (actor.equipment) actor.equipment.group.visible = role === 'shelves' || role === 'receiving';
       if (role === 'checkout') {
-        const lane = checkoutIndex++; setDestination(actor, lane < lanes ? laneX(lane, lanes) + 1.1 : -9 + ((lane - lanes) % 12) * 0.65, lane < lanes ? 6.75 + front : 7.3 + front + Math.floor((lane - lanes) / 12) * 0.6, `cashier-${lane}-${lanes}-${front}`);
+        const lane = checkoutIndex++; setDestination(actor, lane < lanes ? laneX(lane, lanes) + .85 : -9 + ((lane - lanes) % 12) * 0.65, lane < lanes ? 6.75 + front : 7.3 + front + Math.floor((lane - lanes) / 12) * 0.6, `cashier-${lane}-${lanes}-${front}`);
       } else if (role === 'shelves') {
         const worker = state.restockers[shelfIndex++];
         displayRestocker(actor, worker, running, seconds, minuteFraction);
@@ -355,6 +367,7 @@ export function createStoreScene(canvas, state, onSelect) {
         const worker = state.receivers[receivingIndex++]; displayReceiver(actor, worker, running, seconds, minuteFraction); return;
       }
       walk(actor, seconds, running ? 6 * running : state.phase === 'preparation' ? 2 : 0, now);
+      if (!actor.route.length && checkoutIndex - 1 < lanes) actor.group.rotation.y = -Math.PI / 2;
     });
     renderer.render(scene, camera);
   }

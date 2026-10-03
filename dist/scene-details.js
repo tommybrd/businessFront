@@ -39,17 +39,27 @@ export function shelfStock(product, maximum, unitsPerLevel, parent, box, materia
       const mesh = new THREE.InstancedMesh(part.geometry, part.material, capacity);
       mesh.name = `stock-${product.id}-${variant}-${component}`;
       mesh.castShadow = part.castShadow; mesh.receiveShadow = true;
-      const position = new THREE.Matrix4(), matrix = new THREE.Matrix4();
-      for (let n = 0; n < capacity; n++) {
-        const index = variant + n * variants;
-        position.makeTranslation(-2.375 + (index % 20) * .25, .48 + Math.floor(index / unitsPerLevel) * .42, .48 - Math.floor((index % unitsPerLevel) / 20) * .32);
-        mesh.setMatrixAt(n, matrix.multiplyMatrices(position, part.matrix));
-      }
-      mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingBox(); mesh.computeBoundingSphere();
-      group.add(mesh); batches.push({ mesh, variant, capacity });
+      group.add(mesh); batches.push({ mesh, variant, capacity, partMatrix: part.matrix.clone() });
     });
   }
-  return { update(count) { for (const batch of batches) batch.mesh.count = Math.max(0, Math.min(batch.capacity, Math.ceil((count - batch.variant) / variants))); } };
+  let currentLevels = 0;
+  return { update(count, levels) {
+    if (levels !== currentLevels) {
+      const position = new THREE.Matrix4(), matrix = new THREE.Matrix4(), itemScale = new THREE.Matrix4().makeScale(.85, .85, .85);
+      for (const batch of batches) {
+        for (let n = 0; n < batch.capacity; n++) {
+          const index = batch.variant + n * variants, slot = Math.floor(index / levels);
+          position.makeTranslation(-2.415 + (slot % 24) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 24) * .275);
+          position.multiply(itemScale); batch.mesh.setMatrixAt(n, matrix.multiplyMatrices(position, batch.partMatrix));
+        }
+        batch.mesh.instanceMatrix.needsUpdate = true; batch.mesh.computeBoundingBox(); batch.mesh.computeBoundingSphere();
+      }
+      currentLevels = levels;
+    }
+    const visibleCount = Math.min(count, levels * unitsPerLevel);
+    for (const batch of batches) batch.mesh.count = Math.max(0, Math.min(batch.capacity, Math.ceil((visibleCount - batch.variant) / variants)));
+  } };
+
 }
 
 export function staffOutfit(role, box, material) {

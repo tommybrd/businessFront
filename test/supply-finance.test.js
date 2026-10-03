@@ -62,7 +62,7 @@ test('independent expansions charge once per level, increase real capacities and
   const s = createGame(), staff = { ...s.staff };
   for (const zone of ['checkout', 'shelves', 'reserve']) expandStore(s, zone);
   assert.equal(s.money, 1000); assert.equal(s.spending, 7500); assert.equal(checkoutCount(s), 6);
-  assert.ok(s.products.every(p => p.capacity === 320 && p.reserveCapacity === 150)); assert.deepEqual(s.staff, staff);
+  assert.ok(s.products.every(p => p.capacity === 720 && p.reserveCapacity === 150)); assert.deepEqual(s.staff, staff);
   const snapshot = JSON.stringify(s); assert.throws(() => expandStore(s, 'checkout')); assert.throws(() => expandStore(s, '__proto__')); assert.equal(JSON.stringify(s), snapshot);
   s.money = 20000; expandStore(s, 'checkout'); assert.equal(checkoutCount(s), 8);
   const full = JSON.stringify(s); assert.throws(() => expandStore(s, 'checkout')); assert.equal(JSON.stringify(s), full);

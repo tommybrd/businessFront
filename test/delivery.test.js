@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, setStaff, openStore, advance, quoteOrder, placeOrder, queueEveningOrder, removeEveningOrder, quoteEveningBasket, dailyCosts, inventoryPosition, restockerPosition, truckPose, discardReserve, outsidePallets, outsideSlotsUsed, OUTSIDE_PALLET_CAPACITY } from '../dist/engine.js';
+import { createGame, setStaff, openStore, advance, quoteOrder, placeOrder, queueEveningOrder, removeEveningOrder, quoteEveningBasket, dailyCosts, inventoryPosition, restockerPosition, truckPose, discardReserve, outsidePallets, outsideSlotsUsed, OUTSIDE_PALLET_CAPACITY, INITIAL_SHELF_STOCK } from '../dist/engine.js';
 function quiet() {
   const s = createGame(); for (const role of Object.keys(s.staff)) setStaff(s, role, 0);
   s.arrivalCredit = -100000; return s;
@@ -14,7 +14,7 @@ test('the evening basket replaces a product lot without purchasing and pools one
   const quote = quoteEveningBasket(s); assert.equal(quote.groups.length, 1); assert.equal(quote.groups[0].deliveryFee, 35);
   assert.equal(quote.totalCost, quoteOrder('produce', 48, 'regular').goodsCost + quoteOrder('bakery', 24, 'regular').goodsCost + 35);
   queueEveningOrder(s, 'dairy', 12, 'express'); assert.equal(quoteEveningBasket(s).groups.length, 2);
-  const snapshot = JSON.stringify(s); assert.throws(() => queueEveningOrder(s, 'produce', 13, 'regular')); assert.equal(JSON.stringify(s), snapshot);
+  const snapshot = JSON.stringify(s); assert.throws(() => queueEveningOrder(s, 'produce', 11, 'regular')); assert.equal(JSON.stringify(s), snapshot);
   removeEveningOrder(s, 'produce'); assert.equal(s.eveningBasket.length, 2); assert.throws(() => removeEveningOrder(s, 'produce'));
 });
 
@@ -44,7 +44,7 @@ test('large groupages use trucks of at most ten real pallets without charging ex
   assert.equal(new Set(s.shipments.map(t => t.batchId)).size, 1); assert.equal(s.history[0].spending, quote.totalCost);
   assert.equal(s.orders.reduce((n, o) => n + o.deliveryFee, 0), 35);
   const refs = s.shipments.flatMap(t => t.pallets.map(p => `${p.orderId}:${p.palletIndex}`)); assert.equal(new Set(refs).size, 30);
-  for (const p of s.products) assert.equal(inventoryPosition(s, p.id), 180 + 30 + 240);
+  for (const p of s.products) assert.equal(inventoryPosition(s, p.id), INITIAL_SHELF_STOCK + 30 + 240);
 });
 
 test('three physical bays hold their trucks while later arrivals wait, with no unloading during manoeuvres', () => {
@@ -117,4 +117,44 @@ test('reassigning or closing during an outside pickup returns its remaining good
   assert.equal(s.day, 2); assert.equal(inventoryPosition(s, 'produce'), inventory); assert.equal(outsidePallets(s)[0].pallet.remaining, 24);
   assert.equal(outsidePallets(s)[0].pallet.outsideSlot, slot);
   until(s, () => s.orders[0].status === 'received'); assert.equal(outsideSlotsUsed(s), 0); assert.equal(s.products[0].reserve, 100);
+});
+
+
+test('1000-unit flash purchases split into real truckloads and a final partial carton without losing goods', () => {
+  const s = quiet(); setStaff(s, 'receiving', 6); s.products[0].reserve = 0;
+  const inventory = inventoryPosition(s, 'produce'), cash = s.money;
+  const quote = quoteOrder('produce', 1000, 'express'), order = placeOrder(s, 'produce', 1000, 'express');
+  assert.equal(s.money, cash - quote.totalCost); assert.equal(s.spending, quote.totalCost);
+  assert.equal(order.pallets.length, 21); assert.equal(order.pallets.at(-1).quantity, 40); assert.equal(order.pallets.at(-1).quantity % 12, 4);
+  assert.deepEqual(s.shipments.map(t => t.pallets.length), [10, 10, 1]);
+  assert.equal(order.pallets.reduce((sum, pallet) => sum + pallet.quantity, 0), 1000);
+  openStore(s); until(s, () => s.shipments.every(t => t.phase === 'complete'), 650);
+  assert.equal(inventoryPosition(s, 'produce'), inventory + 1000); assert.equal(s.products[0].reserve, 96);
+  assert.equal(outsidePallets(s).reduce((sum, line) => sum + line.pallet.remaining, 0), 904);
+});
+
+test('groupage accepts 1000 per product while invalid quantities leave the complete state untouched', () => {
+  const s = quiet(); s.money = 100000;
+  for (const p of s.products) queueEveningOrder(s, p.id, 1000);
+  const snapshot = JSON.stringify(s);
+  for (const n of [0, 11, 1001, 1000.5, NaN]) {
+    assert.throws(() => placeOrder(s, 'produce', n, 'regular')); assert.throws(() => queueEveningOrder(s, 'produce', n, 'regular'));
+    assert.equal(JSON.stringify(s), snapshot);
+  }
+  const quote = quoteEveningBasket(s); openStore(s); s.minute = 1199; advance(s, 1);
+  assert.equal(s.orders.length, 6); assert.equal(s.shipments.length, 13); assert.equal(s.orders.reduce((n, o) => n + o.quantity, 0), 6000);
+  assert.equal(s.orders.reduce((n, o) => n + o.deliveryFee, 0), 35); assert.equal(s.history[0].spending, quote.totalCost);
+});
+
+
+test('truck unloading goes directly to reserve when a full pallet fits, including space freed before pickup', () => {
+  for (const initialReserve of [52, 100]) {
+    const s = quiet(); setStaff(s, 'receiving', 1); s.products[0].reserve = initialReserve;
+    placeOrder(s, 'produce', 48, 'express'); openStore(s); until(s, () => s.receivers[0].phase === 'loading');
+    if (initialReserve === 100) discardReserve(s, 'produce', 48);
+    until(s, () => s.receivers[0].phase === 'outbound');
+    assert.equal(s.receivers[0].toOutside, false); assert.equal(outsideSlotsUsed(s), 0);
+    until(s, () => s.orders[0].status === 'received');
+    assert.equal(s.products[0].reserve, 100); assert.equal(outsidePallets(s).length, 0);
+  }
 });

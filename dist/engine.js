@@ -1,8 +1,12 @@
+import { checkoutCount, activeCheckoutLanes, releaseClosedCheckouts, updateCheckouts } from './checkout-flow.js';
+export { checkoutCount, activeCheckoutLanes } from './checkout-flow.js';
 import { PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
 export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed } from './delivery-logistics.js';
-export const SHELF_UNITS_PER_LEVEL = 80;
-export const SHELF_INITIAL_LEVELS = 3;
-export const INITIAL_SHELF_STOCK = 180;
+export const ORDER_MAX_QUANTITY = 1000;
+export const ORDER_QUANTITIES = [12, 24, 48, 120, 240, 480, 720, 1000];
+export const SHELF_UNITS_PER_LEVEL = 120;
+export const SHELF_INITIAL_LEVELS = 5;
+export const INITIAL_SHELF_STOCK = 480;
 export const PRODUCTS = [
   { id: 'produce', name: 'Fruits & légumes', short: 'Fruits', color: '#87bd59', cost: 1.8, price: 3.4, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
   { id: 'bakery', name: 'Boulangerie', short: 'Pain', color: '#e9b85e', cost: 1.1, price: 2.5, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
@@ -31,7 +35,6 @@ export const STORE_EXPANSIONS = {
   shelves: { name: 'Rayons', costs: [3000, 5000] },
   reserve: { name: 'Réserve', costs: [2500, 4500] },
 };
-export const checkoutCount = s => 4 + s.expansions.checkout * 2;
 export const checkoutDailyCosts = s => checkoutCount(s) * 5 + (s.autoCheckout ? 8 : 0);
 export const receivingInTransit = s => s.receivers.reduce((sum, worker) => sum + worker.load, 0);
 export const RESTOCK_EQUIPMENT = {
@@ -88,6 +91,7 @@ export function setStaff(s, role, amount) {
     workers.length = Math.min(workers.length, amount);
     while (workers.length < amount) workers.push((role === 'shelves' ? newRestocker : newReceiver)(workers.length));
   }
+  if (role === 'checkout') releaseClosedCheckouts(s);
   return { ...s.staff };
 }
 export function expandStore(s, zone) {
@@ -219,7 +223,7 @@ function updateRestocking(s) {
 }
 export function quoteOrder(productId, quantity, supplierId) {
   const product = PRODUCTS.find(p => p.id === productId);
-  if (!product || !Object.hasOwn(SUPPLIERS, supplierId) || !Number.isInteger(quantity) || quantity < 12 || quantity > 240 || quantity % 12 !== 0) throw new Error('Choisissez un produit, un fournisseur et un multiple de 12 entre 12 et 240.');
+  if (!product || !Object.hasOwn(SUPPLIERS, supplierId) || !Number.isInteger(quantity) || quantity < 12 || quantity > ORDER_MAX_QUANTITY) throw new Error(`Choisissez un produit, un fournisseur et une quantité entière entre 12 et ${ORDER_MAX_QUANTITY}.`);
   const supplier = SUPPLIERS[supplierId];
   const discountRate = supplier.discounts.filter(tier => quantity >= tier.quantity).at(-1)?.rate || 0;
   const unitPrice = round(product.cost * supplier.multiplier * (1 - discountRate));
@@ -332,6 +336,7 @@ export function payTaxes(s) {
   const result = settleTaxes(s); log(s, `Taxes payées : ${result.paid} €.`, 'success'); return result;
 }
 function recordSale(s, customer) {
+  customer.paid = true;
   s.money = round(s.money + customer.value); s.sales = round(s.sales + customer.value); s.sold++;
   s.vatCollected = round(s.vatCollected + customer.value / 6);
 }
@@ -349,7 +354,7 @@ function closeStore(s) {
   for (const worker of s.restockers) resetRestocker(s, worker);
   for (const worker of s.receivers) resetReceiver(s, worker);
   for (const c of s.customers) {
-    if (c.value > 0 && s.staff.checkout > 0) recordSale(s, c);
+    if (c.value > 0 && c.stage === 'checkout' && activeCheckoutLanes(s).includes(c.checkoutLane)) recordSale(s, c);
     else { returnBasket(s, c); s.lost++; }
   }
   dispatchEveningBasket(s);
@@ -475,6 +480,11 @@ function updateReceiving(s) {
       if (worker.phase === 'approaching') beginRestockPhase(worker, 'loading', 3);
       else if (worker.phase === 'loading') {
         const order = s.orders.find(o => o.id === worker.orderId);
+        if (worker.toOutside && worker.reserved <= spaceFor(worker.productId)) {
+          worker.toOutside = false; order.pallets[worker.palletIndex].outsideSlot = null;
+          const [rx, rz] = reserveProductPosition(s.products.findIndex(p => p.id === worker.productId));
+          worker.destination = [rx + 1.75, rz];
+        }
         order.remaining -= worker.reserved; worker.load = worker.reserved; worker.reserved = 0;
         order.pallets[worker.palletIndex].status = 'transport'; receiverTravel(s, worker);
       } else if (worker.phase === 'outbound') beginRestockPhase(worker, 'storing', 0);
@@ -514,7 +524,7 @@ function minuteStep(s) {
           else { customer.stage = 'queue'; customer.wait = 0; }
         }
       }
-    } else {
+    } else if (customer.stage === 'queue') {
       customer.wait++;
       if (customer.wait >= 18) {
         returnBasket(s, customer);
@@ -523,16 +533,7 @@ function minuteStep(s) {
     }
   }
   s.customers = s.customers.filter(c => !abandoned.has(c.id));
-  const queue = s.customers.filter(c => c.stage === 'queue');
-  s.checkoutCredit += s.staff.checkout > 0 ? Math.min(checkoutCount(s), s.staff.checkout) * 0.18 + (s.autoCheckout ? 0.2 : 0) : 0;
-  if (s.staff.checkout === 0) s.checkoutCredit = 0;
-  while (s.checkoutCredit >= 1 && queue.length) {
-    const customer = queue.shift();
-    recordSale(s, customer); s.checkoutCredit--;
-    s.customers = s.customers.filter(c => c.id !== customer.id);
-    s.satisfaction = Math.min(100, s.satisfaction + 0.03);
-  }
-  if (!queue.length) s.checkoutCredit = Math.min(1, s.checkoutCredit);
+  updateCheckouts(s, customer => recordSale(s, customer));
   if (s.minute >= 1200) closeStore(s);
 }
 export function advance(s, minutes) {

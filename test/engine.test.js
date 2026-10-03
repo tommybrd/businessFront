@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, openStore, setStaff, placeOrder, advance, nextDay, reserveUsed, RESERVE_CAPACITY, dailyCosts, staffCount, buyAutoCheckout, selectRestockEquipment, restockInTransit, restockerPosition, quoteOrder, inventoryPosition } from '../dist/engine.js';
+import { createGame, openStore, setStaff, placeOrder, advance, nextDay, reserveUsed, RESERVE_CAPACITY, dailyCosts, staffCount, buyAutoCheckout, selectRestockEquipment, restockInTransit, restockerPosition, quoteOrder, inventoryPosition, INITIAL_SHELF_STOCK } from '../dist/engine.js';
 
 test('orders are paid once and reject invalid quantities or unavailable funds without changing the game', () => {
   const s = createGame(), before = s.money;
@@ -8,7 +8,7 @@ test('orders are paid once and reject invalid quantities or unavailable funds wi
   assert.equal(s.money, before - order.cost);
   assert.equal(s.spending, order.cost);
   const snapshot = JSON.stringify(s);
-  for (const args of [['produce', 13, 'regular'], ['unknown', 48, 'regular'], ['produce', 48, 'unknown'], ['produce', -12, 'regular']]) {
+  for (const args of [['produce', 11, 'regular'], ['unknown', 48, 'regular'], ['produce', 48, 'unknown'], ['produce', -12, 'regular']]) {
     assert.throws(() => placeOrder(s, ...args)); assert.equal(JSON.stringify(s), snapshot);
   }
   s.money = 1; assert.throws(() => placeOrder(s, 'produce', 48, 'regular'));
@@ -47,7 +47,7 @@ test('days roll over without a pause and reconcile cash exactly once per closing
   assert.equal(Math.round(s.money * 100), Math.round((initial + summary.net) * 100));
   const cash = s.money; advance(s, 0); assert.equal(s.money, cash); assert.equal(s.history.length, 1);
   assert.throws(() => nextDay(s));
-  assert.ok(s.products.some(p => p.shelf !== 42 || p.reserve !== 30));
+  assert.ok(s.products.some(p => p.shelf !== INITIAL_SHELF_STOCK || p.reserve !== 30));
 });
 
 test('without cashiers, abandoned baskets return to stock and no sales are invented', () => {
