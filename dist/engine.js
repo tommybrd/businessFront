@@ -1,10 +1,15 @@
+import { PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
+export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed } from './delivery-logistics.js';
+export const SHELF_UNITS_PER_LEVEL = 80;
+export const SHELF_INITIAL_LEVELS = 3;
+export const INITIAL_SHELF_STOCK = 180;
 export const PRODUCTS = [
-  { id: 'produce', name: 'Fruits & légumes', short: 'Fruits', color: '#87bd59', cost: 1.8, price: 3.4, capacity: 64 },
-  { id: 'bakery', name: 'Boulangerie', short: 'Pain', color: '#e9b85e', cost: 1.1, price: 2.5, capacity: 64 },
-  { id: 'dairy', name: 'Produits frais', short: 'Frais', color: '#6bc2da', cost: 2.1, price: 4.2, capacity: 64 },
-  { id: 'grocery', name: 'Épicerie', short: 'Épicerie', color: '#b4a3ed', cost: 2.3, price: 4.6, capacity: 64 },
-  { id: 'drinks', name: 'Boissons', short: 'Boissons', color: '#6c9be5', cost: 1.9, price: 3.8, capacity: 64 },
-  { id: 'home', name: 'Maison & entretien', short: 'Maison', color: '#ec88a5', cost: 3.3, price: 6.9, capacity: 64 },
+  { id: 'produce', name: 'Fruits & légumes', short: 'Fruits', color: '#87bd59', cost: 1.8, price: 3.4, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
+  { id: 'bakery', name: 'Boulangerie', short: 'Pain', color: '#e9b85e', cost: 1.1, price: 2.5, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
+  { id: 'dairy', name: 'Produits frais', short: 'Frais', color: '#6bc2da', cost: 2.1, price: 4.2, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
+  { id: 'grocery', name: 'Épicerie', short: 'Épicerie', color: '#b4a3ed', cost: 2.3, price: 4.6, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
+  { id: 'drinks', name: 'Boissons', short: 'Boissons', color: '#6c9be5', cost: 1.9, price: 3.8, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
+  { id: 'home', name: 'Maison & entretien', short: 'Maison', color: '#ec88a5', cost: 3.3, price: 6.9, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
 ];
 export const SUPPLIERS = {
   regular: { name: 'Centrale Nord', lead: 90, multiplier: 1, deliveryFee: 35, discounts: [{ quantity: 48, rate: 0.04 }, { quantity: 120, rate: 0.08 }, { quantity: 240, rate: 0.12 }] },
@@ -38,8 +43,8 @@ export const RESTOCK_PICKUP = [-2.4, -4.65];
 export const RESTOCK_SHELVES = [[-6, -2.45], [0, -2.45], [6, -2.45], [-6, 0.5], [0, 0.5], [6, 0.5]];
 export const reserveProductPosition = index => [-9.2 + (index % 3) * 3.5, -6.9 + Math.floor(index / 3) * 1.75];
 export function deliveryPalletPosition(s, order, pallet) {
-  const index = order.dockSlot;
-  return [1.4 + (index % 3) * 3.3 + (pallet.index % 2) * 1.25, -6.6 - Math.floor(index / 3) * 3.5 - s.expansions.reserve * 3 - Math.floor(pallet.index / 2) * 1.15];
+  if (pallet.status === 'outside' || pallet.outsideOrigin) return outsidePalletPosition(s, pallet);
+  return palletPosition(s, s.shipments.find(shipment => shipment.id === pallet.shipmentId), pallet);
 }
 const newRestocker = id => ({ id, phase: 'idle', mode: 'small', productId: null, load: 0, reserved: 0, remaining: 0, total: 0, pickup: [RESTOCK_PICKUP[0] + (id % 4) * 0.6, RESTOCK_PICKUP[1] - Math.floor(id / 4) * 0.65], destination: [...RESTOCK_PICKUP], path: [], completed: 0 });
 const newReceiver = id => ({ id, phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, pickup: [5 + (id % 6) * 0.55, -5.3], destination: [5, -5.3], path: [] });
@@ -53,8 +58,8 @@ export function createGame(seed = 73471) {
   return {
     day: 1, minute: 450, money: 8500, phase: 'preparation', speed: 0,
     seed, nextId: 1, staff: { checkout: 2, shelves: 5, receiving: 1 },
-    products: PRODUCTS.map(p => ({ ...p, shelf: 42, reserve: 30, reserveCapacity: 100 })),
-    orders: [], customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
+    products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: 100 })),
+    orders: [], shipments: [], eveningBasket: [], eveningError: null, customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
     satisfaction: 100, autoCheckout: false, checkoutCredit: 0,
     directorSalary: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
     vatCollected: 0, vatDeductible: 0, vatCredit: 0, vatDue: 0, profitTaxDue: 0, taxPaidToday: 0, autoPayTaxes: true,
@@ -94,7 +99,7 @@ export function expandStore(s, zone) {
   s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.expansions[zone]++;
   s.vatDeductible = round(s.vatDeductible + cost / 6);
   if (zone === 'reserve') s.products.forEach(p => { p.reserveCapacity += 50; });
-  if (zone === 'shelves') s.products.forEach(p => { p.capacity += 32; });
+  if (zone === 'shelves') s.products.forEach(p => { p.capacity += SHELF_UNITS_PER_LEVEL; });
   log(s, `${STORE_EXPANSIONS[zone].name} : agrandissement terminé, ${cost} €.`, 'success');
   return { zone, level: s.expansions[zone], cash: s.money };
 }
@@ -163,7 +168,7 @@ export function restockerPosition(worker, minuteFraction = 0) {
 }
 function restockTravel(worker, returning = false) {
   const [x, z] = worker.destination;
-  const path = [restockPickup(worker), [0, RESTOCK_PICKUP[1]], [0, -3.75], [9.5, -3.75], [9.5, z], [x, z]];
+  const path = [restockPickup(worker), [worker.pickup[0], RESTOCK_PICKUP[1]], [0, RESTOCK_PICKUP[1]], [0, -3.75], [9.5, -3.75], [9.5, z], [x, z]];
   worker.path = returning ? path.reverse() : path;
   const distance = worker.path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - worker.path[i][0], p[1] - worker.path[i][1]), 0);
   beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.ceil(distance / RESTOCK_EQUIPMENT[worker.mode].travelSpeed));
@@ -190,7 +195,7 @@ function updateRestocking(s) {
       worker.mode = s.restockMode; worker.productId = target.p.id;
       worker.reserved = Math.min(RESTOCK_EQUIPMENT[worker.mode].capacity, target.available, target.need);
       const [x, z] = RESTOCK_SHELVES[target.index]; worker.destination = [x + 1.8, z + 1.45];
-      const [rx, rz] = reserveProductPosition(target.index); worker.pickup = [rx, rz + 0.65];
+      const [rx, rz] = reserveProductPosition(target.index); worker.pickup = [rx + 1.75, rz];
       beginRestockPhase(worker, 'loading', RESTOCK_EQUIPMENT[worker.mode].loading);
       continue;
     }
@@ -230,18 +235,59 @@ export function inventoryPosition(s, productId) {
   const unloading = s.receivers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
   return product.shelf + product.reserve + carried + incoming + unloading;
 }
-export function placeOrder(s, productId, quantity, supplierId) {
-  const quote = quoteOrder(productId, quantity, supplierId);
-  const product = s.products.find(p => p.id === productId), supplier = SUPPLIERS[supplierId];
-  if (s.phase === 'closed' || s.phase === 'bankrupt') throw new Error('Préparez la journée suivante avant de commander.');
-  const cost = quote.totalCost;
+function commitSupplierBatch(s, lines, supplierId, mode) {
+  const supplier = SUPPLIERS[supplierId], quotes = lines.map(line => quoteOrder(line.productId, line.quantity, supplierId));
+  const cost = round(quotes.reduce((sum, q) => sum + q.goodsCost, 0) + supplier.deliveryFee);
+  if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus commander.');
   if (cost > s.money) throw new Error('Trésorerie insuffisante pour cette commande.');
-  const pallets = Array.from({ length: Math.ceil(quantity / 48) }, (_, index) => ({ index, quantity: Math.min(48, quantity - index * 48), remaining: Math.min(48, quantity - index * 48), status: 'dock' }));
-  const order = { ...quote, id: s.nextId++, remaining: quantity, cost, source: 'manual', pallets, dockSlot: null, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
-  s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.orders.push(order);
-  s.vatDeductible = round(s.vatDeductible + cost / 6);
-  log(s, `${quantity} unités de ${product.short.toLowerCase()} chez ${supplier.name}. Livraison : ${quote.deliveryFee} €.`);
-  return { ...order };
+  const batchId = s.nextId++, orderList = [];
+  quotes.forEach((q, index) => {
+    const pallets = Array.from({ length: Math.ceil(q.quantity / 48) }, (_, index) => ({ index, quantity: Math.min(48, q.quantity - index * 48), remaining: Math.min(48, q.quantity - index * 48), status: 'dock', shipmentId: null, truckIndex: null, outsideSlot: null, outsideOrigin: false }));
+    const fee = index === 0 ? supplier.deliveryFee : 0;
+    const order = { ...q, id: s.nextId++, batchId, mode, remaining: q.quantity, cost: round(q.goodsCost + fee), deliveryFee: fee, source: 'manual', pallets, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
+    s.orders.push(order); orderList.push(order);
+  });
+  const refs = orderList.flatMap(o => o.pallets.map(p => ({ orderId: o.id, palletIndex: p.index })));
+  for (let offset = 0; offset < refs.length; offset += PALLETS_PER_TRUCK) {
+    const shipment = { id: s.nextId++, batchId, mode, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, phase: 'enroute', phaseStarted: s.elapsed, bay: null, pallets: refs.slice(offset, offset + PALLETS_PER_TRUCK) };
+    shipment.pallets.forEach((ref, index) => { const p = s.orders.find(o => o.id === ref.orderId).pallets[ref.palletIndex]; p.shipmentId = shipment.id; p.truckIndex = index; });
+    s.shipments.push(shipment);
+  }
+  s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.vatDeductible = round(s.vatDeductible + cost / 6);
+  log(s, `${mode === 'grouped' ? 'Groupage du soir' : 'Livraison spécifique'} : ${quotes.reduce((sum, q) => sum + q.quantity, 0)} unités chez ${supplier.name}. Livraison : ${supplier.deliveryFee} €.`, 'success');
+  return { batchId, cost, orders: orderList, cash: s.money };
+}
+export function placeOrder(s, productId, quantity, supplierId) {
+  return { ...commitSupplierBatch(s, [{ productId, quantity }], supplierId, 'flash').orders[0] };
+}
+export function queueEveningOrder(s, productId, quantity, supplierId = 'regular') {
+  quoteOrder(productId, quantity, supplierId);
+  if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus préparer de commandes.');
+  const line = { productId, quantity, supplierId };
+  const index = s.eveningBasket.findIndex(item => item.productId === productId);
+  if (index < 0) s.eveningBasket.push(line); else s.eveningBasket[index] = line;
+  s.eveningError = null;
+  return { ...line, dispatchTime: '20:00', quote: quoteEveningBasket(s) };
+}
+export function removeEveningOrder(s, productId) {
+  if (!s.eveningBasket.some(line => line.productId === productId)) throw new Error('Ce produit ne figure pas au groupage.');
+  s.eveningBasket = s.eveningBasket.filter(line => line.productId !== productId); s.eveningError = null;
+}
+export function quoteEveningBasket(s) {
+  const suppliers = [...new Set(s.eveningBasket.map(line => line.supplierId))];
+  const groups = suppliers.map(supplierId => {
+    const lines = s.eveningBasket.filter(line => line.supplierId === supplierId).map(line => quoteOrder(line.productId, line.quantity, supplierId));
+    const goodsCost = round(lines.reduce((sum, q) => sum + q.goodsCost, 0)), deliveryFee = SUPPLIERS[supplierId].deliveryFee;
+    return { supplierId, supplier: SUPPLIERS[supplierId].name, lines, goodsCost, deliveryFee, totalCost: round(goodsCost + deliveryFee) };
+  });
+  return { groups, totalCost: round(groups.reduce((sum, group) => sum + group.totalCost, 0)) };
+}
+function dispatchEveningBasket(s) {
+  if (!s.eveningBasket.length) return;
+  const quote = quoteEveningBasket(s);
+  if (quote.totalCost > s.money) { s.eveningError = 'Trésorerie insuffisante à 20 h. Le panier est conservé pour le prochain soir.'; log(s, s.eveningError, 'warning'); return; }
+  for (const group of quote.groups) commitSupplierBatch(s, group.lines, group.supplierId, 'grouped');
+  s.eveningBasket = []; s.eveningError = null;
 }
 export function buyAutoCheckout(s) {
   if (s.autoCheckout) throw new Error('La caisse automatique est déjà installée.');
@@ -306,6 +352,7 @@ function closeStore(s) {
     if (c.value > 0 && s.staff.checkout > 0) recordSale(s, c);
     else { returnBasket(s, c); s.lost++; }
   }
+  dispatchEveningBasket(s);
   const operatingCost = dailyCosts(s);
   s.customers = []; s.money = round(s.money - operatingCost); s.speed = 0;
   const salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money)));
@@ -332,6 +379,7 @@ function returnBasket(s, customer) {
     const returned = Math.min(product.capacity - product.shelf, item.quantity);
     product.shelf += returned; product.reserve += item.quantity - returned;
   }
+  customer.basket = [];
 }
 function spawnCustomer(s) {
   const items = [];
@@ -343,17 +391,32 @@ function spawnCustomer(s) {
   }
   s.customers.push({ id: s.nextId++, items, itemIndex: 0, basket: [], value: 0, stage: 'shopping', progress: 0, wait: 0, x: 530, y: 590, color: ['#f8ba63', '#85d9c0', '#c1a7ff', '#f291a8'][Math.floor(random(s) * 4)] });
 }
+function receiverHome(worker) { return [5 + (worker.id % 6) * .55, -5.3]; }
 function resetReceiver(s, worker) {
-  const order = s.orders.find(o => o.id === worker.orderId);
-  const pallet = order?.pallets[worker.palletIndex];
+  const order = s.orders.find(o => o.id === worker.orderId), pallet = order?.pallets[worker.palletIndex];
   if (order && worker.load) { order.remaining += worker.load; order.status = 'unloading'; }
-  if (pallet && (worker.load || worker.reserved)) { pallet.status = 'dock'; pallet.remaining = worker.load || worker.reserved; }
-  Object.assign(worker, { phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], destination: [...worker.pickup] });
+  if (pallet && (worker.load || worker.reserved)) {
+    pallet.status = worker.fromOutside ? 'outside' : 'dock'; pallet.remaining = worker.load || worker.reserved;
+    if (!worker.fromOutside) { pallet.outsideSlot = null; pallet.outsideOrigin = false; }
+  }
+  Object.assign(worker, { phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], pickup: receiverHome(worker), destination: receiverHome(worker), toOutside: false, fromOutside: false });
 }
-function receiverTravel(worker, returning = false) {
-  const [x, z] = worker.destination;
-  const path = [worker.pickup, [0.1, -5.05], [x, -5.05], [x, z]];
-  worker.path = returning ? [...path].reverse() : path;
+function receiverTravel(s, worker, returning = false) {
+  const [x, z] = worker.destination, back = s.expansions.reserve * 3;
+  let path;
+  if (returning) {
+    path = worker.toOutside
+      ? [[x, z], [x, -9.2 - back], [0, -9.2 - back], [0, -6.35 - back], receiverHome(worker)]
+      : [[x, z], [x, -4.65], receiverHome(worker)];
+  } else if (worker.fromOutside) {
+    path = [worker.pickup, [worker.pickup[0], -9.2 - back], [0, -9.2 - back], [0, -6.35 - back], [0, -4.65], [x, -4.65], [x, z]];
+  } else {
+    const bayX = DELIVERY_BAYS[worker.shipmentBay];
+    path = worker.toOutside
+      ? [worker.pickup, [bayX, -6.35 - back], [0, -6.35 - back], [0, -9.2 - back], [x, -9.2 - back], [x, z]]
+      : [worker.pickup, [bayX, -6.35 - back], [bayX, -4.65], [x, -4.65], [x, z]];
+  }
+  worker.path = path;
   const distance = path.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - path[i][0], point[1] - path[i][1]), 0);
   beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.max(1, Math.ceil(distance / 2.5)));
 }
@@ -362,52 +425,72 @@ function updateReceiving(s) {
     const product = s.products.find(p => p.id === productId), index = s.products.indexOf(product);
     const heldGoods = s.customers.reduce((sum, c) => sum + c.basket.filter(item => item.index === index).reduce((n, item) => n + item.quantity, 0), 0);
     const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
-    const committed = s.receivers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load + w.reserved, 0);
+    const committed = s.receivers.filter(w => w.productId === productId && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
     return product.reserveCapacity - product.reserve - carried - heldGoods - committed;
   };
   for (const worker of s.receivers.slice(0, s.staff.receiving)) {
     if (worker.phase === 'idle') {
-      const order = s.orders.find(o => o.status === 'unloading' && o.pallets.some(p => p.status === 'dock' && p.remaining <= spaceFor(o.productId)));
-      if (!order) continue;
-      const pallet = order.pallets.find(p => p.status === 'dock' && p.remaining <= spaceFor(order.productId));
+      const outside = outsidePallets(s).find(({ order, pallet }) => pallet.status === 'outside' && pallet.remaining <= spaceFor(order.productId));
+      let order = outside?.order, pallet = outside?.pallet;
+      worker.fromOutside = !!outside; worker.toOutside = false;
+      if (!outside) {
+        const available = (o, p) => {
+          const truck = s.shipments.find(t => t.id === p.shipmentId);
+          return truck?.phase === 'docked' && p.status === 'dock' && (p.remaining <= spaceFor(o.productId) || freeOutsideSlot(s) !== null)
+            && !s.receivers.some(w => !w.fromOutside && ['approaching', 'loading'].includes(w.phase) && s.orders.find(line => line.id === w.orderId)?.pallets[w.palletIndex]?.shipmentId === truck.id)
+            && !truck.pallets.some(ref => { const prior = s.orders.find(line => line.id === ref.orderId).pallets[ref.palletIndex]; return prior.truckIndex < p.truckIndex && prior.truckIndex % 2 === p.truckIndex % 2 && ['dock', 'reserved'].includes(prior.status) && !prior.outsideOrigin; });
+        };
+        order = s.orders.find(o => o.status === 'unloading' && o.pallets.some(p => available(o, p)));
+        if (!order) continue;
+        pallet = order.pallets.find(p => available(order, p));
+        worker.toOutside = pallet.remaining > spaceFor(order.productId);
+        if (worker.toOutside) pallet.outsideSlot = freeOutsideSlot(s);
+      }
+      const start = restockerPosition(worker), back = s.expansions.reserve * 3;
+      const truck = s.shipments.find(t => t.id === pallet.shipmentId); worker.shipmentBay = truck.bay;
       worker.productId = order.productId; worker.orderId = order.id;
       worker.palletIndex = pallet.index; worker.reserved = pallet.remaining; pallet.status = 'reserved';
       const [px, pz] = deliveryPalletPosition(s, order, pallet); worker.pickup = [px, pz + 1];
-      const i = s.products.findIndex(p => p.id === order.productId);
-      const [rx, rz] = reserveProductPosition(i); worker.destination = [rx, rz + 0.65];
-      beginRestockPhase(worker, 'loading', 3);
+      if (worker.toOutside) { const [ox, oz] = outsidePalletPosition(s, pallet); worker.destination = [ox, oz + 1]; }
+      else { const [rx, rz] = reserveProductPosition(s.products.findIndex(p => p.id === order.productId)); worker.destination = [rx + 1.75, rz]; }
+      worker.path = outside
+        ? [start, [0, -6.35 - back], [0, -9.2 - back], [px, -9.2 - back], worker.pickup]
+        : [start, [DELIVERY_BAYS[truck.bay], -6.35 - back], worker.pickup];
+      const distance = worker.path.slice(1).reduce((sum, point, index) => sum + Math.hypot(point[0] - worker.path[index][0], point[1] - worker.path[index][1]), 0);
+      beginRestockPhase(worker, 'approaching', Math.max(1, Math.ceil(distance / 3)));
       continue;
     }
     if (worker.phase === 'storing') {
-      const product = s.products.find(p => p.id === worker.productId), quantity = Math.min(12, worker.load);
-      product.reserve += quantity; worker.load -= quantity;
-      const pallet = s.orders.find(o => o.id === worker.orderId).pallets[worker.palletIndex];
-      pallet.remaining = worker.load;
-      if (!worker.load) { pallet.status = 'stored'; receiverTravel(worker, true); }
+      const order = s.orders.find(o => o.id === worker.orderId), pallet = order.pallets[worker.palletIndex];
+      if (worker.toOutside) {
+        order.remaining += worker.load; pallet.remaining = worker.load; pallet.status = 'outside'; pallet.outsideOrigin = true; worker.load = 0;
+        receiverTravel(s, worker, true);
+      } else {
+        const product = s.products.find(p => p.id === worker.productId), quantity = Math.min(12, worker.load);
+        product.reserve += quantity; worker.load -= quantity; pallet.remaining = worker.load;
+        if (!worker.load) { pallet.status = 'stored'; pallet.outsideSlot = null; receiverTravel(s, worker, true); }
+      }
     } else {
       worker.remaining--; if (worker.remaining > 0) continue;
-      if (worker.phase === 'loading') {
+      if (worker.phase === 'approaching') beginRestockPhase(worker, 'loading', 3);
+      else if (worker.phase === 'loading') {
         const order = s.orders.find(o => o.id === worker.orderId);
         order.remaining -= worker.reserved; worker.load = worker.reserved; worker.reserved = 0;
-        order.pallets[worker.palletIndex].status = 'transport';
-        receiverTravel(worker);
+        order.pallets[worker.palletIndex].status = 'transport'; receiverTravel(s, worker);
       } else if (worker.phase === 'outbound') beginRestockPhase(worker, 'storing', 0);
       else if (worker.phase === 'returning') resetReceiver(s, worker);
     }
   }
-  for (const order of s.orders) if (order.status === 'unloading' && order.remaining === 0 && !s.receivers.some(w => w.orderId === order.id && (w.load || w.reserved))) {
+  for (const order of s.orders) if (order.status === 'unloading' && order.pallets.every(p => p.status === 'stored')) {
     order.status = 'received'; log(s, 'Livraison entièrement déchargée et rangée en réserve.');
   }
 }
+
 function minuteStep(s) {
   s.minute++; s.elapsed++;
-  for (const order of s.orders) if (order.status === 'transit' && order.eta <= s.elapsed) {
-    const occupied = new Set(s.orders.filter(o => o.status === 'unloading').map(o => o.dockSlot));
-    let slot = 0; while (occupied.has(slot)) slot++;
-    order.dockSlot = slot;
-    order.status = 'unloading'; log(s, `Livraison de ${order.quantity} unités arrivée au quai.`, 'success');
-  }
+  updateShipments(s);
   updateReceiving(s);
+  finishShipments(s);
   updateRestocking(s);
   const peak = (s.minute >= 720 && s.minute < 840) ? 1.9 : (s.minute >= 1020 && s.minute < 1140) ? 1.55 : 1;
   if (s.minute < 1170) {

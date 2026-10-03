@@ -1,5 +1,11 @@
 import * as THREE from 'three';
 
+export const CARTON_SIZE = { width: .45, height: .43, depth: .38 };
+export function stockCarton(parent, box, x, y, z, color) {
+  const carton = box(parent, CARTON_SIZE.width, CARTON_SIZE.height, CARTON_SIZE.depth, x, y, z, color);
+  carton.userData.unitsPerCarton = 12; carton.name = 'stock-carton'; return carton;
+}
+
 export function productUnit(product, index, box, material) {
   const group = new THREE.Group(); group.name = `article-${index}`;
   if (product.id === 'produce') {
@@ -19,6 +25,31 @@ export function productUnit(product, index, box, material) {
     if (product.id === 'dairy') box(group, 0.13, 0.035, 0.15, 0, 0.28, 0, 0xe0f1f1, false);
   }
   return group;
+}
+
+// Batch the dense stock while retaining one instance for each real article.
+export function shelfStock(product, maximum, unitsPerLevel, parent, box, material) {
+  const variants = product.id === 'produce' ? 3 : 1, batches = [];
+  const group = new THREE.Group(); group.name = `shelf-stock-${product.id}`; parent.add(group);
+  for (let variant = 0; variant < variants; variant++) {
+    const template = productUnit(product, variant, box, material);
+    template.children.forEach((part, component) => {
+      part.updateMatrix();
+      const capacity = Math.ceil((maximum - variant) / variants);
+      const mesh = new THREE.InstancedMesh(part.geometry, part.material, capacity);
+      mesh.name = `stock-${product.id}-${variant}-${component}`;
+      mesh.castShadow = part.castShadow; mesh.receiveShadow = true;
+      const position = new THREE.Matrix4(), matrix = new THREE.Matrix4();
+      for (let n = 0; n < capacity; n++) {
+        const index = variant + n * variants;
+        position.makeTranslation(-2.375 + (index % 20) * .25, .48 + Math.floor(index / unitsPerLevel) * .42, .48 - Math.floor((index % unitsPerLevel) / 20) * .32);
+        mesh.setMatrixAt(n, matrix.multiplyMatrices(position, part.matrix));
+      }
+      mesh.instanceMatrix.needsUpdate = true; mesh.computeBoundingBox(); mesh.computeBoundingSphere();
+      group.add(mesh); batches.push({ mesh, variant, capacity });
+    });
+  }
+  return { update(count) { for (const batch of batches) batch.mesh.count = Math.max(0, Math.min(batch.capacity, Math.ceil((count - batch.variant) / variants))); } };
 }
 
 export function staffOutfit(role, box, material) {
@@ -66,18 +97,18 @@ export function createSurroundings(scene, box, material, textSprite) {
   const parkingSign = textSprite('PARKING CLIENTS', { background: '#233d31ef', color: '#f2eed7', worldWidth: 4.1 });
   parkingSign.position.set(-9, 0.75, 9.6); parking.add(parkingSign);
   const access = new THREE.Group(); exterior.add(access);
-  const serviceRoad = box(access, 4.3, 0.1, 40, 16, -0.2, 3.5, 0x68766a);
+  const serviceRoad = box(access, 4.3, 0.1, 52, 16, -0.2, 1, 0x68766a);
   box(access, 35, 0.1, 4.5, 0, -0.17, -11.1, 0x7b8673);
   for (let z = -13; z < 24; z += 4) box(access, 0.08, 0.02, 2.1, 16, -0.13, z, 0xe0dfc6, false);
   const accessSign = textSprite('ACCÈS LIVRAISONS', { background: '#233d31ef', color: '#f2eed7', worldWidth: 4 });
   accessSign.position.set(13.7, 0.8, -9.5); access.add(accessSign);
   const neighborhood = new THREE.Group(); exterior.add(neighborhood);
-  const backStreet = box(neighborhood, 64, 0.08, 5.2, 0, -0.25, -18, 0x657167);
-  const sideStreets = [-22, 25].map(x => box(neighborhood, 5.2, 0.08, 44, x, -0.25, 4, 0x657167));
-  const sideWalks = [-18.6, 21.6].map(x => box(neighborhood, 1.4, 0.13, 44, x, -0.15, 4, 0xc4c9b4));
-  for (const x of [-22, 25]) for (let z = -13; z < 23; z += 4) box(neighborhood, 0.08, 0.02, 2, x, -0.19, z, 0xe1dfbe, false);
+  const backStreet = box(neighborhood, 64, 0.08, 5.2, 0, -0.25, -23, 0x657167);
+  const sideStreets = [-22, 25].map(x => box(neighborhood, 5.2, 0.08, 49, x, -0.25, 1.5, 0x657167));
+  const sideWalks = [-18.6, 21.6].map(x => box(neighborhood, 1.4, 0.13, 49, x, -0.15, 1.5, 0xc4c9b4));
+  for (const x of [-22, 25]) for (let z = -19; z < 23; z += 4) box(neighborhood, 0.08, 0.02, 2, x, -0.19, z, 0xe1dfbe, false);
   const backMarkings = new THREE.Group(); neighborhood.add(backMarkings);
-  for (let x = -29; x < 30; x += 4) box(backMarkings, 2, 0.02, 0.08, x, -0.19, -18, 0xe1dfbe, false);
+  for (let x = -29; x < 30; x += 4) box(backMarkings, 2, 0.02, 0.08, x, -0.19, -23, 0xe1dfbe, false);
   const buildings = new THREE.Group(); neighborhood.add(buildings);
   function building(x, z, width, depth, height, color, name) {
     const group = new THREE.Group(); group.position.set(x, -0.2, z); buildings.add(group);
@@ -95,9 +126,9 @@ export function createSurroundings(scene, box, material, textSprite) {
       sign.material.dispose(); plate.position.set(0, 2.7, depth / 2 + 0.06); group.add(plate);
     }
   }
-  building(-12, -25, 8, 6, 3.4, 0xd5c7a4, 'BOULANGERIE');
-  building(0, -25, 8, 6, 4.6, 0xc4cebd, 'QUARTIER DU MARCHÉ');
-  building(12, -25, 8, 6, 3.4, 0xb7c9b0, 'PHARMACIE');
+  building(-12, -30, 8, 6, 3.4, 0xd5c7a4, 'BOULANGERIE');
+  building(0, -30, 8, 6, 4.6, 0xc4cebd, 'QUARTIER DU MARCHÉ');
+  building(12, -30, 8, 6, 3.4, 0xb7c9b0, 'PHARMACIE');
   for (let z = 22.7; z < 29; z += 0.7) box(parking, 1.9, 0.025, 0.32, -18, -0.18, z, 0xe5e3c9, false);
   function tree(x, z, scale = 1) {
     const group = new THREE.Group(); group.position.set(x, -0.2, z); group.scale.setScalar(scale);
@@ -107,7 +138,7 @@ export function createSurroundings(scene, box, material, textSprite) {
     }
     exterior.add(group);
   }
-  for (let x = -23; x <= 22; x += 5.5) { tree(x, -18, 0.9); tree(x, 33, 1.15); }
+  for (let x = -23; x <= 22; x += 5.5) { tree(x, -35, 0.9); tree(x, 33, 1.15); }
   for (let z = -10; z < 26; z += 7) tree(-18.5, z);
   for (const [x, z] of [[-13, 12], [13, 12], [-13, 22], [13, 22]]) {
     box(parking, 0.1, 3.4, 0.1, x, 1.5, z, 0x526b53);
@@ -146,12 +177,12 @@ export function createSurroundings(scene, box, material, textSprite) {
       extension = expansions.checkout * 3; parking.position.z = extension; access.position.z = -expansions.reserve * 3; access.position.x = Math.max(expansions.shelves * 2, expansions.checkout);
       drivewayX = 16 + access.position.x;
       driveway.scale.x = (4.6 + access.position.x) / 4.6; driveway.position.x = 15.2 + access.position.x / 2;
-      const back = expansions.reserve * 3, streetLength = 44 + extension + back;
-      serviceRoad.scale.z = (40 + extension + back) / 40; serviceRoad.position.z = 3.5 + (extension + back) / 2;
-      backStreet.position.z = -18 - back;
+      const back = expansions.reserve * 3, streetLength = 49 + extension + back;
+      serviceRoad.scale.z = (52 + extension + back) / 52; serviceRoad.position.z = 1 + (extension + back) / 2;
+      backStreet.position.z = -23 - back;
       backMarkings.position.z = -back;
-      sideStreets.forEach(road => { road.scale.z = streetLength / 44; road.position.z = 4 + (extension - back) / 2; });
-      sideWalks.forEach(walk => { walk.scale.z = streetLength / 44; walk.position.z = 4 + (extension - back) / 2; });
+      sideStreets.forEach(road => { road.scale.z = streetLength / 49; road.position.z = 1.5 + (extension - back) / 2; });
+      sideWalks.forEach(walk => { walk.scale.z = streetLength / 49; walk.position.z = 1.5 + (extension - back) / 2; });
       buildings.position.z = -back;
       for (const [id, value] of cars) {
         if (!value.route.length) {
