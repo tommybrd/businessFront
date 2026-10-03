@@ -1,0 +1,20 @@
+{
+  "name": "market-front",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Jeu de gestion de supermarché en vue d'ensemble",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "start": "node scripts/serve.mjs",
+    "check": "node --check dist/engine.js && node --check dist/game.js && node --check dist/scene.js",
+    "test": "node test/engine.test.js",
+    "build": "node scripts/build.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "three": "^0.180.0"
+  }
+}
