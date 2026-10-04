@@ -80,7 +80,16 @@ function installationControl(kind, productId, step = 1) {
   };
   return `<section class="installation-control" data-install-section="${kind}"><div class="installation-title"><strong>${definition.name}</strong><span>${count} / ${limit}</span></div><p>Installation : ${euros(definition.install)} · retrait : ${euros(definition.remove)} par unité.<br>Maintenance : ${euros(definition.maintenance)} / unité / jour · total ${euros(count * definition.maintenance)} / jour.${kind === 'checkouts' ? `<br>${count} employé(s) inclus · ${euros(count * STAFF_DAILY_WAGE)} de salaires / jour.` : ''}</p><div class="installation-actions">${action(Math.max(0, count - step), false)}${action(Math.min(limit, count + step), true)}</div>${count === limit && !['auto','drive','web'].includes(kind) ? '<small>Agrandissez la zone pour installer davantage.</small>' : ''}</section>`;
 }
-function shelfAllocation(product) { return installationControl('shelves', product.id); }
+function shelfAllocation(product) {
+  const count=installationCount(state,'shelves',product.id),limit=installationLimit(state,'shelves',product.id),definition=INSTALLATIONS.shelves;
+  const button=(add)=>{
+    const target=Math.max(0,Math.min(limit,count+(add?1:-1))),quote=quoteInstallation(state,'shelves',target,product.id);
+    const label=`${add?'Ajouter':'Retirer'} un rayon · ${product.name} · ${euros(quote.totalCost)}`;
+    const disabled=target===count||quote.totalCost>state.money||!['preparation','open'].includes(state.phase);
+    return `<button class="shelf-count-button" data-install-kind="shelves" data-install-count="${target}" data-install-product="${product.id}" aria-label="${label}" title="${label}" ${disabled?'disabled':''}>${add?'+':'−'}</button>`;
+  };
+  return `<div class="shelf-count-control" role="group" aria-label="Nombre de rayons · ${product.name}"><span>Rayons</span><div>${button(false)}<strong title="${count} / ${limit} emplacements · maintenance ${euros(count*definition.maintenance)} / jour" aria-label="${count} rayon${count===1?'':'s'}, maximum ${limit}">${count}</strong>${button(true)}</div></div>`;
+}
 function stockPanel() {
   const equipment = RESTOCK_EQUIPMENT[state.restockMode];
   return `${allProductsButton()}${productScope().map(p => {
