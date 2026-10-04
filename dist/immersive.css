@@ -183,3 +183,9 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 .installation-control{padding:12px;margin:10px 0;border:1px solid #496247;border-radius:5px;background:#284236}.installation-title,.installation-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}.installation-title span{font-weight:700}.installation-control p{font-size:14px;line-height:1.5;margin:8px 0}.installation-actions button{flex:1;min-height:40px}.installation-control small{display:block;font-size:13px;line-height:1.5;color:#b7c9bd;margin-top:8px}.maintenance-details .finance-row small{display:block;color:#b7c9bd;font-size:13px;margin-top:3px}
 
 .warehouse-product>.installation-control{grid-column:1/-1}
+.online-service { border-color: var(--line); }
+.online-service p, .online-order p { color: #c4d3c8; font-size: 14px; }
+.online-order { background: #253e34; border-color: #58745b; border-radius: 5px; }
+.online-order-title span { color: #c6e5b6; }
+.online-carrier { background: #304e3b; color: #e0edda; }
+.online-service label, .online-order-title { font-size: 14px; }

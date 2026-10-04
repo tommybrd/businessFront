@@ -16,7 +16,7 @@
     <canvas id="store-map" tabindex="0" role="img" aria-label="Magasin en 3D : cliquez sur les rayons, la réserve, les caisses ou le quai pour les gérer. ZQSD pour se déplacer, A et E pour tourner, molette pour zoomer."></canvas>
   </main>
   <header class="topbar hud-surface">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Directeur du magasin <span class="version">v0.7.0</span></p></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Directeur du magasin <span class="version">v0.8.0</span></p></div></div>
     <div class="day-clock"><span id="day-label">Jour 1</span><strong id="clock">07:30</strong><span id="phase-label" class="phase">Préparation</span></div>
     <button id="event-toggle" class="event-chip" aria-controls="journal-panel" aria-expanded="false"><span aria-hidden="true">◷</span><span id="event-title">Journée habituelle</span></button>
     <div class="time-controls" role="group" aria-label="Vitesse du jeu"><button data-speed="0" class="active" aria-label="Pause" title="Pause — barre d’espace">Ⅱ</button><button data-speed="1">×1</button><button data-speed="3">×3</button><button data-speed="6">×6</button></div>
@@ -36,12 +36,13 @@
     <button data-open="caisses" title="Caisses"><span aria-hidden="true">€</span><span>Caisses</span></button>
     <button data-open="equipes" title="Équipes"><span aria-hidden="true">♟</span><span>Équipes</span></button>
     <button data-open="fournisseurs" title="Livraisons"><span aria-hidden="true">▱</span><span>Livraisons</span></button>
+    <button data-open="online" title="Drive et e-commerce"><span aria-hidden="true">▣</span><span>Drive / Web</span></button>
     <button data-open="finances" title="Finances"><span aria-hidden="true">▧</span><span>Finances</span></button>
     <button id="journal-toggle" title="Journal" aria-controls="journal-panel" aria-expanded="false"><span aria-hidden="true">≡</span><span>Journal</span></button>
   </nav>
   <aside id="management-panel" class="management hud-surface" aria-label="Gestion du magasin" hidden>
     <div class="panel-title"><div><span class="eyebrow" id="panel-context">DIRECTION DU MAGASIN</span><h2 id="panel-heading">Rayons</h2></div><button id="close-panel" class="icon-button" aria-label="Fermer la gestion">×</button></div>
-    <div class="tabs" role="tablist" aria-label="Gestion"><button id="tab-rayons" role="tab" aria-selected="true" aria-controls="management-content" data-tab="rayons">Rayons</button><button id="tab-reserve" role="tab" aria-selected="false" aria-controls="management-content" data-tab="reserve">Réserve</button><button id="tab-caisses" role="tab" aria-selected="false" aria-controls="management-content" data-tab="caisses">Caisses</button><button id="tab-equipes" role="tab" aria-selected="false" aria-controls="management-content" data-tab="equipes">Équipes</button><button id="tab-fournisseurs" role="tab" aria-selected="false" aria-controls="management-content" data-tab="fournisseurs">Livraisons</button><button id="tab-finances" role="tab" aria-selected="false" aria-controls="management-content" data-tab="finances">Finances</button></div>
+    <div class="tabs" role="tablist" aria-label="Gestion"><button id="tab-rayons" role="tab" aria-selected="true" aria-controls="management-content" data-tab="rayons">Rayons</button><button id="tab-reserve" role="tab" aria-selected="false" aria-controls="management-content" data-tab="reserve">Réserve</button><button id="tab-caisses" role="tab" aria-selected="false" aria-controls="management-content" data-tab="caisses">Caisses</button><button id="tab-equipes" role="tab" aria-selected="false" aria-controls="management-content" data-tab="equipes">Équipes</button><button id="tab-fournisseurs" role="tab" aria-selected="false" aria-controls="management-content" data-tab="fournisseurs">Livraisons</button><button id="tab-online" role="tab" aria-selected="false" aria-controls="management-content" data-tab="online">Drive / Web</button><button id="tab-finances" role="tab" aria-selected="false" aria-controls="management-content" data-tab="finances">Finances</button></div>
     <div id="management-content" role="tabpanel" aria-labelledby="tab-rayons"></div>
   </aside>
   <aside id="journal-panel" class="journal hud-surface" aria-label="Journal et calendrier du magasin" hidden>

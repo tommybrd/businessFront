@@ -1,3 +1,5 @@
+import { createOnlineScene } from './online-scene.js';
+import { onlineWorkerPosition, onlinePicked } from './online-orders.js';
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { RESTOCK_EQUIPMENT, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, restockerPosition, checkoutCount, activeCheckoutLanes, reserveProductPosition, shelfPosition, shelfRotation, shelfFixtureId, productShelfAccess, storeFrontExtension } from './engine.js';
@@ -57,6 +59,7 @@ export function createStoreScene(canvas, state, onSelect) {
     sprite.material.dispose(); return mesh;
   }
   const checkoutVisuals = createCheckoutVisuals(scene, state, { box, material, textSprite });
+  const onlineScene = createOnlineScene(scene,state,{box,material,textSprite});
   const surroundings = createSurroundings(scene, box, material, textSprite);
   const store = new THREE.Group(); scene.add(store);
   const foundation = box(store, 24, 0.45, 17, 0, -0.26, 0, 0xb2c1ac);
@@ -254,6 +257,30 @@ export function createStoreScene(canvas, state, onSelect) {
     actor.equipment.cargo.forEach((crate, i) => { crate.visible = i < Math.ceil(worker.load / RESTOCK_EQUIPMENT[mode].capacity * 8); crate.material = material(product?.color || 0xc8ab77); });
     if (moving) actor.equipment.wheels.forEach(wheel => { wheel.rotation.x += seconds * running * 8; });
   }
+  function displayOnlineWorker(actor,worker,running,seconds,fraction) {
+    if(!actor.equipment||actor.equipment.mode!=='small') {
+      if(actor.equipment){actor.group.remove(actor.equipment.group);actor.equipment.group.traverse(o=>o.geometry?.dispose());}
+      actor.equipment=restockVehicle('small');actor.group.add(actor.equipment.group);
+    }
+    if(!actor.onlineCargo || actor.onlineCargo.parent !== actor.equipment.group){actor.onlineCargo=new THREE.Group();actor.equipment.group.add(actor.onlineCargo);actor.onlineCargoKey='';}
+    actor.onlineCargo.visible=true;
+    actor.equipment.cargo.forEach(c=>{c.visible=false;});
+    const order=state.online.orders.find(o=>o.id===worker.orderId);
+    const contents=order&&worker.load?order.lines.map(l=>[l.productId,l.pickedreserve+l.pickedshelf]):[];
+    const key=JSON.stringify(contents);
+    if(actor.onlineCargoKey!==key){actor.onlineCargoKey=key;for(const unit of [...actor.onlineCargo.children]){actor.onlineCargo.remove(unit);unit.traverse(o=>o.geometry?.dispose());}let count=0;
+      for(const[id,qty]of contents)for(let i=0;i<qty;i++){const unit=productUnit(state.products.find(p=>p.id===id),count,box,material);unit.scale.setScalar(.5);unit.position.set((count%3-1)*.16,.48+Math.floor(count/9)*.16,(Math.floor(count%9/3)-1)*.16);actor.onlineCargo.add(unit);count++;}
+      actor.onlineCargo.userData.articleCount=count;
+    }
+    const position=onlineWorkerPosition(worker,fraction),old=actor.group.position,dx=position[0]-old.x,dz=position[1]-old.z;
+    const moving=running>0&&['travelling','returning','toDrive','backFromDrive'].includes(worker.phase);
+    if(moving&&Math.hypot(dx,dz)>.001)actor.group.rotation.y=Math.atan2(dx,dz);
+    else if(worker.phase==='picking')actor.group.rotation.y=worker.source==='reserve'?-Math.PI/2:Math.PI;
+    old.set(position[0],.09,position[1]);if(moving)actor.walk+=seconds*running*6;
+    const stride=moving?Math.sin(actor.walk)*.35:0;actor.legs[0].rotation.x=stride;actor.legs[1].rotation.x=-stride;
+    actor.arms.forEach((arm,i)=>{arm.rotation.x=worker.phase==='picking'||worker.phase==='packing'?-.8+(running?Math.sin(performance.now()/180+i)*.2:0):-.6;});
+    actor.equipment.group.visible=worker.phase!=='idle';actor.group.userData.selection={view:'online',role:'online'};
+  }
   function displayReceiver(actor, worker, running, seconds, minuteFraction) {
     if (!actor.equipment || actor.equipment.mode !== 'pallet') {
       if (actor.equipment) { actor.group.remove(actor.equipment.group); actor.equipment.group.traverse(o => o.geometry?.dispose()); }
@@ -327,6 +354,7 @@ export function createStoreScene(canvas, state, onSelect) {
       });
     });
     deliveryYard.update(minuteFraction);
+    onlineScene.update(minuteFraction);
     const installedFixtures = new Set(state.shelfLayout.flatMap((id, slot) => id ? [shelfFixtureId(slot)] : []));
     fixtures.forEach((group, id) => { group.visible = installedFixtures.has(id); });
     emptyShelves.forEach((group, slot) => { group.visible = slot < state.shelfLayout.length && state.shelfLayout[slot] === null; });
@@ -412,25 +440,28 @@ export function createStoreScene(canvas, state, onSelect) {
     });
     const autoCustomer = state.customers.find(c => c.stage === 'checkout' && c.checkoutLane === 'auto');
     checkoutVisuals.updateStation(autoEffects, autoCustomer, customers.get(autoCustomer?.id), minuteFraction, seconds, running);
-    const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving')];
+    const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving'), ...Array(state.staff.online).fill('online')];
     while (employees.length < roles.length) addEmployee();
-    let checkoutIndex = 0, shelfIndex = 0, receivingIndex = 0;
+    let checkoutIndex = 0, shelfIndex = 0, receivingIndex = 0, onlineIndex = 0;
     employees.forEach((actor, i) => {
       const role = roles[i] || 'idle';
       actor.group.visible = role !== 'idle'; if (role === 'idle') return;
       if (actor.role !== role) {
         actor.role = role; actor.key = ''; actor.route = [];
+        if(actor.onlineCargo) actor.onlineCargo.visible=false;
         if (actor.outfit) { actor.group.remove(actor.outfit); actor.outfit.traverse(o => o.geometry?.dispose()); }
         actor.outfit = staffOutfit(role, box, material); actor.group.add(actor.outfit);
         actor.cap.visible = role !== 'receiving'; actor.group.userData.selection = { view: 'equipes', role };
       }
-      if (actor.equipment) actor.equipment.group.visible = role === 'shelves' || role === 'receiving';
+      if (actor.equipment) actor.equipment.group.visible = ['shelves','receiving','online'].includes(role);
       if (role === 'checkout') {
         const lane = checkoutIndex++; setDestination(actor, lane < lanes ? laneX(lane, lanes) + .85 : -9 + ((lane - lanes) % 12) * 0.65, lane < lanes ? 6.75 + front : 7.3 + front + Math.floor((lane - lanes) / 12) * 0.6, `cashier-${lane}-${lanes}-${front}`);
       } else if (role === 'shelves') {
         const worker = state.restockers[shelfIndex++];
         displayRestocker(actor, worker, running, seconds, minuteFraction);
         return;
+      } else if (role === 'online') {
+        displayOnlineWorker(actor,state.online.workers[onlineIndex++],running,seconds,minuteFraction); return;
       } else if (role === 'receiving') {
         const worker = state.receivers[receivingIndex++]; displayReceiver(actor, worker, running, seconds, minuteFraction); return;
       }
@@ -447,7 +478,7 @@ export function createStoreScene(canvas, state, onSelect) {
   function selectAt(event) {
     const bounds = canvas.getBoundingClientRect(); pointer.set((event.clientX - bounds.left) / bounds.width * 2 - 1, -(event.clientY - bounds.top) / bounds.height * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    for (const hit of raycaster.intersectObjects([store, deliveryYard.group, ...employees.map(a => a.group)], true)) {
+    for (const hit of raycaster.intersectObjects([store, deliveryYard.group, onlineScene.group, ...employees.map(a => a.group)], true)) {
       let object = hit.object, selection = null, visible = true;
       while (object) { if (!object.visible) visible = false; if (!selection && object.userData.selection) selection = object.userData.selection; object = object.parent; }
       if (visible && selection) return selection;

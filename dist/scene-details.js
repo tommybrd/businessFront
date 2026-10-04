@@ -74,6 +74,11 @@ export function staffOutfit(role, box, material) {
     box(group, 0.29, 0.25, 0.03, 0, 0.71, 0.19, 0x71a96b);
     for (const x of [-0.07, 0.07]) box(group, 0.08, 0.1, 0.035, x, 0.65, 0.2, 0x325d3f);
     box(group, 0.34, 0.06, 0.26, 0, 1.27, 0.07, 0x3d794f);
+  } else if (role === 'online') {
+    box(group,.31,.4,.035,0,.65,.19,0x83ad73);
+    box(group,.12,.13,.025,.07,.7,.215,0xdce7c1);
+    box(group,.07,.2,.08,-.17,1.15,0,0x264a37);
+    box(group,.17,.22,.04,.23,.57,.25,0x365747);
   } else if (role === 'receiving') {
     const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), material(0x9fca79));
     helmet.position.y = 1.17; group.add(helmet);
@@ -171,7 +176,7 @@ export function createSurroundings(scene, box, material, textSprite) {
   return {
     register(customer) {
       if (customer.id % 3 !== 0) return [9.5, 10 + extension];
-      const used = new Set([...cars.values()].map(c => c.slot)), slot = places.findIndex((_, i) => !used.has(i));
+      const used = new Set([...cars.values()].map(c => c.slot)), slot = places.findIndex((_, i) => i >= 3 && !used.has(i));
       if (slot < 0) return [9.5, 10 + extension];
       const group = car([0x638d84, 0xbab196, 0xa3b17d, 0x829db1][customer.id % 4]);
       group.position.set(drivewayX + 5, 0, 26);

@@ -1,3 +1,4 @@
+import { newOnlineState, onlineDaily, onlineReserved, onlineHeld, resizeOnlineStaff, onlineInstallationBusy, updateOnline } from './online-orders.js';
 import { checkoutCount, checkoutSpace, activeCheckoutLanes, releaseClosedCheckouts, updateCheckouts } from './checkout-flow.js';
 export { checkoutCount, activeCheckoutLanes } from './checkout-flow.js';
 import { PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
@@ -41,6 +42,8 @@ export const STORE_EXPANSIONS = {
 };
 export const checkoutDailyCosts = s => checkoutCount(s) * 5 + (s.autoCheckout ? 8 : 0);
 export const INSTALLATIONS = {
+  drive: { name: 'Zone de retrait drive', install: 2000, remove: 300, maintenance: 15 },
+  web: { name: 'Poste d’emballage web', install: 1500, remove: 250, maintenance: 10 },
   checkouts: { name: 'Caisses', install: 900, remove: 120, maintenance: 5 },
   auto: { name: 'Caisse automatique', install: 3500, remove: 400, maintenance: 8 },
   shelves: { name: 'Faces de rayon', install: 350, remove: 80, maintenance: 3 },
@@ -49,7 +52,7 @@ export const INSTALLATIONS = {
   outside: { name: 'Places de palettes dehors', install: 40, remove: 10, maintenance: .5 },
 };
 export function maintenanceCosts(s) {
-  const counts = { checkouts: checkoutCount(s), auto: Number(s.autoCheckout), shelves: s.shelfLayout.filter(Boolean).length,
+  const counts = { drive: s.infrastructure.drive, web: s.infrastructure.web, checkouts: checkoutCount(s), auto: Number(s.autoCheckout), shelves: s.shelfLayout.filter(Boolean).length,
     reserve: s.products.reduce((sum, p) => sum + p.reserveRacks, 0), bays: deliveryBayCount(s), outside: outsideCapacity(s) };
   const rows = Object.entries(INSTALLATIONS).map(([kind, definition]) => ({ kind, name: definition.name, count: counts[kind], unitCost: definition.maintenance, cost: round(counts[kind] * definition.maintenance) }));
   return { rows, total: round(rows.reduce((sum, row) => sum + row.cost, 0)) };
@@ -64,7 +67,7 @@ export function installationCount(s, kind, productId) {
 }
 export function installationLimit(s, kind, productId) {
   if (kind === 'checkouts') return checkoutSpace(s);
-  if (kind === 'auto') return 1;
+  if (['auto', 'drive', 'web'].includes(kind)) return 1;
   if (kind === 'reserve') return 1 + s.expansions.reserve;
   if (kind === 'bays') return 3 + s.expansions.reserve;
   if (kind === 'outside') return 30 + s.expansions.reserve * 15;
@@ -90,6 +93,7 @@ export function setInstallation(s, kind, amount, productId) {
   if (!quote.delta) return { ...quote, cash: s.money };
   if (quote.totalCost > s.money) throw new Error('Trésorerie insuffisante pour ces travaux.');
   if (quote.delta < 0) {
+    if (['drive','web'].includes(kind) && onlineInstallationBusy(s,kind)) throw new Error('Terminez les commandes et attendez le départ des véhicules avant de retirer cette zone.');
     if (kind === 'checkouts' && s.customers.some(c => c.stage === 'checkout' && Number.isInteger(c.checkoutLane) && c.checkoutLane >= amount)) throw new Error('Cette caisse sert un client. Attendez la fin du paiement.');
     if (kind === 'auto' && s.customers.some(c => c.stage === 'checkout' && c.checkoutLane === 'auto')) throw new Error('La caisse automatique sert un client.');
     if (kind === 'bays' && s.shipments.some(t => t.bay >= amount && ['positioning', 'reversing', 'docked', 'departing'].includes(t.phase))) throw new Error('Un camion utilise ce quai. Attendez son départ.');
@@ -101,13 +105,14 @@ export function setInstallation(s, kind, amount, productId) {
       const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
       const committed = s.receivers.filter(w => w.productId === productId && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
       const busy = [...s.restockers, ...s.receivers].some(w => w.productId === productId && w.reserveRack >= amount && !['idle', 'returning'].includes(w.phase));
-      if (p.reserve + held + carried + committed > capacity || busy) throw new Error('Ce rack contient du stock ou sert à un transport en cours. Videz-le avant de le retirer.');
+      if (p.reserve + held + carried + committed + onlineHeld(s, productId, 'reserve') > capacity || busy || s.online.workers.some(w => w.phase !== 'idle' && s.online.orders.find(o=>o.id===w.orderId)?.lines[w.line]?.productId === productId && w.source === 'reserve' && w.reserveRack >= amount)) throw new Error('Ce rack contient du stock ou sert à un transport en cours. Videz-le avant de le retirer.');
     }
   }
   payInstallation(s, quote);
   if (kind === 'reserve') { const p = s.products.find(p => p.id === productId); p.reserveRacks = amount; p.reserveCapacity = amount * (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY); }
   else if (kind === 'auto') s.autoCheckout = Boolean(amount);
   else s.infrastructure[kind] = amount;
+  if (['drive','web'].includes(kind)) s.online.enabled[kind] = Boolean(amount);
   if (kind === 'checkouts' || kind === 'auto') releaseClosedCheckouts(s);
   return { ...quote, cash: s.money };
 }
@@ -152,7 +157,7 @@ export const clock = minute => `${String(Math.floor(minute / 60)).padStart(2, '0
 export function createGame(seed = 73471) {
   return {
     day: 1, minute: 450, money: 8500, phase: 'preparation', speed: 0,
-    seed, nextId: 1, staff: { checkout: 2, shelves: 5, receiving: 1 },
+    seed, nextId: 1, staff: { checkout: 2, shelves: 5, receiving: 1, online: 0 }, online: newOnlineState(seed),
     products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: RESERVE_PRODUCT_CAPACITY, reserveRacks: 1, soldToday: 0, restockedToday: 0 })),
     orders: [], shipments: [], eveningBasket: [], eveningError: null, customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
     satisfaction: 100, autoCheckout: false, checkoutCredit: 0,
@@ -161,7 +166,7 @@ export function createGame(seed = 73471) {
     restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false }, restockRequests: [],
     restockers: Array.from({ length: 5 }, (_, id) => newRestocker(id)),
     expansions: { checkout: 0, shelves: 0, reserve: 0 }, discarded: 0,
-    shelfLayout: PRODUCTS.map(p => p.id), infrastructure: { checkouts: 4, bays: 3, outside: 30 },
+    shelfLayout: PRODUCTS.map(p => p.id), infrastructure: { checkouts: 4, bays: 3, outside: 30, drive: 0, web: 0 },
     receivers: [newReceiver(0)],
     arrivalCredit: 0, elapsed: 0, history: [], summary: null,
     log: [{ text: 'Bienvenue, directeur. Préparez vos équipes et vos premières commandes.', kind: 'info', time: '07:30' }],
@@ -177,6 +182,7 @@ function log(s, text, kind = 'info') {
 }
 export function setStaff(s, role, amount) {
   if (!Object.hasOwn(s.staff, role) || !Number.isSafeInteger(amount) || amount < 0) throw new Error('Effectif invalide.');
+  if (role === 'online') resizeOnlineStaff(s, amount);
   s.staff[role] = amount;
   const workers = role === 'shelves' ? s.restockers : role === 'receiving' ? s.receivers : null;
   if (workers) {
@@ -209,9 +215,10 @@ export function setShelfCount(s, productId, amount) {
   const capacity = amount * SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS;
   const committed = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load + w.reserved, 0);
   const held = s.customers.reduce((sum, c) => sum + c.basket.filter(item => s.products[item.index].id === productId).reduce((n, item) => n + item.quantity, 0), 0);
-  if (product.shelf + committed + held > capacity) throw new Error('Il reste trop d’articles ou de chargements pour retirer ce meuble. Attendez que le stock baisse.');
+  if (product.shelf + committed + held + onlineHeld(s,productId,'shelf') > capacity) throw new Error('Il reste trop d’articles ou de chargements pour retirer ce meuble. Attendez que le stock baisse.');
   const free = s.shelfLayout.map((id, slot) => id === null ? slot : -1).filter(slot => slot >= 0);
   if (amount - slots.length > free.length) throw new Error('Agrandissez la zone des rayons pour disposer de nouveaux emplacements.');
+  if (amount < slots.length && s.online.workers.some(w => w.phase !== 'idle' && w.source === 'shelf' && s.online.orders.find(o=>o.id===w.orderId)?.lines[w.line]?.productId === productId)) throw new Error('Un préparateur utilise ce rayon. Attendez son retour.');
   if (amount < slots.length && s.restockers.some(w => w.productId === productId && !['idle', 'returning'].includes(w.phase))) throw new Error('Attendez la fin de la mise en rayon avant de retirer cette face.');
   if (quote.totalCost > s.money) throw new Error('Trésorerie insuffisante pour ces travaux.');
   payInstallation(s, quote);
@@ -225,7 +232,7 @@ export function discardReserve(s, productId, quantity) {
   const product = s.products.find(p => p.id === productId);
   if (!product || !Number.isInteger(quantity) || quantity <= 0) throw new Error('Quantité invalide.');
   const reserved = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.reserved, 0);
-  if (quantity > product.reserve - reserved) throw new Error('Ces produits sont déjà réservés à un chargement ou indisponibles.');
+  if (quantity > product.reserve - reserved - onlineReserved(s,productId,'reserve')) throw new Error('Ces produits sont déjà réservés à un chargement ou indisponibles.');
   product.reserve -= quantity; s.discarded += quantity;
   log(s, `${quantity} unités de ${product.short.toLowerCase()} jetées pour libérer leur emplacement.`, 'warning');
   return { productId, quantity, remaining: product.reserve };
@@ -250,8 +257,8 @@ export function requestRestock(s, productId) {
   const product = s.products.find(p => p.id === productId);
   if (!product) throw new Error('Produit inconnu.');
   const jobs = s.restockers.filter(w => w.productId === productId && w.phase !== 'returning');
-  if (product.reserve - jobs.reduce((sum, w) => sum + w.reserved, 0) <= 0) throw new Error('Aucun stock disponible pour ce produit en réserve. Commandez depuis la réserve.');
-  if (product.capacity - product.shelf - jobs.reduce((sum, w) => sum + w.load + w.reserved, 0) <= 0) throw new Error('Le rayon est plein ou son remplissage est déjà en cours.');
+  if (product.reserve - onlineReserved(s,productId,'reserve') - jobs.reduce((sum, w) => sum + w.reserved, 0) <= 0) throw new Error('Aucun stock disponible pour ce produit en réserve. Commandez depuis la réserve.');
+  if (product.capacity - product.shelf - onlineHeld(s,productId,'shelf') - jobs.reduce((sum, w) => sum + w.load + w.reserved, 0) <= 0) throw new Error('Le rayon est plein ou son remplissage est déjà en cours.');
   if (!s.restockRequests.includes(productId)) {
     s.restockRequests.push(productId);
     log(s, `Remplissage prioritaire demandé : ${product.name}.`);
@@ -294,7 +301,7 @@ function updateRestocking(s) {
   s.restockRequests = s.restockRequests.filter(id => {
     const p = s.products.find(product => product.id === id);
     const jobs = s.restockers.filter(w => w.productId === id && w.phase !== 'returning');
-    return p.reserve - jobs.reduce((sum, w) => sum + w.reserved, 0) > 0 && p.capacity - p.shelf - jobs.reduce((sum, w) => sum + w.load + w.reserved, 0) > 0;
+    return p.reserve - onlineReserved(s,id,'reserve') - jobs.reduce((sum, w) => sum + w.reserved, 0) > 0 && p.capacity - p.shelf - onlineHeld(s,id,'shelf') - jobs.reduce((sum, w) => sum + w.load + w.reserved, 0) > 0;
   });
   for (const worker of s.restockers.slice(0, s.staff.shelves)) {
     if (worker.phase === 'idle') {
@@ -302,7 +309,7 @@ function updateRestocking(s) {
         const jobs = s.restockers.filter(w => w.productId === p.id && w.phase !== 'returning');
         const allocated = jobs.reduce((sum, w) => sum + w.load + w.reserved, 0);
         const reserved = jobs.reduce((sum, w) => sum + w.reserved, 0);
-        return { p, index, available: p.reserve - reserved, need: p.capacity - p.shelf - allocated };
+        return { p, index, available: p.reserve - reserved - onlineReserved(s,p.id,'reserve'), need: p.capacity - p.shelf - allocated - onlineHeld(s,p.id,'shelf') };
       }).filter(({ p, available, need }) => available > 0 && need > 0 &&
         (s.restockRequests.includes(p.id) || (p.shelf <= p.capacity * RESTOCK_TRIGGER_RATIO &&
           need >= Math.min(RESTOCK_EQUIPMENT[s.restockMode].capacity, available)))).sort((a, b) => {
@@ -321,7 +328,7 @@ function updateRestocking(s) {
     }
     if (worker.phase === 'stocking') {
       const product = s.products.find(p => p.id === worker.productId);
-      const quantity = Math.min(worker.load, product.capacity - product.shelf, RESTOCK_EQUIPMENT[worker.mode].stockRate);
+      const quantity = Math.min(worker.load, product.capacity - product.shelf - onlineHeld(s,product.id,'shelf'), RESTOCK_EQUIPMENT[worker.mode].stockRate);
       product.shelf += quantity; product.restockedToday += quantity; worker.load -= quantity;
       if (!worker.load || product.shelf === product.capacity) restockTravel(worker, true);
       continue;
@@ -353,7 +360,7 @@ export function inventoryPosition(s, productId) {
   const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
   const incoming = s.orders.filter(o => o.productId === productId && o.status !== 'received').reduce((sum, o) => sum + o.remaining, 0);
   const unloading = s.receivers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
-  return product.shelf + product.reserve + carried + incoming + unloading;
+  return product.shelf + product.reserve + carried + incoming + unloading + onlineHeld(s,productId,'reserve') + onlineHeld(s,productId,'shelf');
 }
 function commitSupplierBatch(s, lines, supplierId, mode) {
   const supplier = SUPPLIERS[supplierId], quotes = lines.map(line => quoteOrder(line.productId, line.quantity, supplierId));
@@ -448,10 +455,10 @@ export function payTaxes(s) {
   if (s.money <= 0) throw new Error('Trésorerie insuffisante pour payer les taxes.');
   const result = settleTaxes(s); log(s, `Taxes payées : ${result.paid} €.`, 'success'); return result;
 }
-function recordSale(s, customer) {
+function recordSale(s, customer, channel = null) {
   customer.paid = true;
   for (const item of customer.basket) s.products[item.index].soldToday += item.quantity;
-  s.money = round(s.money + customer.value); s.sales = round(s.sales + customer.value); s.sold++;
+  s.money = round(s.money + customer.value); s.sales = round(s.sales + customer.value); if (!channel) s.sold++;
   s.vatCollected = round(s.vatCollected + customer.value / 6);
 }
 export function dailyProfitability(s, salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money - dailyCosts(s))))) {
@@ -463,6 +470,7 @@ export function dailyProfitability(s, salaryPaid = round(Math.min(s.directorSala
 export function nextDay(s) {
   if (s.phase !== 'closed') throw new Error('La journée doit être terminée.');
   s.day++; s.minute = 450; s.phase = 'preparation'; s.speed = 0;
+  s.online.daily = onlineDaily();
   s.sold = 0; s.lost = 0; s.sales = 0; s.spending = 0; s.summary = null;
   s.products.forEach(p => { p.soldToday = 0; p.restockedToday = 0; });
   s.vatCollected = 0; s.vatDeductible = 0; s.taxPaidToday = 0; s.ownerContribution = 0;
@@ -491,7 +499,7 @@ function closeStore(s) {
   const profitTax = profitability.profitTax; s.profitTaxDue = round(s.profitTaxDue + profitTax);
   if (s.autoPayTaxes) settleTaxes(s);
   s.phase = s.money < -1000 ? 'bankrupt' : 'closed';
-  s.summary = { day: s.day, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
+  s.summary = { day: s.day, online: { ...s.online.daily }, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
   s.history.push({ ...s.summary });
   s.summary.products = s.products.map(p => ({ id: p.id, sold: p.soldToday, restocked: p.restockedToday }));
   s.history.at(-1).products = s.summary.products;
@@ -504,7 +512,7 @@ function closeStore(s) {
 function returnBasket(s, customer) {
   for (const item of customer.basket) {
     const product = s.products[item.index];
-    const returned = Math.min(product.capacity - product.shelf, item.quantity);
+    const returned = Math.min(Math.max(0, product.capacity - product.shelf - onlineHeld(s,product.id,'shelf')), item.quantity);
     product.shelf += returned; product.reserve += item.quantity - returned;
   }
   customer.basket = [];
@@ -557,7 +565,7 @@ function updateReceiving(s) {
     const heldGoods = s.customers.reduce((sum, c) => sum + c.basket.filter(item => item.index === index).reduce((n, item) => n + item.quantity, 0), 0);
     const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
     const committed = s.receivers.filter(w => w.productId === productId && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
-    return product.reserveCapacity - product.reserve - carried - heldGoods - committed;
+    return product.reserveCapacity - product.reserve - carried - heldGoods - committed - onlineHeld(s,productId,'reserve');
   };
   for (const worker of s.receivers.slice(0, s.staff.receiving)) {
     if (worker.phase === 'idle') {
@@ -628,6 +636,7 @@ function minuteStep(s) {
   updateShipments(s);
   updateReceiving(s);
   finishShipments(s);
+  updateOnline(s, { reservePoint: reserveProductPosition, shelfPoint: productShelfAccess, sale: recordSale, demand: state => currentEvent(state).factor });
   updateRestocking(s);
   const peak = (s.minute >= 720 && s.minute < 840) ? 1.9 : (s.minute >= 1020 && s.minute < 1140) ? 1.55 : 1;
   if (s.minute < 1170) {
@@ -641,7 +650,7 @@ function minuteStep(s) {
       if (customer.progress >= 6) {
         const item = customer.items[customer.itemIndex];
         const p = s.products[item.index];
-        const qty = Math.min(p.shelf, item.quantity);
+        const qty = Math.min(Math.max(0,p.shelf - onlineReserved(s,p.id,'shelf')), item.quantity);
         p.shelf -= qty; customer.value = round(customer.value + qty * p.price);
         if (qty > 0) customer.basket.push({ index: item.index, quantity: qty });
         if (qty < item.quantity) s.satisfaction = Math.max(0, s.satisfaction - 0.12);
