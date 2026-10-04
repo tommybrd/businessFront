@@ -239,3 +239,14 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 .satisfaction-global {padding-bottom:16px;border-bottom:1px solid #536d58;}
 #satisfaction {padding:2px 10px;border-radius:6px;background:#15774b;color:#fff;}
 #satisfaction[data-grade="b"] {background:#79a822;}#satisfaction[data-grade="c"] {background:#dbb900;color:#172620;}#satisfaction[data-grade="d"] {background:#e57f19;}#satisfaction[data-grade="e"] {background:#cf4337;}
+
+.reserve-projection {display:flex;position:relative;}
+.reserve-projection span {flex-shrink:0;border-radius:0;}
+.reserve-ordered,.order-color-dot {background:#79bceb;}
+.reserve-planned,.order-color-dot.planned {background:repeating-linear-gradient(135deg,#79bceb 0 3px,#355b76 3px 6px);}
+.reserve-capacity-mark {position:absolute;top:0;bottom:0;width:2px;background:#fff;transform:translateX(-1px);}
+.supplier-incoming,.supplier-planned {display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;line-height:1.4;color:#9bd1f7;}
+.order-color-dot {display:inline-block;flex-shrink:0;width:8px;height:8px;border-radius:2px;}
+.reserve-overflow {font-size:12px;line-height:1.4;color:#f1bf92;margin-top:4px;}
+.warehouse-reserve-gauge {grid-column:1/-1;width:100%;margin-bottom:12px;}
+.warehouse-product .supplier-incoming,.warehouse-product .supplier-planned,.warehouse-product .reserve-overflow {font-size:12px;}

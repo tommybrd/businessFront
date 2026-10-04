@@ -1,4 +1,4 @@
-# Market Front · v0.11.4
+# Market Front · v0.11.5
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
@@ -68,3 +68,5 @@ La Poste collecte tous les colis web prêts une seule fois par jour à 17 h ; le
 
 Les horaires se règlent dans Finances, entre 05:00 et 23:00 (au moins une heure). En préparation ils s’appliquent aujourd’hui ; une fois ouvert, le changement prend effet demain. La préparation commence à 05:00. Le groupage part à la fermeture. La Poste collecte une fois à 17:00, ou vingt minutes avant une fermeture plus tôt.
 La satisfaction affiche des notes A à E pour la disponibilité, l’attente et les achats aboutis. La note globale pondère ces trois scores (50 %, 30 %, 20 %). Seuils : A ≥95, B ≥85, C ≥70, D ≥50, E en dessous. La disponibilité suit les demandes servies (avant les premières demandes : rayons approvisionnés) ; l’attente utilise le maximum entre la moyenne du jour et l’attente actuelle, avec 7 points retirés par minute ; les achats aboutis mesurent les départs sans achat parmi les visites terminées. Les mesures détaillées sont conservées en sauvegarde.
+
+Les jauges de réserve distinguent le stock présent, les commandes fournisseurs en cours (bleu) et les lots prévus pour le soir (bleu hachuré). Les articles déchargés restent en commande jusqu’au rangement en réserve ; le volume attendu et les dépassements de capacité sont affichés.
