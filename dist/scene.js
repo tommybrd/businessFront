@@ -1,4 +1,5 @@
-import { RESERVE_BACK_EXTENSION, SHELF_MODULE_CAPACITY } from './store-layout.js';
+import {walkingPath} from './walking-route.js';
+import { reservePlacement, shelfPlacement, checkoutPlacement, checkoutPoint, cashierPoint, reserveBackExtension, RESERVE_BACK_EXTENSION, SHELF_MODULE_CAPACITY } from './store-layout.js';
 import { customerPosition } from './customer-motion.js';
 import { createOnlineScene } from './online-scene.js';
 import { onlineWorkerPosition, onlinePicked } from './online-orders.js';
@@ -78,7 +79,7 @@ export function createStoreScene(canvas, state, onSelect) {
   reserve.userData.selection = { view: 'reserve' }; dock.userData.selection = { view: 'fournisseurs' };
   const reserveZones = state.products.flatMap((product, i) => Array.from({ length: 3 }, (_, ordinal) => {
     const group = new THREE.Group(), [x, z] = reserveProductPosition(i, ordinal); group.name = `reserve-rack-${product.id}-${ordinal}`; group.position.set(x, 0, z);
-    group.userData.selection = { view: 'reserve', productId: product.id };
+    group.userData.selection = { view: 'reserve', productId: product.id, fixtureId:`reserve:${i}:${ordinal}` };
     box(group, 3.05, 0.025, 1.4, 0, 0.15, 0, product.color, false);
     const posts = [];
     for (const x of [-1.48, 1.48]) for (const z of [-.65, .65]) posts.push(box(group, .1, 2.65, .1, x, 1.46, z, 0x627d65));
@@ -96,15 +97,14 @@ export function createStoreScene(canvas, state, onSelect) {
     reserve.add(group); return { group, crates, boards, posts, index: i, ordinal };
   }));
   const deliveryYard = createDeliveryYard(scene, state, box, material, plaque);
-  const fixtures = Array.from({ length: 48 }, (_, id) => {
+  const fixtures = Array.from({ length: 66 }, (_, id) => {
     const group=new THREE.Group();group.name=`shelf-module-fixture-${id}`;
     group.userData.selection={view:'rayons'};group.userData.fixture=id>=6&&id<12?'double-sided':'standalone';
-    if(id>=6&&id<12){const [x]=shelfPosition(id<9?6+(id-6):12+(id-9));box(group,1.8,2.05,.04,x,1.2,2,COLORS.steel);}
     store.add(group);return group;
   });
   function createShelf(product, index, slot) {
     const group = new THREE.Group(), [x, z] = shelfPosition(slot); group.name = `shelf-slot-${slot}`; group.position.set(x, 0, z); group.rotation.y = shelfRotation(slot); fixtures[shelfFixtureId(slot)].add(group);
-    group.userData.selection = { view: 'rayons', productId: product.id };
+    group.userData.selection = { view: 'rayons', productId: product.id, fixtureId:`shelf:${slot}` };
     const stall = product.id === 'produce';
     if (stall) {
       group.userData.fixture = 'produce-stall';
@@ -126,34 +126,30 @@ export function createStoreScene(canvas, state, onSelect) {
     return { group, units, selection, stockBar, index, slot, stall, productId: product.id };
   }
   const shelves = [];
-  const emptyShelves = Array.from({ length: 54 }, (_, slot) => {
+  const emptyShelves = Array.from({ length: 72 }, (_, slot) => {
     const group = new THREE.Group(), [x, z] = shelfPosition(slot); group.position.set(x, 0, z); group.name = `shelf-empty-${slot}`;
     group.rotation.y = shelfRotation(slot); group.userData.selection = { view: 'rayons' }; store.add(group);
     box(group, 1.8, .015, 1.45, 0, .08, 0, 0xc3cfc2, false);
-    const sign = plaque('MODULE LIBRE', 1.5); sign.position.set(0, .15, .77); group.add(sign); return group;
+    return group;
   });
   const checkouts = [];
   const laneX = (i, lanes) => (i - (lanes - 1) / 2) * (lanes <= 4 ? 4 : 3);
   for (let i = 0; i < 8; i++) {
     const group = new THREE.Group(); group.position.set(-6.5 + i * 4, 0, 6); store.add(group);
     group.name = `checkout-${i}`; group.rotation.y = -Math.PI / 2;
-    group.userData.selection = { view: 'caisses' };
+    group.userData.selection = { view: 'caisses', fixtureId:`checkout:${i}` };
     box(group, 2.2, 0.9, 1, 0, 0.5, 0, 0x82a98c);
     box(group, 1.3, 0.1, 1.08, -0.4, 1, 0, 0x365647);
     box(group, 0.15, 0.38, 0.15, 0.77, 1.15, 0, COLORS.steel);
     box(group, 0.46, 0.32, 0.08, 0.77, 1.4, 0.02, 0x213e36);
     const light = box(group, 0.23, 0.23, 0.23, 0.83, 1.72, 0, 0xe56850, false);
-    const sign = textSprite(`CAISSE ${i + 1}`, { worldWidth: 1.8, size: 36 }); sign.position.set(0, 0.2, 1.15); group.add(sign);
     checkouts.push({ group, light, effects: checkoutVisuals.station(group) });
   }
   const auto = new THREE.Group(); auto.position.set(9.2, 0, 6); store.add(auto);
-  auto.userData.selection = { view: 'caisses' }; auto.name = 'checkout-auto'; auto.rotation.y = -Math.PI / 2;
+  auto.userData.selection = { view: 'caisses', fixtureId:'auto' }; auto.name = 'checkout-auto'; auto.rotation.y = -Math.PI / 2;
   box(auto, 0.95, 0.9, 0.75, 0, 0.5, 0, 0x90b877);
   box(auto, 0.68, 0.4, 0.1, 0, 1.14, 0, 0x244b3c);
-  const autoSign = textSprite('AUTO', { worldWidth: 1.2 }); autoSign.position.set(0, 1.8, 0); auto.add(autoSign);
   const autoEffects = checkoutVisuals.station(auto, true);
-  const entrance = textSprite('ENTRÉE', { worldWidth: 2.1, color: '#506649' }); entrance.position.set(9.5, 0.25, 7.5); store.add(entrance);
-  const exitSign = textSprite('SORTIE', { worldWidth: 1.8, color: '#506649' }); exitSign.position.set(7.3, .25, 7.5); store.add(exitSign);
   const gates=new THREE.Group();gates.name='entrance-exit-gates';store.add(gates);
   for(const x of [6.5,8.15,10.35]) {
     for(const z of [8.25,9.6])box(gates,.1,.95,.1,x,.5,z,COLORS.steel);
@@ -165,7 +161,7 @@ export function createStoreScene(canvas, state, onSelect) {
   }
   const reserveAisles=new THREE.Group();reserveAisles.name='reserve-circulation';store.add(reserveAisles);
   for(const z of [-5.4,-9.5,-13.7])for(let x=-10.8;x<11.8;x+=.65)box(reserveAisles,.32,.014,.08,x,.14,z,0xe1c77a,false);
-  function person(color, staff = false) {
+  function person(color, staff = false, carryMode='cart') {
     const group = new THREE.Group();
     const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 0.34, 3, 8), material(color)); body.position.y = 0.72; body.castShadow = true; group.add(body);
     const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), material(0xe5b992)); head.position.y = 1.13; head.castShadow = true; group.add(head);
@@ -173,9 +169,16 @@ export function createStoreScene(canvas, state, onSelect) {
     const arms = [-0.23, 0.23].map(x => box(group, 0.1, 0.28, 0.1, x, 0.72, 0.03, color));
     let cap, cartContents;
     if (staff) { cap = box(group, 0.25, 0.06, 0.26, 0, 1.27, 0.02, COLORS.green); box(group, 0.06, 0.08, 0.02, -0.08, 0.85, 0.18, 0xd3f1ab); }
+    else if(carryMode==='bag') {
+      const bag=new THREE.Group();bag.name='customer-shopping-bag';bag.position.set(.35,0,.1);group.add(bag);
+      box(bag,.36,.4,.26,0,.52,0,0xbea078);box(bag,.29,.03,.21,0,.73,0,0x74654e);
+      for(const x of [-.12,.12]){const handle=new THREE.Mesh(new THREE.TorusGeometry(.12,.018,4,12),material(0xb49a72));handle.position.set(x,.79,0);handle.rotation.y=Math.PI/2;bag.add(handle);}
+      cartContents=new THREE.Group();cartContents.name='customer-bag-contents';bag.add(cartContents);
+    }
     else {
       const cart = new THREE.Group(); cart.position.set(0, 0, 0.56); group.add(cart);
-      cart.name = 'customer-cart';
+      cart.name = carryMode==='mini'?'customer-mini-cart':'customer-cart';
+      if(carryMode==='mini'){cart.scale.set(.75,.85,.8);cart.position.z=.45;}
       box(cart, .56, .04, .65, 0, .44, 0, 0x9ba99b);
       for (const x of [-.27, .27]) {
         box(cart, .025, .035, .65, x, .81, 0, COLORS.steel);
@@ -192,7 +195,7 @@ export function createStoreScene(canvas, state, onSelect) {
       cartContents = new THREE.Group(); cartContents.name = 'customer-cart-contents'; cart.add(cartContents);
 
     }
-    return { group, body, legs, arms, cap, cartContents, basketKey: null, route: [], key: '', walk: 0 };
+    return { group, body, legs, arms, cap, cartContents, carryMode, basketKey: null, route: [], key: '', walk: 0 };
   }
   function updateCustomerCart(actor, customer) {
     if (!actor.cartContents) return;
@@ -205,8 +208,9 @@ export function createStoreScene(canvas, state, onSelect) {
     }
     let count = 0;
     for (const item of customer.basket) for (let n = 0; n < item.quantity; n++) {
-      const unit = productUnit(state.products[item.index], count, box, material); unit.scale.setScalar(.65);
+      const unit = productUnit(state.products[item.index], count, box, material); unit.scale.setScalar(actor.carryMode==='bag'?.42:.65);
       unit.position.set((count % 3 - 1) * .17, .48 + Math.floor(count / 12) * .19, .225 - Math.floor((count % 12) / 3) * .15);
+      if(actor.carryMode==='bag')unit.position.set((count%2-.5)*.13,.72+Math.floor(count/4)*.12,(Math.floor(count%4/2)-.5)*.12);
       unit.userData.productId = state.products[item.index].id; actor.cartContents.add(unit); count++;
     }
     actor.cartContents.userData.articleCount = count;
@@ -238,8 +242,8 @@ export function createStoreScene(canvas, state, onSelect) {
       wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.22, z); group.add(wheel); wheels.push(wheel);
     }
     const cargo = [];
-    for (let i = 0; i < (pallet ? 4 : 8); i++) cargo.push(pallet
-      ? stockCarton(group, box, i % 2 ? .25 : -.25, .62, i < 2 ? -.21 : .21, 0xc8ab77)
+    for (let i = 0; i < (pallet?20:8); i++) cargo.push(pallet
+      ? stockCarton(group, box, i % 2 ? .25 : -.25, .62 + Math.floor(i/4)*.43, i % 4 < 2 ? -.21 : .21, 0xc8ab77)
       : box(group, w * .38, .23, d * .36, (i % 2 ? 1 : -1) * w * .23, .54 + Math.floor(i / 4) * .24, (i % 4 < 2 ? -1 : 1) * d * .23, 0xc8ab77));
     return { group, cargo, wheels, mode, palletBase };
   }
@@ -252,13 +256,13 @@ export function createStoreScene(canvas, state, onSelect) {
     actor.equipment.group.visible = true;
     const position = restockerPosition(worker, minuteFraction), old = actor.group.position;
     const dx = position[0] - old.x, dz = position[1] - old.z;
-    const moving = running > 0 && ['approaching', 'outbound', 'returning'].includes(worker.phase);
+    const moving = running > 0 && ['collecting','approaching', 'outbound', 'returning'].includes(worker.phase);
     if (moving && Math.hypot(dx, dz) > 0.001) actor.group.rotation.y = Math.atan2(dx, dz);
     else if (worker.phase === 'stocking') {
       const index = state.products.findIndex(product => product.id === worker.productId);
-      actor.group.rotation.y = productShelfAccess(state, index, worker.completed)[2] < 0 ? 0 : Math.PI;
+      const slots=state.shelfLayout.map((id,slot)=>id===worker.productId?slot:-1).filter(slot=>slot>=0);actor.group.rotation.y=shelfPlacement(state,slots[worker.completed%slots.length]).rotation+Math.PI;
     }
-    else if (worker.phase === 'loading') actor.group.rotation.y = -Math.PI / 2;
+    else if (worker.phase === 'loading') actor.group.rotation.y = reservePlacement(state,state.products.findIndex(p=>p.id===worker.productId),worker.reserveRack||0).rotation+Math.PI;
     else if (worker.phase === 'idle') actor.group.rotation.y = Math.PI / 2;
     old.set(position[0], 0.09, position[1]);
     if (moving) actor.walk += seconds * running * 6;
@@ -266,7 +270,9 @@ export function createStoreScene(canvas, state, onSelect) {
     actor.legs[0].rotation.x = stride; actor.legs[1].rotation.x = -stride;
     actor.arms.forEach(arm => { arm.rotation.x = -0.65; });
     const product = state.products.find(p => p.id === worker.productId);
-    actor.equipment.cargo.forEach((crate, i) => { crate.visible = i < Math.ceil(worker.load / RESTOCK_EQUIPMENT[mode].capacity * 8); crate.material = material(product?.color || 0xc8ab77); });
+    const cargo=worker.cargo?.filter(l=>l.quantity>0)||[{productId:worker.productId,quantity:worker.load}];
+    const cartons=cargo.flatMap(line=>Array.from({length:Math.ceil(line.quantity/12)},()=>line.productId));
+    actor.equipment.cargo.forEach((crate,i)=>{crate.visible=i<cartons.length;crate.material=material(state.products.find(p=>p.id===cartons[i])?.color||0xc8ab77);});
     if (moving) actor.equipment.wheels.forEach(wheel => { wheel.rotation.x += seconds * running * 8; });
   }
   function displayOnlineWorker(actor,worker,running,seconds,fraction) {
@@ -300,11 +306,11 @@ export function createStoreScene(canvas, state, onSelect) {
     }
     actor.equipment.group.visible = true;
     const position = restockerPosition(worker, minuteFraction), old = actor.group.position;
-    const dx = position[0] - old.x, dz = position[1] - old.z, moving = running > 0 && ['approaching', 'outbound', 'returning'].includes(worker.phase);
+    const dx = position[0] - old.x, dz = position[1] - old.z, moving = running > 0 && ['collecting','approaching', 'outbound', 'returning'].includes(worker.phase);
     if (moving && Math.hypot(dx, dz) > 0.001) actor.group.rotation.y = Math.atan2(dx, dz);
-    else if (worker.phase === 'storing') actor.group.rotation.y = -Math.PI / 2;
+    else if (worker.phase === 'storing') actor.group.rotation.y = worker.toOutside?Math.PI:reservePlacement(state,state.products.findIndex(p=>p.id===worker.productId),worker.reserveRack||0).rotation+Math.PI;
     else if (worker.phase === 'idle' || worker.phase === 'loading') actor.group.rotation.y = Math.PI;
-    const ramp = position[0] < .8 ? 0 : Math.max(0, Math.min(1, (-position[1] - 7.25 - RESERVE_BACK_EXTENSION - state.expansions.reserve * 3) / .85));
+    const ramp = position[0] < .8 ? 0 : Math.max(0, Math.min(1, (-position[1] - 7.25 - reserveBackExtension(state)) / .85));
     old.set(position[0], 0.09 + ramp * .12, position[1]);
     if (moving) actor.walk += seconds * running * 6;
     const stride = moving ? Math.sin(actor.walk) * 0.35 : 0;
@@ -324,7 +330,7 @@ export function createStoreScene(canvas, state, onSelect) {
     actor.key = key;
     const pos = actor.group.position;
     const route = direct || Math.abs(pos.z - z) < 0.2 ? [[x, z]] : [[9.5, pos.z], [9.5, z], [x, z]];
-    actor.route = [...(actor.arrivalRoute || []), ...route]; actor.arrivalRoute = null;
+    actor.route = Object.keys(state.layout||{}).length?(walkingPath(state,[pos.x,pos.z],[x,z])?.slice(1)||[]):[...(actor.arrivalRoute || []), ...route]; actor.arrivalRoute = null;
   }
   function walk(actor, seconds, speed, now) {
     let amount = seconds * speed, moving = false;
@@ -344,16 +350,17 @@ export function createStoreScene(canvas, state, onSelect) {
     keyboardCamera.update(delta / 1000);
     controls.update();
     const seconds = delta / 1000, running = state.phase === 'open' ? state.speed : 0;
-    const front = storeFrontExtension(state.expansions), back = RESERVE_BACK_EXTENSION + state.expansions.reserve * 3, wide = Math.max(1.6, state.expansions.checkout * 2);
+    const front = storeFrontExtension(state.expansions,state.storeSize), back = reserveBackExtension(state), wide = Math.max(1.6, state.expansions.checkout * 2);
     foundation.scale.set((24 + wide) / 24, 1, (17 + front + back) / 17); foundation.position.z = (front - back) / 2;
     floor.scale.set((22.8 + wide) / 22.8, 1, (15.8 + front + back) / 15.8); floor.position.z = (front - back) / 2;
     warehouseFloor.scale.set((22.8 + wide) / 22.8, 1, (3.6 + back) / 11.6); warehouseFloor.position.z = -5.9 - back / 2;
     backWall.scale.x = (10.7 + wide / 2) / 10.7; backWall.position.x = -6.05 - wide / 4; backWall.position.z = -7.9 - back;
     leftWall.position.set(-11.4 - wide / 2, 0.9, (front - back) / 2); leftWall.scale.z = (15.8 + front + back) / 15.8;
     rightWall.position.set(11.4 + wide / 2, 0.18, (front - back) / 2); rightWall.scale.z = leftWall.scale.z;
-    entrance.position.z = 7.5 + front; exitSign.position.z = 7.5 + front; gates.position.z=front;
-    surroundings.update(seconds, running, state.expansions);
+    gates.position.z=front;
+    surroundings.update(seconds, running, state.expansions,state.storeSize);
     reserveZones.forEach(zone => {
+      const placement=reservePlacement(state,zone.index,zone.ordinal);zone.group.position.set(placement.x,0,placement.z);zone.group.rotation.y=placement.rotation;
       const product = state.products[zone.index], levels = 3 + state.expansions.reserve;
       zone.group.visible = zone.ordinal < product.reserveRacks;
       const perRack = product.reserveRacks ? product.reserveCapacity / product.reserveRacks : 0;
@@ -369,7 +376,7 @@ export function createStoreScene(canvas, state, onSelect) {
     onlineScene.update(minuteFraction);
     const installedFixtures = new Set(state.shelfLayout.flatMap((id, slot) => id ? [shelfFixtureId(slot)] : []));
     fixtures.forEach((group, id) => { group.visible = installedFixtures.has(id); });
-    emptyShelves.forEach((group, slot) => { group.visible = slot < state.shelfLayout.length && state.shelfLayout[slot] === null; });
+    emptyShelves.forEach(group => { group.visible = false; });
     for (let slot = 0; slot < state.shelfLayout.length; slot++) {
       const id = state.shelfLayout[slot];
       if (shelves[slot]?.productId === id) continue;
@@ -378,6 +385,7 @@ export function createStoreScene(canvas, state, onSelect) {
     }
     shelves.forEach(shelf => {
       if (!shelf) return;
+      const placement=shelfPlacement(state,shelf.slot);shelf.group.position.set(placement.x,0,placement.z);shelf.group.rotation.y=placement.rotation;
       const p = state.products[shelf.index], slots = state.shelfLayout.map((id, slot) => id === p.id ? slot : -1).filter(slot => slot >= 0), ordinal = slots.indexOf(shelf.slot);
       const count = Math.floor(p.shelf / slots.length) + (ordinal < p.shelf % slots.length ? 1 : 0);
       shelf.units.update(count, shelf.stall ? 1 : SHELF_INITIAL_LEVELS);
@@ -387,20 +395,20 @@ export function createStoreScene(canvas, state, onSelect) {
     });
     const lanes = checkoutCount(state);
     checkouts.forEach((checkout, i) => {
-      checkout.group.visible = i < lanes; checkout.group.position.set(laneX(i, lanes), 0, 6 + front);
+      const placement=checkoutPlacement(state,i);checkout.group.visible = i < lanes; checkout.group.position.set(placement.x,0,placement.z);checkout.group.rotation.y=placement.rotation;
       checkout.light.material = material(state.phase === 'open' && state.staff.checkout > i ? 0xb8ee81 : 0xe56850);
     });
-    auto.position.set(10.2 + wide / 2, 0, 4.8 + front);
+    const autoPlacement=checkoutPlacement(state,'auto');auto.position.set(autoPlacement.x,0,autoPlacement.z);auto.rotation.y=autoPlacement.rotation;
     auto.visible = state.autoCheckout;
     const liveIds = new Set(state.customers.map(c => c.id));
     for (const [id, actor] of customers) if (!liveIds.has(id)) {
       if (!actor.exiting) {
         updateCustomerCart(actor, actor.customer); actor.exiting = true;
         if (actor.customer.paid) {
-          const lane = actor.customer.checkoutLane, x = lane === 'auto' ? auto.position.x - .85 : laneX(lane, lanes) - .85;
+          const lane=actor.customer.checkoutLane,[x,z]=checkoutPoint(state,lane);
           checkoutVisuals.beginPayment(actor, lane === 'auto' ? autoEffects : checkouts[lane]?.effects);
           actor.key = 'paid-exit'; actor.arrivalRoute = null;
-          actor.route = [[x, 6 + front], [x, 7.7 + front], [7.3, 7.7 + front], [7.3, 10 + front], [actor.home[0], actor.home[1] + front]];
+          actor.route = [...(Object.keys(state.layout||{}).length?walkingPath(state,[actor.group.position.x,actor.group.position.z],[7.3,7.7+front])?.slice(1)||[]:[[x,z],[x,7.7+front],[7.3,7.7+front]]),[7.3,10+front],[actor.home[0],actor.home[1]+front]];
         } else setDestination(actor, actor.home[0], actor.home[1] + front, 'exit');
       }
       const paying = checkoutVisuals.updatePayment(actor, seconds, running);
@@ -416,7 +424,7 @@ export function createStoreScene(canvas, state, onSelect) {
     for (const customer of state.customers) {
       let actor = customers.get(customer.id);
       if (!actor) {
-        actor = person(customer.color); const entry = surroundings.register(customer);
+        const planned=customer.items.reduce((n,l)=>n+l.quantity,0);actor = person(customer.color,false,customer.carryMode||(planned<=6?'bag':planned<=15?'mini':'cart')); const entry = surroundings.register(customer);
         actor.home = [entry[0], entry[1] - front]; const initial=customer.motion?.position||entry;actor.group.position.set(initial[0],.1,initial[1]);
         actor.arrivalRoute = [[9.5, 10 + front], [9.5, 7.3 + front]];
         scene.add(actor.group); customers.set(customer.id, actor);
@@ -474,7 +482,7 @@ export function createStoreScene(canvas, state, onSelect) {
       }
       if (actor.equipment) actor.equipment.group.visible = ['shelves','receiving','online'].includes(role);
       if (role === 'checkout') {
-        const lane = checkoutIndex++; setDestination(actor, lane < lanes ? laneX(lane, lanes) + .85 : -9 + ((lane - lanes) % 12) * 0.65, lane < lanes ? 6.75 + front : 7.3 + front + Math.floor((lane - lanes) / 12) * 0.6, `cashier-${lane}-${lanes}-${front}`);
+        const lane=checkoutIndex++,point=cashierPoint(state,lane);setDestination(actor,point[0],point[1],`cashier-${lane}-${point.join()}`);
       } else if (role === 'shelves') {
         const worker = state.restockers[shelfIndex++];
         displayRestocker(actor, worker, running, seconds, minuteFraction);
@@ -486,7 +494,7 @@ export function createStoreScene(canvas, state, onSelect) {
       }
       walk(actor, seconds, running ? 6 * running : state.phase === 'preparation' ? 2 : 0, now);
       if (!actor.route.length && checkoutIndex - 1 < lanes) {
-        actor.group.rotation.y = -Math.PI / 2;
+        actor.group.rotation.y = checkoutPlacement(state,checkoutIndex-1).rotation;
         const station = checkouts[checkoutIndex - 1].effects;
         actor.arms.forEach((arm, index) => { arm.rotation.x = station.key ? -.6 - (running ? Math.sin(now / 140 + index) * .22 : 0) : 0; });
       }
@@ -529,5 +537,5 @@ export function createStoreScene(canvas, state, onSelect) {
     for(const actor of customers.values()) {actor.group.removeFromParent();actor.group.traverse(o=>{o.geometry?.dispose();if(o.material?.map){o.material.map.dispose();o.material.dispose();}});}
     customers.clear();surroundings.reset();checkoutVisuals.reset();
   }
-  return { update, resetSimulation, setCheckoutSound: checkoutVisuals.setSound, focusDocks: () => { keyboardCamera.reset(); controls.target.set(5, 0, -10 - RESERVE_BACK_EXTENSION - state.expansions.reserve * 3); camera.position.set(23, 26, -33 - RESERVE_BACK_EXTENSION - state.expansions.reserve * 3); camera.zoom = 1.15; camera.updateProjectionMatrix(); controls.update(); }, resetCamera: () => { keyboardCamera.reset(); controls.reset(); } };
+  return { update, resetSimulation, setCheckoutSound: checkoutVisuals.setSound, focusDocks: () => { keyboardCamera.reset(); controls.target.set(5, 0, -10 - reserveBackExtension(state)); camera.position.set(23, 26, -33 - reserveBackExtension(state)); camera.zoom = 1.15; camera.updateProjectionMatrix(); controls.update(); }, resetCamera: () => { keyboardCamera.reset(); controls.reset(); } };
 }

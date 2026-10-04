@@ -1,14 +1,20 @@
+import {restockLoad,restockReserved,workerHasProduct} from './restock-load.js';
+export {restockLoad,restockReserved,workerHasProduct} from './restock-load.js';
+import {newTheftState,settleTheft,securityDailyCost} from './theft.js';
+import {newSatisfactionMetrics,satisfactionMetrics,adjustSatisfaction} from './satisfaction.js';
+export {satisfactionReport} from './satisfaction.js';
+import { walkingPath, routeWaypoints, reachable } from './walking-route.js';
 import { stepCustomerMotion } from './customer-motion.js';
-import { RESERVE_BACK_EXTENSION, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, shelfPosition, shelfRotation, shelfFixtureId, shelfFixtureCount, productShelfPosition, productShelfAccess, storeFrontExtension, reserveProductPosition } from './store-layout.js';
+import { STORE_SIZES, storeSize, shopArea, reserveBackExtension, shopBounds, shelfAccessPoint, reserveAccessPoint, layoutObjects, objectBox, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, shelfPosition, shelfRotation, shelfFixtureId, shelfFixtureCount, productShelfPosition, productShelfAccess, storeFrontExtension, reserveProductPosition } from './store-layout.js';
 export { SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, SHELF_MODULE_CAPACITY, shelfPosition, shelfRotation, shelfFixtureId, shelfFixtureCount, productShelfPosition, productShelfAccess, storeFrontExtension, reserveProductPosition } from './store-layout.js';
 import { newOnlineState, onlineDaily, onlineReserved, onlineHeld, resizeOnlineStaff, onlineInstallationBusy, updateOnline } from './online-orders.js';
 import { checkoutCount, checkoutSpace, activeCheckoutLanes, releaseClosedCheckouts, updateCheckouts } from './checkout-flow.js';
 export { checkoutCount, activeCheckoutLanes } from './checkout-flow.js';
-import { PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
+import { ARTICLES_PER_PALLET, PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
 export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
 export const ORDER_MAX_QUANTITY = 1000;
 export const GROUPED_DELIVERY_FEE = 10;
-export const ORDER_QUANTITIES = [12, 24, 48, 120, 240, 480, 720, 1000];
+export const ORDER_QUANTITIES = [12, 24, 48, 96, 120, 240, 480, 720, 1000];
 export const INITIAL_SHELF_STOCK = 480;
 export const RESTOCK_TRIGGER_RATIO = .75;
 export const PRODUCTS = [
@@ -35,7 +41,7 @@ export const RESERVE_EXPANSION_CAPACITY = 250;
 export const RESERVE_CAPACITY = RESERVE_PRODUCT_CAPACITY * PRODUCTS.length;
 export const STAFF_DAILY_WAGE = 85;
 export const staffCount = s => Object.values(s.staff).reduce((sum, n) => sum + n, 0);
-export const dailyCosts = s => staffCount(s) * STAFF_DAILY_WAGE + maintenanceCosts(s).total + 160;
+export const dailyCosts = s => staffCount(s) * STAFF_DAILY_WAGE + maintenanceCosts(s).total + premisesCosts(s).total;
 export const STORE_EXPANSIONS = {
   checkout: { name: 'Zone de paiement', costs: [2000, 3500] },
   shelves: { name: 'Rayons', costs: [3000, 5000] },
@@ -45,7 +51,7 @@ export const checkoutDailyCosts = s => checkoutCount(s) * 5 + (s.autoCheckout ? 
 export const INSTALLATIONS = {
   drive: { name: 'Zone de retrait drive', install: 2000, remove: 300, maintenance: 15 },
   web: { name: 'Poste d’emballage web', install: 1500, remove: 250, maintenance: 10 },
-  checkouts: { name: 'Caisses', install: 900, remove: 120, maintenance: 5 },
+  checkouts: { name: 'Caisses et employés', install: 900, remove: 120, maintenance: 5 },
   auto: { name: 'Caisse automatique', install: 3500, remove: 400, maintenance: 8 },
   shelves: { name: 'Modules de rayon', install: 120, remove: 30, maintenance: 1 },
   reserve: { name: 'Racks de réserve', install: 700, remove: 150, maintenance: 4 },
@@ -87,6 +93,15 @@ function payInstallation(s, quote) {
   s.vatDeductible = round(s.vatDeductible + quote.totalCost / 6);
   log(s, `${INSTALLATIONS[quote.kind].name} : ${Math.abs(quote.delta)} ${quote.delta > 0 ? 'installé(s)' : 'retiré(s)'} · ${quote.totalCost} €.`, 'success');
 }
+function assertCustomLayoutClear(s) {
+ if(!Object.keys(s.layout||{}).length)return;
+ const objects=layoutObjects(s);
+ for(let i=0;i<objects.length;i++)for(let j=i+1;j<objects.length;j++) {
+  const a=objects[i],b=objects[j];if(!s.layout[a.id]&&!s.layout[b.id])continue;
+  const r=objectBox(a),q=objectBox(b);
+  if(r.left<q.right-.001&&r.right>q.left+.001&&r.back<q.front-.001&&r.front>q.back+.001)throw new Error('Déplacez les équipements qui occupent cet emplacement avant ces travaux.');
+ }
+}
 export function setInstallation(s, kind, amount, productId) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Les travaux ne sont pas disponibles.');
   if (kind === 'shelves') return setShelfCount(s, productId, amount);
@@ -103,17 +118,23 @@ export function setInstallation(s, kind, amount, productId) {
       const p = s.products.find(p => p.id === productId), index = s.products.indexOf(p);
       const capacity = amount * (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY);
       const held = s.customers.reduce((sum, c) => sum + c.basket.filter(item => item.index === index).reduce((n, item) => n + item.quantity, 0), 0);
-      const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
-      const committed = s.receivers.filter(w => w.productId === productId && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
-      const busy = [...s.restockers, ...s.receivers].some(w => w.productId === productId && w.reserveRack >= amount && !['idle', 'returning'].includes(w.phase));
+      const carried = s.restockers.filter(w => workerHasProduct(w,productId)).reduce((sum, w) => sum + restockLoad(w,productId), 0);
+      const committed = s.receivers.filter(w => workerHasProduct(w,productId) && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
+      const busy = [...s.restockers, ...s.receivers].some(w => workerHasProduct(w,productId) && w.reserveRack >= amount && !['idle', 'returning'].includes(w.phase));
       if (p.reserve + held + carried + committed + onlineHeld(s, productId, 'reserve') > capacity || busy || s.online.workers.some(w => w.phase !== 'idle' && s.online.orders.find(o=>o.id===w.orderId)?.lines[w.line]?.productId === productId && w.source === 'reserve' && w.reserveRack >= amount)) throw new Error('Ce rack contient du stock ou sert à un transport en cours. Videz-le avant de le retirer.');
     }
   }
+  const proposal={...s,infrastructure:{...s.infrastructure}};
+  if(kind==='reserve')proposal.products=s.products.map(p=>p.id===productId?{...p,reserveRacks:amount}:p);
+  else if(kind==='auto')proposal.autoCheckout=Boolean(amount);
+  else proposal.infrastructure[kind]=amount;
+  assertCustomLayoutClear(proposal);
   payInstallation(s, quote);
   if (kind === 'reserve') { const p = s.products.find(p => p.id === productId); p.reserveRacks = amount; p.reserveCapacity = amount * (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY); }
   else if (kind === 'auto') s.autoCheckout = Boolean(amount);
   else s.infrastructure[kind] = amount;
   if (['drive','web'].includes(kind)) s.online.enabled[kind] = Boolean(amount);
+  if (kind === 'checkouts') setStaff(s, 'checkout', amount);
   if (kind === 'checkouts' || kind === 'auto') releaseClosedCheckouts(s);
   return { ...quote, cash: s.money };
 }
@@ -138,11 +159,12 @@ export const clock = minute => `${String(Math.floor(minute / 60)).padStart(2, '0
 
 export function createGame(seed = 73471) {
   return {
+    storeSize:'standard', layout:{},
     day: 1, minute: 450, money: 8500, phase: 'preparation', speed: 0,
     seed, nextId: 1, staff: { checkout: 2, shelves: 5, receiving: 1, online: 0 }, online: newOnlineState(seed),
     products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: RESERVE_PRODUCT_CAPACITY, reserveRacks: 1, soldToday: 0, restockedToday: 0 })),
     orders: [], shipments: [], eveningBasket: [], eveningError: null, customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
-    satisfaction: 100, autoCheckout: false, checkoutCredit: 0,
+    satisfaction: 100, satisfactionDetails: newSatisfactionMetrics(), autoCheckout: false, checkoutCredit: 0,
     directorSalary: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
     vatCollected: 0, vatDeductible: 0, vatCredit: 0, vatDue: 0, profitTaxDue: 0, taxPaidToday: 0, autoPayTaxes: true,
     restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false }, restockRequests: [],
@@ -153,6 +175,65 @@ export function createGame(seed = 73471) {
     arrivalCredit: 0, elapsed: 0, history: [], summary: null,
     log: [{ text: 'Bienvenue, directeur. Préparez vos équipes et vos premières commandes.', kind: 'info', time: '07:30' }],
   };
+}
+export function createStarterGame(seed=73471) {
+  const s=createGame(seed);s.mixedRestock=true;s.restockMode='medium';s.restockUnlocked.medium=true;s.theft=newTheftState(seed);s.storeSize='small';s.shelfLayout=[null,'produce',null,null,'bakery',null];
+  s.products.forEach((p,i)=>{p.shelf=i<2?120:0;p.reserve=i<2?48:0;p.capacity=i<2?200:0;p.reserveRacks=i<2?1:0;p.reserveCapacity=i<2?500:0;});
+  s.infrastructure.checkouts=1;s.infrastructure.bays=1;s.infrastructure.outside=5;
+  setStaff(s,'checkout',1);setStaff(s,'shelves',1);setStaff(s,'receiving',1);
+  s.log[0].text='Bienvenue, directeur.';return s;
+}
+export function startDayOnLoad(s) {
+  if(s.phase==='closed')nextDay(s);
+  if(s.phase==='preparation')openStore(s);
+  if(s.phase==='open')s.speed=1;
+  return s;
+}
+export function premisesCosts(s) {
+  const area=shopArea(s),ratio=area/317;
+  const electricity=round(20*ratio+2*checkoutCount(s)+.5*s.shelfLayout.filter(Boolean).length+.5*s.products.reduce((n,p)=>n+p.reserveRacks,0)+3*Number(s.autoCheckout)+5*s.infrastructure.drive+5*s.infrastructure.web);
+  const rows=[{name:'Loyer',cost:round(90*ratio)},{name:'Électricité',cost:electricity},{name:'Assurance',cost:round(10*ratio)},{name:'Entretien des locaux',cost:round(20*ratio)}];
+  if(securityDailyCost(s))rows.push({name:'Surveillance',cost:securityDailyCost(s)});
+  return {area,rows,total:round(rows.reduce((n,r)=>n+r.cost,0))};
+}
+export function setStoreSize(s,size) {
+  if(!Object.hasOwn(STORE_SIZES,size)||!['preparation','open'].includes(s.phase))throw new Error('Taille de magasin indisponible.');
+  if(size===(s.storeSize||'standard'))return {size,cost:0};
+  if(s.speed)throw new Error('Mettez le magasin en pause pour changer sa taille.');
+  if([...s.restockers,...s.receivers,...s.online.workers].some(w=>w.phase!=='idle')||s.customers.some(c=>c.stage==='checkout')||s.shipments.some(t=>['positioning','reversing','docked','departing'].includes(t.phase))||s.online.carrier||s.online.orders.some(o=>o.car))throw new Error('Attendez la fin des opérations en cours avant de changer de local.');
+  const slots=STORE_SIZES[size].shelves+s.expansions.shelves*18;
+  if(s.shelfLayout.slice(slots).some(Boolean)||s.infrastructure.checkouts>Math.min(8,STORE_SIZES[size].checkouts+s.expansions.checkout*2))throw new Error('Retirez les installations en trop avant de réduire le magasin.');
+  const cost=Math.max(0,STORE_SIZES[size].lease-storeSize(s).lease);
+  if(cost>s.money)throw new Error('Trésorerie insuffisante pour ce local.');
+  const candidate={...s,storeSize:size};assertCustomLayoutClear(candidate);
+  for(const o of layoutObjects(candidate))if(s.layout?.[o.id]&&!fitsPlacement(candidate,o))throw new Error('Déplacez les équipements dans le nouveau local avant de le réduire.');
+  s.storeSize=size;s.shelfLayout.length=Math.min(slots,s.shelfLayout.length);while(s.shelfLayout.length<slots)s.shelfLayout.push(null);
+  s.money=round(s.money-cost);s.spending=round(s.spending+cost);s.vatDeductible=round(s.vatDeductible+cost/6);
+  s.customers.forEach(c=>{if(c.motion)c.motion.key='';});
+  return {size,cost,area:shopArea(s)};
+}
+function fitsPlacement(s,o) {
+  const b=shopBounds(s),r=objectBox(o,.3);
+  return r.left>=b.left&&r.right<=b.right&&r.back>=(o.zone==='shop'?-3.65:b.back+.2)&&r.front<=(o.zone==='reserve'?-4.6:b.front-.7)&&!(o.zone==='shop'&&r.right>6.1&&r.front>7.6+storeFrontExtension(s.expansions,s.storeSize));
+}
+export function moveFixture(s,id,x,z,rotation=0) {
+  if(!['preparation','open'].includes(s.phase)||s.speed)throw new Error('Mettez le magasin en pause pour aménager.');
+  if(![x,z,rotation].every(Number.isFinite)||![0,Math.PI/2,Math.PI,Math.PI*1.5,-Math.PI/2].some(a=>Math.abs(a-rotation)<.00001))throw new Error('Placement invalide.');
+  const o=layoutObjects(s).find(o=>o.id===id);if(!o)throw new Error('Équipement introuvable.');
+  const busyShelf=id.startsWith('shelf:')&&s.restockers.some(w=>w.phase!=='idle'&&workerHasProduct(w,s.shelfLayout[Number(id.split(':')[1])]));
+  const busyReserve=id.startsWith('reserve:')&&[...s.restockers,...s.receivers].some(w=>w.phase!=='idle'&&(w.cargo?w.cargo.some(l=>l.productId===s.products[Number(id.split(':')[1])].id&&l.reserveRack===Number(id.split(':')[2])&&(l.reserved||l.quantity)):w.productId===s.products[Number(id.split(':')[1])].id&&w.reserveRack===Number(id.split(':')[2])));
+  const busyCheckout=s.customers.some(c=>c.stage==='checkout'&&(id==='auto'?c.checkoutLane==='auto':id===`checkout:${c.checkoutLane}`));
+  if(busyShelf||busyReserve||busyCheckout||s.online.workers.some(w=>w.phase!=='idle'))throw new Error('Cet équipement est utilisé. Terminez son opération avant de le déplacer.');
+  const placement={x:Math.round(x*2)/2,z:Math.round(z*2)/2,rotation};
+  const candidate={...s,layout:{...s.layout,[id]:placement}},objects=layoutObjects(candidate),moved=objects.find(o=>o.id===id);
+  if(!fitsPlacement(candidate,moved))throw new Error('Gardez cet équipement dans sa zone et laissez les portillons libres.');
+  const a=objectBox(moved,.2);
+  if(objects.some(other=>{if(other.id===id)return false;const b=objectBox(other,.2);return a.left<b.right&&a.right>b.left&&a.back<b.front&&a.front>b.back;}))throw new Error('Laissez de la place entre les équipements.');
+  const front=storeFrontExtension(s.expansions,s.storeSize),origin=[9.5,7.1+front];
+  if(objects.some(other=>!reachable(candidate,origin,other.access)))throw new Error('Conservez une allée accessible vers chaque équipement.');
+  const reroutes=[...s.restockers,...s.receivers].filter(w=>w.path?.length&&w.remaining>0).map(w=>{const start=restockerPosition(w),path=walkingPath(candidate,start,w.path.at(-1));if(!path)throw new Error('Ce placement bloque un transport en cours.');return {w,path};});
+  s.layout=candidate.layout;for(const {w,path}of reroutes){w.path=path;w.total=w.remaining=Math.max(1,Math.ceil(path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-path[i][0],p[1]-path[i][1]),0)/2.4));}s.customers.forEach(c=>{if(c.motion)c.motion.key='';});
+  return {id,...placement};
 }
 function random(s) {
   s.seed = (Math.imul(1664525, s.seed) + 1013904223) >>> 0;
@@ -195,14 +276,18 @@ export function setShelfCount(s, productId, amount) {
   const slots = s.shelfLayout.map((id, slot) => id === productId ? slot : -1).filter(slot => slot >= 0);
   const quote = quoteInstallation(s, 'shelves', amount, productId);
   const capacity = amount * SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS;
-  const committed = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load + w.reserved, 0);
+  const committed = s.restockers.filter(w => workerHasProduct(w,productId)).reduce((sum, w) => sum + restockLoad(w,productId) + restockReserved(w,productId), 0);
   const held = s.customers.reduce((sum, c) => sum + c.basket.filter(item => s.products[item.index].id === productId).reduce((n, item) => n + item.quantity, 0), 0);
   if (product.shelf + committed + held + onlineHeld(s,productId,'shelf') > capacity) throw new Error('Il reste trop d’articles ou de chargements pour retirer ce module. Attendez que le stock baisse.');
   const free = s.shelfLayout.map((id, slot) => id === null ? slot : -1).filter(slot => slot >= 0);
   if (amount - slots.length > free.length) throw new Error('Agrandissez la zone des rayons pour disposer de nouveaux emplacements.');
   if (amount < slots.length && s.online.workers.some(w => w.phase !== 'idle' && w.source === 'shelf' && s.online.orders.find(o=>o.id===w.orderId)?.lines[w.line]?.productId === productId)) throw new Error('Un préparateur utilise ce rayon. Attendez son retour.');
-  if (amount < slots.length && s.restockers.some(w => w.productId === productId && !['idle', 'returning'].includes(w.phase))) throw new Error('Attendez la fin de la mise en rayon avant de retirer ce module.');
+  if (amount < slots.length && s.restockers.some(w => workerHasProduct(w,productId) && !['idle', 'returning'].includes(w.phase))) throw new Error('Attendez la fin de la mise en rayon avant de retirer ce module.');
   if (quote.totalCost > s.money) throw new Error('Trésorerie insuffisante pour ces travaux.');
+  const proposal={...s,shelfLayout:[...s.shelfLayout]};
+  if(amount>slots.length)free.slice(0,amount-slots.length).forEach(slot=>proposal.shelfLayout[slot]=productId);
+  else slots.slice(amount).forEach(slot=>proposal.shelfLayout[slot]=null);
+  assertCustomLayoutClear(proposal);
   payInstallation(s, quote);
   if (amount > slots.length) free.slice(0, amount - slots.length).forEach(slot => { s.shelfLayout[slot] = productId; });
   else slots.slice(amount).forEach(slot => { s.shelfLayout[slot] = null; });
@@ -213,7 +298,7 @@ export function discardReserve(s, productId, quantity) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus être géré.');
   const product = s.products.find(p => p.id === productId);
   if (!product || !Number.isInteger(quantity) || quantity <= 0) throw new Error('Quantité invalide.');
-  const reserved = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.reserved, 0);
+  const reserved = s.restockers.filter(w => workerHasProduct(w,productId)).reduce((sum, w) => sum + restockReserved(w,productId), 0);
   if (quantity > product.reserve - reserved - onlineReserved(s,productId,'reserve')) throw new Error('Ces produits sont déjà réservés à un chargement ou indisponibles.');
   product.reserve -= quantity; s.discarded += quantity;
   log(s, `${quantity} unités de ${product.short.toLowerCase()} jetées pour libérer leur emplacement.`, 'warning');
@@ -238,9 +323,9 @@ export function requestRestock(s, productId) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus être réapprovisionné.');
   const product = s.products.find(p => p.id === productId);
   if (!product) throw new Error('Produit inconnu.');
-  const jobs = s.restockers.filter(w => w.productId === productId && w.phase !== 'returning');
-  if (product.reserve - onlineReserved(s,productId,'reserve') - jobs.reduce((sum, w) => sum + w.reserved, 0) <= 0) throw new Error('Aucun stock disponible pour ce produit en réserve. Commandez depuis la réserve.');
-  if (product.capacity - product.shelf - onlineHeld(s,productId,'shelf') - jobs.reduce((sum, w) => sum + w.load + w.reserved, 0) <= 0) throw new Error('Le rayon est plein ou son remplissage est déjà en cours.');
+  const jobs = s.restockers.filter(w => workerHasProduct(w,productId) && w.phase !== 'returning');
+  if (product.reserve - onlineReserved(s,productId,'reserve') - jobs.reduce((sum,w)=>sum+restockReserved(w,productId),0) <= 0) throw new Error('Aucun stock disponible pour ce produit en réserve. Commandez depuis la réserve.');
+  if (product.capacity - product.shelf - onlineHeld(s,productId,'shelf') - jobs.reduce((sum,w)=>sum+restockLoad(w,productId)+restockReserved(w,productId),0) <= 0) throw new Error('Le rayon est plein ou son remplissage est déjà en cours.');
   if (!s.restockRequests.includes(productId)) {
     s.restockRequests.push(productId);
     log(s, `Remplissage prioritaire demandé : ${product.name}.`);
@@ -248,7 +333,8 @@ export function requestRestock(s, productId) {
   return { productId, waitingForStaff: !s.staff.shelves };
 }
 function resetRestocker(s, worker) {
-  if (worker.load > 0) s.products.find(p => p.id === worker.productId).reserve += worker.load;
+  if(worker.cargo){for(const line of worker.cargo)s.products.find(p=>p.id===line.productId).reserve+=line.quantity;delete worker.cargo;delete worker.cargoIndex;}
+  else if (worker.load > 0) s.products.find(p => p.id === worker.productId).reserve += worker.load;
   Object.assign(worker, { phase: 'idle', productId: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], destination: [...RESTOCK_PICKUP] });
 }
 function beginRestockPhase(worker, phase, duration) {
@@ -272,25 +358,71 @@ export function restockerPosition(worker, minuteFraction = 0) {
   }
   return [...path.at(-1)];
 }
-function restockTravel(worker, returning = false) {
+function restockTravel(s, worker, returning = false) {
   const [x, z] = worker.destination;
   const path = [restockPickup(worker), [11.65, worker.pickup[1]], [11.65, RESTOCK_PICKUP[1]], [0, RESTOCK_PICKUP[1]], [0, -3.75], [10.4, -3.75], [10.4, z], [x, z]];
-  worker.path = returning ? path.reverse() : path;
+  worker.path = routeWaypoints(s,returning ? path.reverse() : path,.45);
   const distance = worker.path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - worker.path[i][0], p[1] - worker.path[i][1]), 0);
   beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.ceil(distance / RESTOCK_EQUIPMENT[worker.mode].travelSpeed));
+}
+function mixedTravel(s,w,destination,phase) {
+ const start=restockerPosition(w),path=[start],fromReserve=start[1]<-4,toReserve=destination[1]<-4;
+ if(fromReserve)path.push([11.65,start[1]]);
+ else path.push([10.4,start[1]]);
+ if(fromReserve!==toReserve)path.push([fromReserve?11.65:10.4,-3.65]);
+ path.push([toReserve?11.65:10.4,destination[1]],destination);
+ w.path=routeWaypoints(s,path,.45);const distance=w.path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-w.path[i][0],p[1]-w.path[i][1]),0);
+ w.destination=[...destination];beginRestockPhase(w,phase,Math.max(1,Math.ceil(distance/RESTOCK_EQUIPMENT[w.mode].travelSpeed)));
+}
+function mixedTarget(s,w,index,source) {
+ const line=w.cargo[index],p=s.products.find(p=>p.id===line.productId),productIndex=s.products.indexOf(p);
+ w.cargoIndex=index;w.productId=p.id;w.reserveRack=line.reserveRack;
+ const destination=source==='reserve'?reserveAccessPoint(s,productIndex,line.reserveRack,2.7):shelfAccessPoint(s,productIndex,w.completed);
+ mixedTravel(s,w,destination,source==='reserve'?'collecting':'outbound');
+}
+function updateMixedRestocker(s,w) {
+ if(w.phase==='idle') {
+  const candidates=s.products.map((p,index)=>({p,index,available:p.reserve-onlineReserved(s,p.id,'reserve')-s.restockers.reduce((n,o)=>n+restockReserved(o,p.id),0),need:p.capacity-p.shelf-onlineHeld(s,p.id,'shelf')-s.restockers.reduce((n,o)=>n+restockLoad(o,p.id)+restockReserved(o,p.id),0)})).filter(c=>c.available>0&&c.need>0&&(s.restockRequests.includes(c.p.id)||c.p.shelf<=c.p.capacity*RESTOCK_TRIGGER_RATIO)).sort((a,b)=>{const priority=p=>{const i=s.restockRequests.indexOf(p.id);return i<0?999:i;};return priority(a.p)-priority(b.p)||a.p.shelf/a.p.capacity-b.p.shelf/b.p.capacity;}).slice(0,3);
+  if(!candidates.length)return;
+  w.mode=s.restockMode==='small'?'medium':s.restockMode;
+  const cargo=candidates.map(c=>({productId:c.p.id,quantity:0,reserved:0,reserveRack:Math.max(0,Math.min(c.p.reserveRacks-1,Math.ceil(c.available/(RESERVE_PRODUCT_CAPACITY+s.expansions.reserve*RESERVE_EXPANSION_CAPACITY))-1))}));
+  let capacity=RESTOCK_EQUIPMENT[w.mode].capacity,added=true;
+  while(capacity&&added){added=false;for(let i=0;i<candidates.length&&capacity;i++)if(cargo[i].reserved<Math.min(candidates[i].available,candidates[i].need)){cargo[i].reserved++;capacity--;added=true;}}
+  w.cargo=cargo.filter(l=>l.reserved);w.load=0;w.reserved=w.cargo.reduce((n,l)=>n+l.reserved,0);mixedTarget(s,w,0,'reserve');return;
+ }
+ const line=w.cargo[w.cargoIndex];
+ if(w.phase==='stocking') {
+  const p=s.products.find(p=>p.id===line.productId),quantity=Math.min(line.quantity,p.capacity-p.shelf-onlineHeld(s,p.id,'shelf'),RESTOCK_EQUIPMENT[w.mode].stockRate);
+  p.shelf+=quantity;p.restockedToday+=quantity;line.quantity-=quantity;w.load-=quantity;
+  if(!line.quantity||p.shelf>=p.capacity){
+   if(line.quantity){p.reserve+=line.quantity;w.load-=line.quantity;line.quantity=0;}
+   const next=w.cargo.findIndex(l=>l.quantity>0);
+   if(next>=0)mixedTarget(s,w,next,'shelf');else mixedTravel(s,w,RESTOCK_PICKUP,'returning');
+  }
+  return;
+ }
+ w.remaining--;if(w.remaining>0)return;
+ if(w.phase==='collecting'){w.pickup=[...w.destination];beginRestockPhase(w,'loading',RESTOCK_EQUIPMENT[w.mode].loading);}
+ else if(w.phase==='loading') {
+  const p=s.products.find(p=>p.id===line.productId);p.reserve-=line.reserved;line.quantity+=line.reserved;w.load+=line.reserved;w.reserved-=line.reserved;line.reserved=0;
+  const next=w.cargo.findIndex(l=>l.reserved>0);if(next>=0)mixedTarget(s,w,next,'reserve');else mixedTarget(s,w,w.cargo.findIndex(l=>l.quantity>0),'shelf');
+ }
+ else if(w.phase==='outbound')beginRestockPhase(w,'stocking',0);
+ else if(w.phase==='returning'){w.pickup=[...w.destination];w.completed++;resetRestocker(s,w);}
 }
 function updateRestocking(s) {
   s.restockRequests = s.restockRequests.filter(id => {
     const p = s.products.find(product => product.id === id);
-    const jobs = s.restockers.filter(w => w.productId === id && w.phase !== 'returning');
-    return p.reserve - onlineReserved(s,id,'reserve') - jobs.reduce((sum, w) => sum + w.reserved, 0) > 0 && p.capacity - p.shelf - onlineHeld(s,id,'shelf') - jobs.reduce((sum, w) => sum + w.load + w.reserved, 0) > 0;
+    const jobs = s.restockers.filter(w => workerHasProduct(w,id) && w.phase !== 'returning');
+    return p.reserve - onlineReserved(s,id,'reserve') - jobs.reduce((sum,w)=>sum+restockReserved(w,id),0) > 0 && p.capacity - p.shelf - onlineHeld(s,id,'shelf') - jobs.reduce((sum,w)=>sum+restockLoad(w,id)+restockReserved(w,id),0) > 0;
   });
   for (const worker of s.restockers.slice(0, s.staff.shelves)) {
+    if(s.mixedRestock&&(worker.cargo||worker.phase==='idle')){updateMixedRestocker(s,worker);continue;}
     if (worker.phase === 'idle') {
       const candidates = s.products.map((p, index) => {
-        const jobs = s.restockers.filter(w => w.productId === p.id && w.phase !== 'returning');
-        const allocated = jobs.reduce((sum, w) => sum + w.load + w.reserved, 0);
-        const reserved = jobs.reduce((sum, w) => sum + w.reserved, 0);
+        const jobs = s.restockers.filter(w => workerHasProduct(w,p.id) && w.phase !== 'returning');
+        const allocated = jobs.reduce((sum,w)=>sum+restockLoad(w,p.id)+restockReserved(w,p.id),0);
+        const reserved = jobs.reduce((sum,w)=>sum+restockReserved(w,p.id),0);
         return { p, index, available: p.reserve - reserved - onlineReserved(s,p.id,'reserve'), need: p.capacity - p.shelf - allocated - onlineHeld(s,p.id,'shelf') };
       }).filter(({ p, available, need }) => available > 0 && need > 0 &&
         (s.restockRequests.includes(p.id) || (p.shelf <= p.capacity * RESTOCK_TRIGGER_RATIO &&
@@ -302,9 +434,9 @@ function updateRestocking(s) {
       const target = candidates[0]; if (!target) continue;
       worker.mode = s.restockMode; worker.productId = target.p.id;
       worker.reserved = Math.min(RESTOCK_EQUIPMENT[worker.mode].capacity, target.available, target.need);
-      const [x, z, side] = productShelfAccess(s, target.index, worker.completed); worker.destination = [x + .25, z + side * 1.45];
+      worker.destination = shelfAccessPoint(s,target.index,worker.completed);
       worker.reserveRack = Math.max(0, Math.min(target.p.reserveRacks - 1, Math.ceil(target.available / (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY)) - 1));
-      const [rx, rz] = reserveProductPosition(target.index, worker.reserveRack); worker.pickup = [rx, rz + 1.25];
+      worker.pickup = reserveAccessPoint(s,target.index,worker.reserveRack,worker.mode==='small'?2:2.7);
       beginRestockPhase(worker, 'loading', RESTOCK_EQUIPMENT[worker.mode].loading);
       continue;
     }
@@ -312,7 +444,7 @@ function updateRestocking(s) {
       const product = s.products.find(p => p.id === worker.productId);
       const quantity = Math.min(worker.load, product.capacity - product.shelf - onlineHeld(s,product.id,'shelf'), RESTOCK_EQUIPMENT[worker.mode].stockRate);
       product.shelf += quantity; product.restockedToday += quantity; worker.load -= quantity;
-      if (!worker.load || product.shelf === product.capacity) restockTravel(worker, true);
+      if (!worker.load || product.shelf === product.capacity) restockTravel(s, worker, true);
       continue;
     }
     worker.remaining--;
@@ -320,7 +452,7 @@ function updateRestocking(s) {
     if (worker.phase === 'loading') {
       const product = s.products.find(p => p.id === worker.productId);
       product.reserve -= worker.reserved; worker.load = worker.reserved; worker.reserved = 0;
-      restockTravel(worker);
+      restockTravel(s, worker);
     }
     else if (worker.phase === 'outbound') beginRestockPhase(worker, 'stocking', 0);
     else if (worker.phase === 'returning') { worker.completed++; resetRestocker(s, worker); }
@@ -339,7 +471,7 @@ export function quoteOrder(productId, quantity, supplierId) {
 export function inventoryPosition(s, productId) {
   const product = s.products.find(p => p.id === productId);
   if (!product) throw new Error('Produit inconnu.');
-  const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
+  const carried = s.restockers.filter(w => workerHasProduct(w,productId)).reduce((sum, w) => sum + restockLoad(w,productId), 0);
   const incoming = s.orders.filter(o => o.productId === productId && o.status !== 'received').reduce((sum, o) => sum + o.remaining, 0);
   const unloading = s.receivers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
   return product.shelf + product.reserve + carried + incoming + unloading + onlineHeld(s,productId,'reserve') + onlineHeld(s,productId,'shelf');
@@ -352,7 +484,7 @@ function commitSupplierBatch(s, lines, supplierId, mode) {
   if (cost > s.money) throw new Error('Trésorerie insuffisante pour cette commande.');
   const batchId = s.nextId++, orderList = [];
   quotes.forEach((q, index) => {
-    const pallets = Array.from({ length: Math.ceil(q.quantity / 48) }, (_, index) => ({ index, quantity: Math.min(48, q.quantity - index * 48), remaining: Math.min(48, q.quantity - index * 48), status: 'dock', shipmentId: null, truckIndex: null, outsideSlot: null, outsideOrigin: false }));
+    const pallets = Array.from({ length: Math.ceil(q.quantity / ARTICLES_PER_PALLET) }, (_, index) => ({ index, quantity: Math.min(ARTICLES_PER_PALLET, q.quantity - index * ARTICLES_PER_PALLET), remaining: Math.min(ARTICLES_PER_PALLET, q.quantity - index * ARTICLES_PER_PALLET), status: 'dock', shipmentId: null, truckIndex: null, outsideSlot: null, outsideOrigin: false }));
     const fee = index === 0 ? deliveryFee : 0;
     const order = { ...q, id: s.nextId++, batchId, mode, remaining: q.quantity, cost: round(q.goodsCost + fee), deliveryFee: fee, source: 'manual', pallets, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
     s.orders.push(order); orderList.push(order);
@@ -438,8 +570,8 @@ export function payTaxes(s) {
   const result = settleTaxes(s); log(s, `Taxes payées : ${result.paid} €.`, 'success'); return result;
 }
 function recordSale(s, customer, channel = null) {
-  customer.paid = true;
-  for (const item of customer.basket) s.products[item.index].soldToday += item.quantity;
+  customer.paid = true;if(!channel)settleTheft(s,customer);
+  for (const item of customer.basket) s.products[item.index].soldToday += item.quantity-(item.stolen||0);
   s.money = round(s.money + customer.value); s.sales = round(s.sales + customer.value); if (!channel) s.sold++;
   s.vatCollected = round(s.vatCollected + customer.value / 6);
 }
@@ -452,12 +584,12 @@ export function dailyProfitability(s, salaryPaid = round(Math.min(s.directorSala
 export function nextDay(s) {
   if (s.phase !== 'closed') throw new Error('La journée doit être terminée.');
   s.day++; s.minute = 450; s.phase = 'preparation'; s.speed = 0;
-  s.online.daily = onlineDaily();
+  s.online.daily = onlineDaily();if(s.theft)s.theft.daily=newTheftState(s.theft.seed).daily;
   s.sold = 0; s.lost = 0; s.sales = 0; s.spending = 0; s.summary = null;
   s.products.forEach(p => { p.soldToday = 0; p.restockedToday = 0; });
   s.vatCollected = 0; s.vatDeductible = 0; s.taxPaidToday = 0; s.ownerContribution = 0;
   s.arrivalCredit = 0; s.checkoutCredit = 0;
-  s.satisfaction = Math.min(100, s.satisfaction + 8);
+  s.satisfaction = Math.min(100, s.satisfaction + 8);s.satisfactionDetails=newSatisfactionMetrics(s.satisfaction,s.minute);
   log(s, `Jour ${s.day} : ${currentEvent(s).name}. ${currentEvent(s).hint}`);
 }
 function closeStore(s) {
@@ -466,7 +598,7 @@ function closeStore(s) {
   for (const worker of s.receivers) resetReceiver(s, worker);
   for (const c of s.customers) {
     if (c.value > 0 && c.stage === 'checkout' && c.checkoutArrived !== false && (!c.motion || c.checkoutRemaining<=0) && activeCheckoutLanes(s).includes(c.checkoutLane)) recordSale(s, c);
-    else { returnBasket(s, c); s.lost++; }
+    else { returnBasket(s, c); s.lost++; satisfactionMetrics(s).closingDepartures++; }
   }
   dispatchEveningBasket(s);
   const operatingCost = dailyCosts(s);
@@ -481,7 +613,7 @@ function closeStore(s) {
   const profitTax = profitability.profitTax; s.profitTaxDue = round(s.profitTaxDue + profitTax);
   if (s.autoPayTaxes) settleTaxes(s);
   s.phase = s.money < -1000 ? 'bankrupt' : 'closed';
-  s.summary = { day: s.day, online: { ...s.online.daily }, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
+  s.summary = { day: s.day, theft:s.theft?structuredClone(s.theft.daily):null, satisfactionDetails: structuredClone(satisfactionMetrics(s)), satisfaction:s.satisfaction, premises: premisesCosts(s), online: { ...s.online.daily }, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
   s.history.push({ ...s.summary });
   s.summary.products = s.products.map(p => ({ id: p.id, sold: p.soldToday, restocked: p.restockedToday }));
   s.history.at(-1).products = s.summary.products;
@@ -500,17 +632,18 @@ function returnBasket(s, customer) {
   customer.basket = [];
 }
 function spawnCustomer(s) {
-  const items = [];
+  const items = [],offered=s.products.map((p,i)=>p.capacity>0?i:-1).filter(i=>i>=0);if(!offered.length)return;
   // A few quick visits, mostly weekly shopping across product families.
   const quickVisit = random(s) < .2;
   const count = quickVisit ? 2 + Math.floor(random(s) * 2) : 4 + Math.floor(random(s) * 3);
   for (let i = 0; i < count; i++) {
-    let index = Math.floor(random(s) * s.products.length);
-    if (currentEvent(s).focus >= 0 && random(s) < 0.38) index = currentEvent(s).focus;
+    let index = offered[Math.floor(random(s) * offered.length)];
+    if (currentEvent(s).focus >= 0 && random(s) < 0.38) index = offered.includes(currentEvent(s).focus)?currentEvent(s).focus:index;
     const quantity = quickVisit ? 1 + Math.floor(random(s) * 2) : 3 + Math.floor(random(s) * 4);
     items.push({ index, quantity });
   }
-  s.customers.push({ id: s.nextId++, items, itemIndex: 0, basket: [], value: 0, stage: 'shopping', motion: {position:[9.5,10+storeFrontExtension(s.expansions)],path:[],key:'',facing:Math.PI}, progress: 0, wait: 0, x: 530, y: 590, color: ['#f8ba63', '#85d9c0', '#c1a7ff', '#f291a8'][Math.floor(random(s) * 4)] });
+  const planned=items.reduce((n,l)=>n+l.quantity,0),carryMode=planned<=6?'bag':planned<=15?'mini':'cart';
+  s.customers.push({ carryMode, id: s.nextId++, items, itemIndex: 0, basket: [], value: 0, stage: 'shopping', motion: {position:[9.5,10+storeFrontExtension(s.expansions,s.storeSize)],path:[],key:'',facing:Math.PI}, progress: 0, wait: 0, x: 530, y: 590, color: ['#f8ba63', '#85d9c0', '#c1a7ff', '#f291a8'][Math.floor(random(s) * 4)] });
 }
 function receiverHome(worker) { return [5 + (worker.id % 6) * .55, -5.3]; }
 function resetReceiver(s, worker) {
@@ -523,7 +656,7 @@ function resetReceiver(s, worker) {
   Object.assign(worker, { phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], pickup: receiverHome(worker), destination: receiverHome(worker), toOutside: false, fromOutside: false });
 }
 function receiverTravel(s, worker, returning = false) {
-  const [x, z] = worker.destination, back = RESERVE_BACK_EXTENSION + s.expansions.reserve * 3;
+  const [x, z] = worker.destination, back = reserveBackExtension(s);
   let path;
   if (returning) {
     path = worker.toOutside
@@ -537,7 +670,7 @@ function receiverTravel(s, worker, returning = false) {
       ? [worker.pickup, [bayX, -6.35 - back], [0, -6.35 - back], [0, -9.2 - back], [x, -9.2 - back], [x, z]]
       : [worker.pickup, [bayX, -6.35 - back], [11.65, -6.35-back], [11.65,z], [x,z]];
   }
-  worker.path = path;
+  worker.path = routeWaypoints(s,path,.55);path=worker.path;
   const distance = path.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - path[i][0], point[1] - path[i][1]), 0);
   beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.max(1, Math.ceil(distance / 2.5)));
 }
@@ -545,8 +678,8 @@ function updateReceiving(s) {
   const spaceFor = productId => {
     const product = s.products.find(p => p.id === productId), index = s.products.indexOf(product);
     const heldGoods = s.customers.reduce((sum, c) => sum + c.basket.filter(item => item.index === index).reduce((n, item) => n + item.quantity, 0), 0);
-    const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
-    const committed = s.receivers.filter(w => w.productId === productId && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
+    const carried = s.restockers.filter(w => workerHasProduct(w,productId)).reduce((sum, w) => sum + restockLoad(w,productId), 0);
+    const committed = s.receivers.filter(w => workerHasProduct(w,productId) && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
     return product.reserveCapacity - product.reserve - carried - heldGoods - committed - onlineHeld(s,productId,'reserve');
   };
   for (const worker of s.receivers.slice(0, s.staff.receiving)) {
@@ -567,17 +700,18 @@ function updateReceiving(s) {
         worker.toOutside = pallet.remaining > spaceFor(order.productId);
         if (worker.toOutside) pallet.outsideSlot = freeOutsideSlot(s);
       }
-      const start = restockerPosition(worker), back = RESERVE_BACK_EXTENSION + s.expansions.reserve * 3;
+      const start = restockerPosition(worker), back = reserveBackExtension(s);
       const truck = s.shipments.find(t => t.id === pallet.shipmentId); worker.shipmentBay = truck.bay;
       worker.productId = order.productId; worker.orderId = order.id;
       worker.reserveRack = Math.min(Math.max(0, Math.floor(s.products.find(p => p.id === order.productId).reserve / (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY))), Math.max(0, s.products.find(p => p.id === order.productId).reserveRacks - 1));
       worker.palletIndex = pallet.index; worker.reserved = pallet.remaining; pallet.status = 'reserved';
       const [px, pz] = deliveryPalletPosition(s, order, pallet); worker.pickup = [px, pz + 1];
       if (worker.toOutside) { const [ox, oz] = outsidePalletPosition(s, pallet); worker.destination = [ox, oz + 1]; }
-      else { const [rx, rz] = reserveProductPosition(s.products.findIndex(p => p.id === order.productId), worker.reserveRack || 0); worker.destination = [rx, rz + 1.25]; }
+      else { worker.destination = reserveAccessPoint(s,s.products.findIndex(p => p.id === order.productId),worker.reserveRack || 0,2.7); }
       worker.path = outside
         ? [start, [0, -6.35 - back], [0, -9.2 - back], [px, -9.2 - back], worker.pickup]
         : [start, [DELIVERY_BAYS[truck.bay], -6.35 - back], worker.pickup];
+      worker.path=routeWaypoints(s,worker.path,.55);
       const distance = worker.path.slice(1).reduce((sum, point, index) => sum + Math.hypot(point[0] - worker.path[index][0], point[1] - worker.path[index][1]), 0);
       beginRestockPhase(worker, 'approaching', Math.max(1, Math.ceil(distance / 3)));
       continue;
@@ -599,7 +733,7 @@ function updateReceiving(s) {
         const order = s.orders.find(o => o.id === worker.orderId);
         if (worker.toOutside && worker.reserved <= spaceFor(worker.productId)) {
           worker.toOutside = false; order.pallets[worker.palletIndex].outsideSlot = null;
-          const [rx, rz] = reserveProductPosition(s.products.findIndex(p => p.id === worker.productId));
+          const [rx, rz] = reserveProductPosition(s.products.findIndex(p => p.id === worker.productId),worker.reserveRack||0,s);
           worker.destination = [rx, rz + 1.25];
         }
         order.remaining -= worker.reserved; worker.load = worker.reserved; worker.reserved = 0;
@@ -618,7 +752,7 @@ function minuteStep(s) {
   updateShipments(s);
   updateReceiving(s);
   finishShipments(s);
-  updateOnline(s, { reservePoint: reserveProductPosition, shelfPoint: productShelfAccess, sale: recordSale, demand: state => currentEvent(state).factor });
+  updateOnline(s, { reservePoint: (i,r)=>reserveAccessPoint(s,i,r), shelfPoint: shelfAccessPoint, sale: recordSale, demand: state => currentEvent(state).factor });
   updateRestocking(s);
   const peak = (s.minute >= 720 && s.minute < 840) ? 1.9 : (s.minute >= 1020 && s.minute < 1140) ? 1.55 : 1;
   if (s.minute < 1170) {
@@ -638,10 +772,11 @@ function minuteStep(s) {
         const qty = Math.min(Math.max(0,p.shelf - onlineReserved(s,p.id,'shelf')), item.quantity);
         p.shelf -= qty; customer.value = round(customer.value + qty * p.price);
         if (qty > 0) customer.basket.push({ index: item.index, quantity: qty });
-        if (qty < item.quantity) s.satisfaction = Math.max(0, s.satisfaction - 0.12);
+        const metrics=satisfactionMetrics(s);metrics.requests+=item.quantity;metrics.fulfilled+=qty;
+        if (qty < item.quantity) {metrics.shortages[item.index]++;metrics.missing[item.index]+=item.quantity-qty;adjustSatisfaction(s,'stockPenalty',-.12);}
         customer.itemIndex++; customer.progress = 0;
         if (customer.itemIndex >= customer.items.length) {
-          if (customer.value === 0) { abandoned.add(customer.id); s.lost++; }
+          if (customer.value === 0) { abandoned.add(customer.id); s.lost++; satisfactionMetrics(s).stockDepartures++; }
           else { customer.stage = 'queue'; customer.wait = 0; }
         }
       }
@@ -650,7 +785,7 @@ function minuteStep(s) {
       customer.wait++;
       if (customer.wait >= 18) {
         returnBasket(s, customer);
-        abandoned.add(customer.id); s.lost++; s.satisfaction = Math.max(0, s.satisfaction - 0.7);
+        abandoned.add(customer.id); s.lost++; satisfactionMetrics(s).waitDepartures++;adjustSatisfaction(s,'waitPenalty',-.7);
       }
     }
   }

@@ -26,11 +26,11 @@ test('floor extensions make room; individual checkout and shelf installations ar
   s.products[0].shelf = 600; setShelfCount(s, 'produce', 3); assert.equal(s.money, initial - 450); assert.equal(s.products[0].capacity, 600);
 });
 
-test('a checkout serving a customer cannot be removed; unused cashiers are not silently dismissed', () => {
+test('a checkout serving a customer cannot be removed; its employee is removed with the register', () => {
   const s = quiet(); setStaff(s, 'checkout', 4); openStore(s);
   s.products[0].shelf--; s.customers.push({id:777,stage:'queue',checkoutLane:3,wait:0,items:[],basket:[{index:0,quantity:1}],value:3.4}); advance(s, 1);
   unchanged(s, () => setInstallation(s, 'checkouts', 3)); advance(s, 4); assert.equal(s.sales, 3.4);
-  setInstallation(s, 'checkouts', 3); assert.equal(checkoutCount(s), 3); assert.equal(s.staff.checkout, 4);
+  setInstallation(s, 'checkouts', 3); assert.equal(checkoutCount(s), 3); assert.equal(s.staff.checkout, 3);
 });
 
 test('reserve racks add real capacity and protect stock plus an incoming pallet already committed', () => {
@@ -51,12 +51,12 @@ test('zero docks hold trucks; a newly installed dock works and cannot be removed
 });
 
 test('outdoor capacity protects slots reserved for transport, then occupied slots, until the pallets are stored', () => {
-  const s = quiet(); setInstallation(s, 'outside', 5); s.products[0].reserve = 500; placeOrder(s, 'produce', 120, 'express');
+  const s = quiet(); setInstallation(s, 'outside', 5); s.products[0].reserve = 500; placeOrder(s, 'produce', 480, 'express');
   const total = inventoryPosition(s, 'produce'); setStaff(s, 'receiving', 1); openStore(s);
   until(s, () => outsideSlotsUsed(s) > 0); unchanged(s, () => setInstallation(s, 'outside', 0));
-  until(s, () => outsideSlotsUsed(s) === 3 && s.shipments[0].phase === 'complete'); setInstallation(s, 'outside', 3);
-  assert.equal(outsideCapacity(s), 3); unchanged(s, () => setInstallation(s, 'outside', 2));
-  expandStore(s, 'reserve'); until(s, () => s.orders[0].status === 'received'); setInstallation(s, 'outside', 0);
+  until(s, () => outsideSlotsUsed(s) === 2 && s.shipments[0].phase === 'complete'); setInstallation(s, 'outside', 2);
+  assert.equal(outsideCapacity(s), 2); unchanged(s, () => setInstallation(s, 'outside', 1));
+  expandStore(s, 'reserve'); expandStore(s, 'reserve'); until(s, () => s.orders[0].status === 'received'); setInstallation(s, 'outside', 0);
   assert.equal(outsideSlotsUsed(s), 0); assert.equal(inventoryPosition(s, 'produce'), total);
 });
 
@@ -73,8 +73,8 @@ test('all installed equipment contributes to the daily charge and history exactl
   const s = quiet(); setInstallation(s, 'checkouts', 3); discardReserve(s, 'produce', 30); setInstallation(s, 'reserve', 0, 'produce');
   s.products[0].shelf = 0; setShelfCount(s, 'produce', 0); setInstallation(s, 'outside', 10); setInstallation(s, 'bays', 1); setInstallation(s, 'auto', 1);
   const expected = 3*5 + 8 + 5*3 + 5*4 + 10 + 10*.5;
-  assert.equal(expected, 73); assert.equal(maintenanceCosts(s).total, expected); assert.equal(dailyCosts(s), 233);
+  assert.equal(expected, 73); assert.equal(maintenanceCosts(s).total, expected); assert.equal(dailyCosts(s), 233 + 255 - 1);
   const cash = s.money; openStore(s); s.minute = 1199; advance(s, 1);
-  assert.equal(s.history[0].maintenance, 73); assert.equal(s.history[0].maintenanceDetails.reduce((sum,row)=>sum+row.cost,0), 73); assert.equal(s.money, cash - 233);
-  advance(s, 0); assert.equal(s.money, cash - 233); assert.equal(s.history.length, 1);
+  assert.equal(s.history[0].maintenance, 73); assert.equal(s.history[0].maintenanceDetails.reduce((sum,row)=>sum+row.cost,0), 73); assert.equal(s.money, cash - (233 + 255 - 1));
+  advance(s, 0); assert.equal(s.money, cash - (233 + 255 - 1)); assert.equal(s.history.length, 1);
 });

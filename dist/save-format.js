@@ -21,10 +21,19 @@ export function validateSave(snapshot) {
   for(const zone of ['checkout','shelves','reserve'])saveAssert(Number.isSafeInteger(s.expansions[zone])&&s.expansions[zone]>=0&&s.expansions[zone]<=2);
   saveAssert(Array.isArray(s.products)&&s.products.length===6&&s.products.every((p,i)=>p.id===saveProductIds[i]&&[p.shelf,p.reserve,p.capacity,p.reserveCapacity,p.reserveRacks].every(n=>Number.isSafeInteger(n)&&n>=0)));
   saveAssert(s.shelfLayout.every(id=>id===null||saveProductIds.includes(id)));
+  if(s.storeSize!==undefined)saveAssert(['small','standard','large'].includes(s.storeSize));
+  if(s.layout!==undefined){
+    saveAssert(s.layout&&typeof s.layout==='object'&&!Array.isArray(s.layout)&&Object.keys(s.layout).length<=120);
+    for(const [id,p]of Object.entries(s.layout))saveAssert(/^(shelf:[0-9]{1,2}|checkout:[0-7]|reserve:[0-5]:[0-2]|auto|packing)$/.test(id)&&p&&[p.x,p.z,p.rotation].every(Number.isFinite)&&Math.abs(p.x)<=30&&Math.abs(p.z)<=60&&[0,Math.PI/2,Math.PI,Math.PI*1.5,-Math.PI/2].some(a=>Math.abs(a-p.rotation)<.00001));
+  }
+  if(s.theft!==undefined)saveAssert(s.theft&&['basic','cameras','reinforced'].includes(s.theft.level)&&Number.isSafeInteger(s.theft.seed)&&s.theft.daily&&['checked','stolen','lostRevenue','lostCost','autoStolen','staffedStolen'].every(k=>Number.isFinite(s.theft.daily[k])&&s.theft.daily[k]>=0)&&Array.isArray(s.theft.daily.products)&&s.theft.daily.products.length===6);
+  if(s.satisfactionDetails!==undefined)saveAssert(s.satisfactionDetails&&['opening','since','requests','fulfilled','waitingCustomers','waitMinutes','maxWait','waitDepartures','stockDepartures','closingDepartures','stockPenalty','waitPenalty','paymentRecovery'].every(k=>Number.isFinite(s.satisfactionDetails[k])&&s.satisfactionDetails[k]>=0)&&['shortages','missing'].every(k=>Array.isArray(s.satisfactionDetails[k])&&s.satisfactionDetails[k].length===6));
+  for(const c of s.customers)if(c.carryMode!==undefined)saveAssert(['bag','mini','cart'].includes(c.carryMode));
   const orderIds=new Set(s.orders.map(o=>o.id));
   for(const o of s.orders){saveAssert(saveProductIds.includes(o.productId)&&Array.isArray(o.pallets));for(const p of o.pallets)saveAssert(Number.isInteger(p.remaining)&&p.remaining>=0);}
   for(const t of s.shipments){saveAssert(Array.isArray(t.pallets));for(const ref of t.pallets)saveAssert(orderIds.has(ref.orderId)&&s.orders.find(o=>o.id===ref.orderId).pallets[ref.palletIndex]);}
   for(const w of [...s.restockers,...s.receivers]){saveAssert(typeof w.phase==='string' && Number.isSafeInteger(w.load)&&w.load>=0&&Number.isSafeInteger(w.reserved)&&w.reserved>=0);if(w.orderId!==null&&w.orderId!==undefined)saveAssert(orderIds.has(w.orderId));}
+  for(const w of s.restockers)if(w.cargo){saveAssert(Array.isArray(w.cargo)&&w.cargo.length>0&&w.cargo.length<=6&&Number.isInteger(w.cargoIndex)&&w.cargoIndex>=0&&w.cargoIndex<w.cargo.length);for(const l of w.cargo)saveAssert(saveProductIds.includes(l.productId)&&['quantity','reserved','reserveRack'].every(k=>Number.isSafeInteger(l[k])&&l[k]>=0));saveAssert(w.load===w.cargo.reduce((n,l)=>n+l.quantity,0)&&w.reserved===w.cargo.reduce((n,l)=>n+l.reserved,0));}
   const customerIds=new Set();for(const c of s.customers){saveAssert(Number.isSafeInteger(c.id)&&!customerIds.has(c.id)&&['shopping','queue','checkout'].includes(c.stage)&&Array.isArray(c.basket)&&Array.isArray(c.items)&&Number.isFinite(c.value));customerIds.add(c.id);for(const l of [...c.basket,...c.items])saveAssert(Number.isInteger(l.index)&&l.index>=0&&l.index<6&&Number.isInteger(l.quantity)&&l.quantity>0);}
   for(const c of s.customers) {
     saveAssert(Number.isSafeInteger(c.wait)&&c.wait>=0);

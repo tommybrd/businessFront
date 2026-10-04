@@ -1,4 +1,4 @@
-import { RESERVE_BACK_EXTENSION } from './store-layout.js';
+import { reserveBackExtension, RESERVE_BACK_EXTENSION } from './store-layout.js';
 import * as THREE from 'three';
 import { stockCarton } from './scene-details.js';
 import { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
@@ -34,7 +34,6 @@ export function createDeliveryYard(scene, state, box, material, plaque) {
     box(bay, 3, .26, .3, 0, 3.18, -7.9, 0x4f6b59);
     const door = box(bay, 2.43, 2.85, .11, 0, 1.45, -7.93, 0x97aa99);
     const light = box(bay, .16, .16, .12, 1.62, 2.5, -8.03, 0xb9e68d, false);
-    const sign = plaque(`QUAI 0${index + 1}`, 1.9); sign.position.set(0, 3.42, -8.1); sign.rotation.y = Math.PI; bay.add(sign);
     return { bay, door, light };
   });
   // Mark the safe circulation strip inside the warehouse.
@@ -69,13 +68,13 @@ export function createDeliveryYard(scene, state, box, material, plaque) {
       model.position.set(pallet.truckIndex % 2 ? .58 : -.58, 0, 2.55 - Math.floor(pallet.truckIndex / 2) * 1.15);
       box(model, 1.04, .13, .95, 0, .53, 0, 0xac8f60);
       const cargo = [];
-      for (let i = 0; i < 4; i++) cargo.push(stockCarton(model, box, i % 2 ? .25 : -.25, .8, i < 2 ? -.21 : .21, state.products.find(p => p.id === order.productId).color));
+      for (let i = 0; i < 20; i++) cargo.push(stockCarton(model, box, i % 2 ? .25 : -.25, .8 + Math.floor(i/4)*.43, i % 4 < 2 ? -.21 : .21, state.products.find(p => p.id === order.productId).color));
       truck.add(model); return { model, cargo, ref };
     });
     return { truck, pallets, rearDoors, reversingLights };
   }
   function update(minuteFraction = 0) {
-    infrastructure.position.z = -(RESERVE_BACK_EXTENSION + state.expansions.reserve * 3);
+    infrastructure.position.z = -(reserveBackExtension(state));
     const extraWidth = Math.max(0, deliveryBayCount(state) - 3) * 3.4;
     yardFloor.scale.x = (14 + extraWidth) / 14; yardFloor.position.x = 5 + extraWidth / 2;
     annex.visible = extraWidth > 0; annex.scale.x = extraWidth / 6.8; annex.position.x = 11.4 + extraWidth / 2;
@@ -119,7 +118,7 @@ export function createDeliveryYard(scene, state, box, material, plaque) {
         model.userData.selection = { view: 'reserve', productId: order.productId }; group.add(model);
         box(model, 1.1, .13, .95, 0, .08, 0, 0xac8f60);
         const cargo = [], product = state.products.find(p => p.id === order.productId);
-        for (let i = 0; i < 4; i++) cargo.push(stockCarton(model, box, i % 2 ? .25 : -.25, .35, i < 2 ? -.21 : .21, product.color));
+        for (let i = 0; i < 20; i++) cargo.push(stockCarton(model, box, i % 2 ? .25 : -.25, .35 + Math.floor(i/4)*.43, i % 4 < 2 ? -.21 : .21, product.color));
         value = { model, cargo }; outsideModels.set(id, value);
       }
       const [x, z] = outsidePalletPosition(state, pallet); value.model.position.set(x, 0, z);

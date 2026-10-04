@@ -40,10 +40,10 @@ test('an unaffordable evening basket stays intact and retries only at the next c
 test('large groupages use trucks of at most ten real pallets without charging extra delivery fees', () => {
   const s = quiet(); for (const p of s.products) queueEveningOrder(s, p.id, 240);
   const quote = quoteEveningBasket(s); openStore(s); s.minute = 1199; advance(s, 1);
-  assert.equal(s.shipments.length, 3); assert.ok(s.shipments.every(t => t.pallets.length === 10));
+  assert.equal(s.shipments.length, 1); assert.deepEqual(s.shipments.map(t=>t.pallets.length),[6]);
   assert.equal(new Set(s.shipments.map(t => t.batchId)).size, 1); assert.equal(s.history[0].spending, quote.totalCost);
   assert.equal(s.orders.reduce((n, o) => n + o.deliveryFee, 0), 10);
-  const refs = s.shipments.flatMap(t => t.pallets.map(p => `${p.orderId}:${p.palletIndex}`)); assert.equal(new Set(refs).size, 30);
+  const refs = s.shipments.flatMap(t => t.pallets.map(p => `${p.orderId}:${p.palletIndex}`)); assert.equal(new Set(refs).size, 6);
   for (const p of s.products) assert.equal(inventoryPosition(s, p.id), INITIAL_SHELF_STOCK + 30 + 240);
 });
 
@@ -92,7 +92,7 @@ test('blocked reserve goods wait outside while other pallets are stored and the 
 test('the outside buffer holds at most thirty pallets, including slots reserved by moving staff', () => {
   const s = quiet(); s.money = 100000; setStaff(s, 'receiving', 12);
   for (const p of s.products) s.products.find(line => line.id === p.id).reserve = p.reserveCapacity;
-  for (let i = 0; i < 7; i++) placeOrder(s, 'produce', 240, 'express');
+  for (let i = 0; i < 31; i++) placeOrder(s, 'produce', 240, 'express');
   const inventory = inventoryPosition(s, 'produce'); openStore(s);
   for (let i = 0; i < 650; i++) {
     s.arrivalCredit = -100000; advance(s, 1); assert.ok(outsideSlotsUsed(s) <= OUTSIDE_PALLET_CAPACITY);
@@ -102,8 +102,8 @@ test('the outside buffer holds at most thirty pallets, including slots reserved 
   }
   assert.equal(outsidePallets(s).length, 30); assert.equal(outsideSlotsUsed(s), 30);
   assert.ok(s.orders.some(o => o.pallets.some(p => p.status === 'dock')));
-  discardReserve(s, 'produce', 48); until(s, () => s.products[0].reserve === 500, 150);
-  for (let i = 0; i < 100; i++) { s.arrivalCredit = -100000; advance(s, 1); } assert.equal(outsideSlotsUsed(s), 30); assert.equal(inventoryPosition(s, 'produce'), inventory - 48);
+  discardReserve(s, 'produce', 240); until(s, () => s.products[0].reserve === 500, 150);
+  for (let i = 0; i < 100; i++) { s.arrivalCredit = -100000; advance(s, 1); } assert.equal(outsideSlotsUsed(s), 30); assert.equal(inventoryPosition(s, 'produce'), inventory - 240);
 });
 
 test('reassigning or closing during an outside pickup returns its remaining goods to the same reserved slot', () => {
@@ -125,12 +125,12 @@ test('1000-unit flash purchases split into real truckloads and a final partial c
   const inventory = inventoryPosition(s, 'produce'), cash = s.money;
   const quote = quoteOrder('produce', 1000, 'express'), order = placeOrder(s, 'produce', 1000, 'express');
   assert.equal(s.money, cash - quote.totalCost); assert.equal(s.spending, quote.totalCost);
-  assert.equal(order.pallets.length, 21); assert.equal(order.pallets.at(-1).quantity, 40); assert.equal(order.pallets.at(-1).quantity % 12, 4);
-  assert.deepEqual(s.shipments.map(t => t.pallets.length), [10, 10, 1]);
+  assert.equal(order.pallets.length, 5); assert.equal(order.pallets.at(-1).quantity, 40); assert.equal(order.pallets.at(-1).quantity % 12, 4);
+  assert.deepEqual(s.shipments.map(t => t.pallets.length), [5]);
   assert.equal(order.pallets.reduce((sum, pallet) => sum + pallet.quantity, 0), 1000);
   openStore(s); until(s, () => s.shipments.every(t => t.phase === 'complete'), 650);
-  assert.equal(inventoryPosition(s, 'produce'), inventory + 1000); assert.equal(s.products[0].reserve, 472);
-  assert.equal(outsidePallets(s).reduce((sum, line) => sum + line.pallet.remaining, 0), 528);
+  assert.equal(inventoryPosition(s, 'produce'), inventory + 1000); assert.equal(s.products[0].reserve, 480);
+  assert.equal(outsidePallets(s).reduce((sum, line) => sum + line.pallet.remaining, 0), 520);
 });
 
 test('groupage accepts 1000 per product while invalid quantities leave the complete state untouched', () => {
@@ -142,7 +142,7 @@ test('groupage accepts 1000 per product while invalid quantities leave the compl
     assert.equal(JSON.stringify(s), snapshot);
   }
   const quote = quoteEveningBasket(s); openStore(s); s.minute = 1199; advance(s, 1);
-  assert.equal(s.orders.length, 6); assert.equal(s.shipments.length, 13); assert.equal(s.orders.reduce((n, o) => n + o.quantity, 0), 6000);
+  assert.equal(s.orders.length, 6); assert.equal(s.shipments.length, 3); assert.equal(s.orders.reduce((n, o) => n + o.quantity, 0), 6000);
   assert.equal(s.orders.reduce((n, o) => n + o.deliveryFee, 0), 10); assert.equal(s.history[0].spending, quote.totalCost);
 });
 

@@ -23,8 +23,7 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
     const scan = box(group, .22, .025, .42, automatic ? 0 : .32, 1.075, 0, 0x662f2f, false);
     const stripes = Array.from({ length: 6 }, (_, i) => box(group, .025, .012, .86, -.98 + i * .2, 1.061, 0, 0x63736a, false));
     if (automatic) stripes.forEach(stripe => { stripe.visible = false; });
-    const bip = textSprite('BIP', { width: 192, height: 80, worldWidth: .9, color: '#e5ffd2', background: '#285c46e8', size: 40 });
-    bip.position.set(automatic ? 0 : .32, 1.65, 0); bip.visible = false; group.add(bip);
+    const bip=box(group,.12,.12,.12,automatic?0:.32,1.65,0,0xc0ff83,false);bip.visible=false;
     const cargo = new THREE.Group(); cargo.name = 'checkout-conveyor-articles'; scene.add(cargo);
     const result={ group, scan, stripes, bip, cargo, key: null, scanned: 0, pulse: 0, automatic };stations.push(result);return result;
   }

@@ -1,164 +1,53 @@
-## v0.9.0 — reprise et circulation
+# Market Front · v0.10.0
 
-La partie est sauvegardée automatiquement sur le compte du joueur toutes les cinq secondes et lors de la mise en arrière-plan. Le menu « Partie » permet une sauvegarde manuelle, la reprise de la version précédente et une nouvelle partie après confirmation. La reprise reste en pause ; le temps écoulé hors du jeu ne modifie pas la simulation. Les conflits entre fenêtres arrêtent la partie et demandent de recharger.
+Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
-Les clients se déplacent selon la simulation sauvegardée. Le tapis attend leur arrivée : déchargement du caddie, scans successifs, récupération, paiement, puis sortie. Un seul bip accompagne le paiement et le montant reste près de la caisse. À vitesse 1, une seconde représente une minute de jeu.
+## Partie et démarrage
 
-Les anciennes faces de 600 articles sont divisées en trois modules de 200 articles (40 articles par niveau, cinq niveaux). Les 18 modules initiaux conservent les 2 880 articles de départ et la maintenance totale d'origine. Chaque module supplémentaire coûte 120 €, son retrait 30 €, sa maintenance 1 € par jour. Un agrandissement libère 18 nouveaux emplacements, à équiper séparément. La réserve occupe environ 45 % du bâtiment initial et ses allées relient les racks aux quais. L'entrée et la sortie disposent de portillons et de barrières distincts. Les panneaux Parking clients et Accès livraisons ont été retirés.
+Le chargement reprend automatiquement à vitesse ×1, sans simuler le temps passé hors du jeu. Une nouvelle partie commence dans un petit local avec deux rayons de 200 articles, une caisse, trois employés, 240 articles en rayon et 96 en réserve. Une partie existante garde ses stocks et ses équipements. Chaque caisse installée inclut désormais un employé et son salaire.
 
-Unités de commande : 48 articles = 4 cartons de 12 = une palette complète. Le reste éventuel est indiqué pour les commandes qui ne remplissent pas un carton ou une palette.
+Sauvegarde automatique liée au compte Sites, toutes les cinq secondes et à la mise en arrière-plan. Le menu Partie permet sauvegarde manuelle, rechargement, reprise de la version précédente (en pause) et nouvelle partie après confirmation. Un conflit entre fenêtres arrête la simulation jusqu’au rechargement. Les journées s’enchaînent, sauf faillite. Une seconde représente une minute à ×1.
 
-La sauvegarde utilise le Worker `worker/index.js`, le schéma `db/schema.ts` et les migrations Drizzle. Les requêtes se basent exclusivement sur l'identité transmise par Sites. Aucun identifiant de compte n'est pris dans le corps de la requête. En local, `npm run dev` applique les migrations à `.sites-runtime/game-saves.sqlite` et utilise une partie de test distincte (`local-playtest`). Ce fichier ne part jamais dans Git ni dans le déploiement. Node.js 22.13 ou ultérieur est nécessaire pour cette base locale.
+## Local et aménagement
 
-Vérification : `npm run check`, `npm test`, `npm run build`. Après un changement de schéma : `npm run db:generate`, inspecter la migration et publier avec le même identifiant Sites. Les migrations déjà appliquées restent immuables.
+Finances propose petit, moyen ou grand magasin, avec surface, coût de changement de local et charges estimées. Loyer, électricité, assurance et entretien suivent la surface ; les équipements augmentent la consommation. Les extensions ajoutent du sol et des emplacements, à équiper séparément. Les charges sont facturées une fois à la fermeture, avec un détail conservé dans l’historique. Réduire le local demande de retirer les équipements en trop et de terminer les opérations en cours.
 
-# Market Front
+Aménager ouvre un plan et met la partie en pause. Sélectionner un équipement puis le glisser, ou toucher sa destination ; Tourner le pivote de 90°. Rayons, caisses, caisse automatique, racks et poste de préparation sont déplaçables. Les chevauchements, sorties bloquées et passages coupés sont refusés. Un équipement en cours d’utilisation attend la fin de son opération. La simulation, les chemins autour des obstacles et la scène 3D utilisent les positions sauvegardées.
 
-Nom de travail d'un jeu de gestion de supermarché. Le joueur est le directeur et pilote le magasin depuis une vue d'ensemble.
+Les repères de la scène sont les portillons, barrières, voyants et meubles. Aucun panneau Entrée, Sortie, Caisse 1, Auto, Module libre, Quai ou Drive ne flotte dans le magasin. Les plaques des produits font partie du mobilier. Le montant du paiement reste près du poste et un bip unique accompagne le paiement (après autorisation audio du navigateur), sans option de désactivation.
 
-## Première version
+## Stocks, clients et livraisons
 
-- Magasin en plein écran, commandes en surimpression et panneaux contextuels au clic sur les rayons, emplacements de réserve, caisses, employés et quai.
-- Six familles de produits, avec allées élargies, étals en bois pour les fruits et légumes et articles individuels serrés sur cinq niveaux pour les autres produits, 24 articles en façade et cinq rangées en profondeur et jauges intégrées aux meubles ; chiffres de stock accessibles au clic, sans grandes étiquettes flottantes ; réserve organisée par produit avec une capacité propre à chaque famille.
-- Parking clients extérieur relié à la route principale, rues périphériques, trottoirs, passages piétons, accès de livraison, arbres et commerces voisins autour du magasin. Le cadrage initial montre les abords et les voitures suivent les voies d’accès et l’allée centrale du parking. Les voitures et piétons représentent les clients de la simulation, sans gestion des places pour le moment.
-- Vue 3D simplifiée, clients avec caddies vides puis remplis des articles réellement pris en rayon, employés et camions animés. Rotation, déplacement et zoom de la caméra.
-- Clients, paniers, attente en caisse et abandons. Chaque caisse traite un seul client à la fois, avec un temps d’encaissement lié au panier. Les articles quittent le caddie un par un, avancent sur le tapis, passent au scanner avec un signal vert et un bip désactivable dans Caisses, puis reviennent dans le caddie. Le montant réellement encaissé apparaît brièvement au-dessus du caddie au paiement. Les files avancent directement à leur poste, sans repartir parcourir le magasin. Les caisses sont tournées de 90° ; après paiement les clients passent devant le comptoir puis rejoignent la sortie.
-- Effectifs sans plafond, choisis par équipe : encaissement, mise en rayon, déchargement des livraisons et préparation drive / web. Les salaires suivent les effectifs présents à la fermeture (85 € par employé et par jour, plus 160 € de fonctionnement et la maintenance quotidienne des installations). Tenues vertes distinctes par métier ; les employés non affectés ne sont pas montrés.
-- Réserve organisée par produit sur des racks à trois niveaux au départ, puis quatre et cinq après agrandissement, avec cartons correspondant au stock réel, emplacements 3D et détail des stocks et des unités réservées aux chargements.
-- Réapprovisionnement par chargements : petit chariot (8 unités), chariot moyen (24 unités), puis grand chariot (48 unités), toujours avec un employé.
-- Deux fournisseurs avec prix et délais différents. Tampon extérieur réglable (30 places au départ) et quais réglables (trois au départ) avec file d’attente, alignement, marche arrière et départ des camions. Chaque palette quitte le camion entière sur un transpalette et se vide progressivement pendant le rangement dans son emplacement de réserve. La dernière palette d’une commande peut être partielle.
-- Commandes fournisseurs manuelles, remises par quantité et frais de livraison mutualisés pour le groupage du soir.
-- Trésorerie du magasin, compte personnel du directeur, salaire quotidien réglable, TVA et impôt avec paiement automatique ou manuel.
-- Agrandissements séparés des rayons, de la réserve et de la zone de paiement ; possibilité de jeter du stock non engagé pour libérer l’emplacement d’un produit.
-- Journées calmes, rush de midi, week-end, Black Friday et fêtes.
-- Journées en continu, vitesse conservée et bilans consultables sans arrêter le magasin.
+Un module de rayon contient 200 articles, avec cinq niveaux de 40. Installation 120 €, retrait 30 €, maintenance 1 € par jour. La réserve dispose de racks par produit, avec capacité augmentable. Les jauges affichent stocks et capacité en rayon et en réserve. Les commandes se font directement depuis la réserve : quantités visibles et boutons Express (livraison après 30 minutes, paiement immédiat) ou Ce soir (envoi à 20 h, 10 € mutualisés par fournisseur).
 
-Les rayons commencent avec 480 articles chacun ; chaque article visible correspond à une unité de stock. Le panneau flottant « Réserve » a été retiré, les emplacements restent accessibles au clic ou depuis le menu.
+Une palette complète contient **240 articles : vingt cartons de douze empilés sur cinq niveaux**. Camions, palettes extérieures et transpalettes montrent les cartons restant réellement à transporter. Une palette partielle contient uniquement la quantité commandée. Les anciens chargements sauvegardés restent valides. Chaque camion transporte dix palettes au maximum et utilise un quai réel, avec alignement, recul, déchargement et départ. La réserve pleine peut bloquer un produit ou déposer sa palette dans le tampon extérieur. Le chariot moyen de 24 articles est disponible dès le départ ; le petit modèle n’est plus proposé. Un chargement peut réunir trois familles, avec réservations distinctes, collecte successive en réserve et dépôt dans chacun de leurs rayons. Le grand chariot porte 48 articles. Les employés transportent puis rangent les cartons ; les arrêts devant les racks gardent une distance suffisante pour le nez du transpalette.
 
-Cette version constitue une boucle jouable. Le placement libre des rayons, la gestion RH, les produits périssables et les contrats fournisseurs restent à développer. Les caddies des clients ayant abandonné leurs achats redeviennent vides quand les produits sont remis en stock. Les parties ne sont pas encore sauvegardées entre deux rechargements.
+Les clients viennent avec un sac (jusqu’à six articles prévus), un mini-chariot (jusqu’à quinze) ou un caddie. Le contenu visible suit les produits pris en rayon. Les caisses attendent l’arrivée du client avant déchargement, scan, récupération et paiement. La caisse automatique accepte **dix articles maximum**, avec supervision par un employé des caisses.
 
-## Drive et e-commerce v0.8.0
+Les alertes de stock restent visibles dans la vue principale : rayons vides, seuil bas à 15 % (ou douze articles), réserves épuisées ou réduites à douze articles. Une nouvelle rupture déclenche un avertissement et chaque alerte mène au produit ou à sa commande. Les familles sans rayon installé ne génèrent aucune fausse alerte.
 
-Dans **Drive / Web**, installer les services puis affecter des employés à **Préparation drive / web**. Les clients passent automatiquement des commandes entre 8 h et 18 h après ouverture du service, avec une demande accrue les jours de rush. Le bouton **Simuler une commande client** crée un panier de test dans la même chaîne réelle. Les services sont absents et les préparateurs à zéro au départ : les autres mécaniques gardent leur équilibre tant que ces services ne sont pas ouverts.
+Satisfaction détaille articles demandés/trouvés, ruptures par famille, attente moyenne et maximale, file actuelle, départs sans achat et effets sur le score. Chaque chiffre provient de la simulation. La mesure d’une ancienne partie commence à la mise à jour, sans inventer son historique.
 
-- Drive : zone à 2 000 € (retrait 300 €, maintenance 15 €/jour), deux places dédiées. Créneau 75 minutes après commande ; la voiture arrive six minutes avant. Un employé remet le panier, puis la vente est encaissée. Sac : 0,50 €/commande. Annulation automatique après 45 minutes de retard.
-- E-commerce : poste à 1 500 € (retrait 250 €, maintenance 10 €/jour). Carton : 1 €/commande. Livraison facturée au client 6 €, transport payé 4,50 €/commande. Le transporteur vient chercher les colis prêts puis revient après une heure de jeu si besoin. La vente est encaissée à l’expédition ; délai promis 180 minutes et annulation après 180 minutes de retard. Le trajet jusqu’au domicile reste représenté par l’expédition, sans simulation de tournées.
-- Préparateurs dédiés : 85 €/personne/jour, sans plafond, séparés de la mise en rayon. Ils se déplacent vers les stocks, prélèvent un article par minute, reviennent emballer et livrent les sacs aux voitures. Le chariot montre les articles réellement prélevés. Le poste et les colis prêts sont visibles et cliquables dans la scène.
-- Stock partagé : priorité à la réserve puis complément en rayon, réservation du panier complet avant préparation. Un panier incomplet attend le stock, sans achat fournisseur automatique. Les réservations sont protégées des ventes en magasin et des chargements de réapprovisionnement. Les marchandises prélevées restent dans l’inventaire jusqu’à remise ou expédition. L’annulation les replace dans leur source ; les espaces nécessaires sont conservés pendant le transport. Les installations occupées ne peuvent pas être démontées.
-- Suivi : contenu, progression, échéance, état, voiture, transporteur, annulations et dernières commandes ; recettes et frais du jour, TVA et historique financier. Les commandes restantes continuent le jour suivant. Fermeture de la prise de commandes possible sans arrêter celles déjà acceptées. Deux places drive et une place transporteur sont gardées libres des voitures du magasin.
+Le vol affecte le paiement des articles réellement sortis du stock : 1 % par article aux caisses classiques, 4 % à la caisse automatique en surveillance simple. Les caméras divisent ces taux par deux (600 € à installer, 25 €/jour) ; caméras et contrôle les divisent par cinq (1 400 €, 60 €/jour). Finances suit articles volés, ventes perdues et valeur d’achat, sans déduire deux fois la perte. Le tirage aléatoire et les compteurs sont sauvegardés.
 
-Il s’agit de clients simulés dans le jeu, sans boutique publique, paiement réel ou données personnelles. Comme le reste du jeu, la partie n’est pas encore conservée au rechargement.
+Drive et e-commerce partagent le stock du magasin. Les paniers sont réservés puis prélevés par des préparateurs, emballés et remis au client drive ou au transporteur. L’encaissement attend la remise ou l’expédition. Stocks, commandes, équipes, TVA, impôt, salaire du directeur et réinvestissement personnel se poursuivent d’un jour à l’autre.
 
-## Installations v0.7.0
+## Développement et publication
 
-Le nombre de caisses, de faces de rayon, de racks par famille, de quais et de places extérieures est réglable dans leurs panneaux. Les installations de départ sont incluses. Les travaux suivants sont payés immédiatement, sans remboursement au retrait ; les prix affichés sont TTC et ouvrent un crédit de TVA déductible. Les devis n’engagent aucun achat. Les salaires restent séparés.
-
-| Installation | Ajouter une unité | Retirer une unité | Maintenance par unité / jour |
-| --- | ---: | ---: | ---: |
-| Caisse | 900 € | 120 € | 5 € |
-| Caisse automatique | 3 500 € | 400 € | 8 € |
-| Face de rayon, 600 articles | 350 € | 80 € | 3 € |
-| Rack de réserve | 700 € | 150 € | 4 € |
-| Quai de déchargement | 1 800 € | 300 € | 10 € |
-| Place extérieure pour palette | 40 € | 10 € | 0,50 € |
-
-L’agrandissement de la zone de paiement ouvre deux places sans installer de caisses. Celui des rayons ouvre six emplacements sans installer de meubles ; les marques au sol montrent les places libres. L’agrandissement de la réserve augmente de 250 articles la capacité de chaque rack existant et ouvre une place de rack supplémentaire par famille, une place de quai et quinze places de palettes dehors à équiper séparément. Un rack contient 500, 750 puis 1 000 articles selon le niveau de réserve ; chaque famille peut avoir un, deux puis trois racks. Les quais peuvent être réglés de zéro à trois, quatre puis cinq ; le stockage extérieur de zéro à trente, quarante-cinq puis soixante places (boutons par lots de cinq). Les six familles peuvent conserver des nombres de racks différents.
-
-Une caisse servant un client ou un quai utilisé par un camion ne peuvent pas être retirés. Le stock, les articles en transport, les emplacements de palettes réservés et les rayons en cours de remplissage sont protégés. Les employés ne sont pas supprimés quand une caisse est retirée. La maintenance de tous les équipements présents est facturée une fois à la fermeture, même inutilisés, dans la règle simplifiée des charges du jeu. Finances détaille chaque catégorie et conserve le total dans l’historique. Au départ : 107 € de maintenance, plus les salaires et 160 € de fonctionnement.
-
-## Disposition v0.6.2
-
-Le magasin commence avec quatre meubles au lieu de six : un étal fruits et légumes, un meuble boulangerie et deux gondoles à double face. Produits frais / épicerie et boissons / maison partagent des faces opposées. Les six familles gardent chacune leurs 600 places, leurs 480 articles initiaux et la même densité de présentation (cinq niveaux, 24 articles en façade, cinq en profondeur). Les clients et employés rejoignent la face correspondant au produit. Les boutons d’affectation comptent les faces ; les agrandissements ajoutent six meubles simples.
-
-## Équilibrage v0.6.1
-
-Les capacités restent de 600 articles par meuble et 500 en réserve par famille (750 puis 1 000 après agrandissement). Les clients font maintenant des courses plus importantes : 20 % de petites visites de 2–3 lignes de 1–2 articles, et 80 % de paniers de 4–6 lignes de 3–6 articles. Une ligne représente une famille, qui peut apparaître plusieurs fois. Les pics horaires et événements multiplient la fréquentation existante.
-
-La mise en rayon automatique démarre à 75 % de remplissage ou moins ; elle privilégie les chargements complets quand il reste assez de stock. Le bouton Réapprovisionner permet de remplir avant ce seuil et donne la priorité au produit. Les trajets sont légèrement plus rapides, les capacités des trois chariots restent 8, 24 et 48. Une caisse garde un seul client et scanne toujours les articles un par un : 3 minutes de base plus une minute par tranche de 8 articles, pour que les grands paniers ne bloquent pas artificiellement toute la chaîne.
-
-`npm run balance` compare des journées complètes sur trois graines identiques, avec 480 articles au départ en rayon, 500 en réserve, quatre caisses et aucune livraison. En moyenne, une journée normale demande environ 3 540 articles : sans mise en rayon, environ 660 manquent ; cinq employés avec des chariots moyens évitent ces ruptures. Un samedi demande environ 5 650 articles : les petits, moyens et grands chariots laissent respectivement environ 2 050, 820 et 30 articles manquants. Black Friday exige aussi des livraisons ciblées pour Maison & entretien ; une réserve pleine et de grands chariots ne suffisent pas seuls. Ces scénarios contrôlent la conservation des articles à chaque minute. Les résultats correspondent à ces conditions de test, pas à une garantie pour toutes les configurations.
-
-## Pistes pour approfondir la chaîne
-
-Priorités de déchargement et de mise en rayon, emplacements de réserve personnalisables, fiabilité des fournisseurs et anticipation des invendus. Ces pistes ont été discutées pour une prochaine version et ne font pas partie de la première boucle.
-
-## Réapprovisionnement
-
-Dans **Équipes → Réserve → rayons**, le directeur choisit le matériel de l’équipe. Le petit chariot est inclus. Les chariots moyens coûtent 1 200 € pour équiper l’équipe ; les grands chariots se débloquent ensuite pour 3 600 €. Le transpalette est réservé au déchargement des livraisons. Le matériel acheté reste disponible les jours suivants et peut être sélectionné sans être payé à nouveau.
-
-Les employés de mise en rayon prennent eux-mêmes les articles dans l’emplacement de réserve du produit, chargent leur chariot, le transportent par les allées et remplissent le rayon avant de revenir. Les chargements sont simultanés et ne dépendent pas d’une équipe de préparation séparée. Les grandes capacités réduisent les allers-retours, avec un chargement et un déplacement plus longs. Les trajets en cours conservent leur matériel. Sans employé de mise en rayon, les chariots ne fonctionnent pas.
-
-Les unités transportées sont suivies séparément : elles ne sont pas encore vendables en rayon. Les chargements coordonnent les places disponibles pour éviter de remplir plusieurs fois le même rayon. Réaffecter un employé ou fermer le magasin ramène son éventuel chargement restant en réserve. Le déchargement préserve la place nécessaire à ces retours.
-
-Le bouton **Réapprovisionner** d’un rayon demande un réapprovisionnement prioritaire depuis la réserve. Il conserve la préparation et le transport physiques, sans déplacer instantanément des articles. Le réapprovisionnement automatique continue pour les autres rayons. Le bouton **Voir la réserve** ouvre l’emplacement du produit ; c’est depuis cet emplacement que **Commander** mène aux fournisseurs.
-
-Dans **Réserve**, des quantités standards et un bouton permettent d’ajouter directement un lot Centrale Nord au groupage du soir, avec son prix TTC et les 10 € de port mutualisés explicités. Le choix remplace le lot déjà prévu pour ce produit, sans achat immédiat ni récurrence. Chaque produit affiche les unités envoyées aux rayons et les unités effectivement vendues lors de la dernière journée clôturée. Chaque produit affiche son stock physique, sa propre capacité et la part affectée à des chargements. Le stock quitte la réserve uniquement lorsque la préparation du chargement est terminée. Chaque famille dispose initialement de 500 places ; la saturation d’une famille ne bloque pas le rangement d’une autre. Le déchargement protège aussi les places nécessaires aux marchandises sur les équipements et aux retours de paniers.
-
-**Jeter du stock** retire uniquement des unités non réservées, sans remboursement. Les transpalettes de déchargement déplacent une palette entière de 48 unités au maximum ; ils déposent la palette dehors si la réserve du produit ne peut pas accueillir tout son contenu, dans la limite des emplacements extérieurs installés. Si le tampon est plein, les palettes de produits pouvant être rangées restent déchargeables. Les cartons gardent les mêmes dimensions dans le camion, sur le transpalette, dehors et dans les racks (12 unités par carton ; une palette complète contient quatre cartons). Ils sont rangés progressivement dans les racks ; les produits en transport ne sont pas comptés deux fois dans les commandes en cours. Réaffecter le manutentionnaire ou terminer la journée ramène le chargement restant dans sa palette d’origine, dans le camion ou dans le tampon extérieur.
-
-## Agrandissements
-
-Chaque zone a deux agrandissements payants. Les rayons passent de 6 à 12 puis 18 emplacements (3 000 € puis 5 000 €), libres jusqu’à l’installation d’une face de rayon ou d’un meuble simple. Chaque face offre 600 articles. Le stock est réparti sans duplication ; retirer une face est refusé si les articles présents, en transport ou dans les paniers ne tiennent plus dans les faces restantes, ou si la mise en rayon y est en cours. La réserve augmente la capacité de chaque rack de 500 à 750 puis 1 000 articles (2 500 € puis 4 500 €) et ouvre des emplacements de racks, de quais et de palettes extérieures. La zone de paiement ouvre quatre, six puis huit places de caisse (2 000 € puis 3 500 €), à équiper séparément. Les dimensions et les équipements installés changent en 3D. Les effectifs se choisissent librement ; les caissiers supplémentaires attendent un poste disponible. Les coûts unitaires d’installation, retrait et maintenance sont détaillés dans la section Installations.
-
-Les files sont affectées aux postes ouverts. Fermer un poste remet son client en attente sans le facturer. À la fermeture du magasin, seul le client déjà servi à chaque poste termine son paiement ; les paniers non servis sont remis en stock.
-
-## Commandes fournisseurs
-
-L’onglet **Livraisons** compare les quantités de 12, 24, 48, 120, 240, 480, 720 et 1 000 unités, avec le prix après remise et le coût livré par article. Centrale Nord facture 35 € de livraison et applique 4 %, 8 % puis 12 % de remise à partir de 48, 120 et 240 unités. Express Marché facture 150 € pour une livraison flash et applique 2 %, 5 % puis 8 %. Le bandeau des livraisons montre les palettes et quantités par produit encore dans les camions. Les commandes acceptent des quantités entières de 12 à 1 000 par produit : le dernier carton et la dernière palette peuvent être partiels. Les prix unitaires sont arrondis au centime avant le calcul de la commande. Les remises sont calculées par lot de produit. Une livraison flash est facturée immédiatement ; le groupage du soir facture seulement 10 € une fois par fournisseur, quel que soit le nombre de produits ou de camions.
-
-Les quantités se choisissent directement dans huit carrés : **12, 24, 48, 120, 240, 480, 720 ou 1 000 unités**. Le prix, la remise et le coût livré se mettent à jour dès le choix du lot ou du fournisseur. Un accès en surimpression montre les livraisons en route ou au quai. Le suivi détaillé précède le formulaire et affiche chaque camion, son contenu par produit et quantité, le détail de chaque palette (articles, cartons pleins, carton partiel et état), son délai, sa manœuvre et ses palettes restantes. **Voir les quais** cadre la caméra sur les trois accès de livraison.
-
-Depuis un rayon, **Réapprovisionner** demande le remplissage depuis la réserve. Depuis la réserve, **Commander** propose deux achats :
-
-- **Flash** : livraison spécifique Express Marché, frais de port 150 €, paiement immédiat, arrivée après 30 minutes de jeu puis manœuvre au quai.
-- **Groupée ce soir** : livraison 10 € par fournisseur, panier modifiable sans paiement immédiat, un lot par produit. À 20 h, les lignes sont regroupées par fournisseur et facturées avec des frais de livraison partagés. L’envoi se fait une seule fois à la clôture ; l’arrivée a lieu le jour de jeu suivant après le délai fournisseur. Sans trésorerie suffisante, le panier est conservé jusqu’à la clôture suivante. Les produits peuvent être retirés avant l’envoi.
-
-Chaque camion transporte au plus dix palettes. Il attend un quai libre, s’aligne, recule, ouvre ses portes et reste accosté jusqu’à la sortie de toutes ses palettes et au retour des manutentionnaires. Si la réserve du produit est pleine, les palettes sont déposées entières dans une zone extérieure au nombre de places réglable (30 au départ) ; les autres palettes peuvent être déchargées et le camion repart. Les employés reprennent ensuite les palettes extérieures dès qu’une palette entière tient dans son emplacement. Les places engagées par des transports restent réservées pour empêcher un dépassement. Les transpalettes entrent dans le camion par le quai, enlèvent une palette entière et la transportent jusqu’à l’emplacement du produit ; les cartons se vident pendant le rangement. Une palette inaccessible derrière une autre attend le dégagement de son passage.
-
-Les commandes récurrentes automatiques ont été retirées : seuls les achats explicitement demandés au fournisseur sont exécutés. Les employés continuent à réapprovisionner les rayons à partir du stock disponible.
-
-## Compte personnel et taxes
-
-Le bandeau affiche le résultat net estimé du jour : ventes HT moins achats et investissements HT, toutes les charges prévues de la journée, salaire estimé du directeur et impôt. Les apports personnels et les remboursements de taxes des jours précédents n’y sont pas comptés comme des gains ou pertes du jour. Dans Finances, un tableau conserve chaque journée clôturée : ventes HT, achats HT, charges et salaire, impôt, résultat net, TVA exigible et variation de trésorerie. Cette dernière inclut les apports et les paiements effectifs de taxes.
-
-Le salaire du directeur est réglable dans **Finances**, de 0 à 1 000 € par jour ; il est désactivé au départ. Il est versé à la clôture depuis le magasin, dans la limite des liquidités restantes après les charges de fonctionnement. Le solde personnel et les mouvements sont suivis séparément. Le directeur peut réinvestir ce solde dans le magasin : cet apport n’est pas enregistré comme une vente.
-
-Les prix de vente, commandes, frais de livraison et investissements sont TTC, avec 20 % de TVA incluse. La TVA est collectée lors de l’encaissement ; celle des achats et investissements est déductible, avec arrondi par transaction au centime. Un crédit négatif est reporté sur les jours suivants.
-
-La fiscalité du jeu est simplifiée : l’impôt est de 20 % du résultat quotidien positif hors TVA, calculé après les achats, investissements, charges et salaire effectivement versé au directeur. Les achats de stock et investissements sont déduits immédiatement dans cette règle de jeu. Les dettes de TVA et d’impôt sont distinctes ; leur paiement automatique à la fermeture peut être désactivé pour les régler manuellement. Un paiement réduit la trésorerie une seule fois et reste retracé dans le bilan du jour concerné.
-
-## Caméra et journées
-
-**ZQSD** déplace la caméra par rapport à la vue, **A/E** la fait tourner, la molette zoome. La souris permet aussi de tourner et de déplacer la vue. **Recentrer** retrouve le cadrage initial. Les touches ne déplacent pas la caméra pendant la saisie dans un champ ou la consultation d’un bilan.
-
-La première ouverture se déclenche manuellement. Ensuite, le jour suivant démarre automatiquement avec la même vitesse, les mêmes stocks, équipes et équipements. Les charges sont payées une fois par journée. Le bilan est accessible dans **Finances** pendant que le jeu continue. Seule la faillite termine la partie.
-
-## Développement
-
-Node.js 20 ou supérieur. Three.js est la seule dépendance et ses modules sont inclus dans les fichiers publiés.
+Node.js **22.13 ou supérieur**, Three.js pour la scène, Worker Sites et D1 pour les sauvegardes. Le serveur local utilise `.sites-runtime/game-saves.sqlite` avec un compte de test distinct (`local-playtest`). Aucun état local de test ne part en production.
 
 ```sh
 npm ci
-npm run build
-npm run dev
 npm run check
 npm test
+npm run build
+npm run dev
 ```
 
-Le serveur local affiche son adresse, par défaut http://localhost:3000. Les fichiers publics sont dans `dist/`. `dist/engine.js` contient la simulation indépendamment de l'interface ; `dist/checkout-flow.js` suit les files et l’encaissement par poste ; `dist/game.js` contient l'interface ; `dist/scene.js` gère la scène 3D et ses animations, `dist/checkout-visuals.js` anime les articles, le scanner et le paiement, avec les modèles d’articles, tenues et abords dans `dist/scene-details.js`. `dist/delivery-logistics.js` suit les manœuvres et les quais ; `dist/delivery-scene.js` représente les camions et leurs palettes réelles. Un navigateur avec WebGL est nécessaire. Les déplacements sont une représentation simplifiée de la simulation, avec des parcours d’allée prédéfinis.
+La simulation est dans `dist/engine.js` ; les coordonnées dans `dist/store-layout.js` ; les chemins dans `dist/walking-route.js` et `dist/customer-motion.js`. L’interface est dans `dist/game.js` et `dist/layout-editor.js`, la scène dans `dist/scene.js`. Satisfaction et vol ont leurs modules indépendants. La sauvegarde passe par `dist/save-format.js`, `dist/save-manager.js`, `worker/index.js` et `worker/save-db.js`.
 
-## Git et publication
+Le build rassemble les fichiers publics dans le Worker et vérifie chaque fichier embarqué. L’identité provient exclusivement de Sites ; les écritures protègent les révisions concurrentes et conservent une version précédente. `db/schema.ts` et les migrations Drizzle décrivent D1 ; les migrations déjà appliquées restent immuables. Le dépôt et le Site indiqués dans `.openai/hosting.json` doivent être conservés, avec leur audience privée.
 
-Le dépôt est indépendant d'Emergency Front. La branche principale est `main`. Les fichiers de `dist/` sont suivis dans Git et constituent directement la version publiée.
+## Pistes restantes
 
-La destination Sites est enregistrée dans `.openai/hosting.json`. Une publication doit correspondre à un commit poussé, puis à une version déployée avec succès. Aucun identifiant secret ne doit être enregistré dans Git.
-
-
-## To-do : fonctions support et compétitivité
-
-Idées demandées pour de prochaines versions, non implémentées :
-
-- [ ] Direction RH / DRH : aide au recrutement, à l’organisation et au dimensionnement des équipes, avec une progression à définir. Pour l’instant, aucun plafond d’effectif.
-- [ ] Achats et négociation fournisseurs : comparer les offres, négocier les contrats et obtenir des prix d’achat plus compétitifs.
-- [ ] Analyse des prix et marges : aider le directeur à choisir des prix de vente compétitifs et à suivre la rentabilité par produit.
-- [ ] Autres fonctions support : assistance à la gestion des stocks, aux prévisions de demande et à la trésorerie.
+Gestion RH détaillée, négociation et contrats fournisseurs, réglage des prix et marges, prévisions de gestion et produits périssables.

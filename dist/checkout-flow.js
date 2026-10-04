@@ -1,7 +1,11 @@
+import { satisfactionMetrics,adjustSatisfaction } from './satisfaction.js';
 // Keep small baskets at four minutes; larger shops share the same unload/payment overhead.
+export const AUTO_CHECKOUT_MAX_ARTICLES = 10;
+export const basketArticleCount = c => c.basket.reduce((n,l)=>n+l.quantity,0);
 export const checkoutDuration = count => 3 + Math.ceil(count / 8);
 
-export const checkoutSpace = state => 4 + state.expansions.checkout * 2;
+import { storeSize } from './store-layout.js';
+export const checkoutSpace = state => Math.min(8,storeSize(state).checkouts + state.expansions.checkout * 2);
 export const checkoutCount = state => state.infrastructure?.checkouts ?? checkoutSpace(state);
 
 // One minute to unload, a sequential scan, then one minute to pay.
@@ -30,7 +34,7 @@ export function releaseClosedCheckouts(state) {
     if (customer.stage === 'checkout' && !active.has(customer.checkoutLane)) {
       customer.stage = 'queue'; customer.wait = 0; customer.checkoutRemaining = 0;
     }
-    if (customer.stage === 'queue' && !active.has(customer.checkoutLane)) customer.checkoutLane = null;
+    if (customer.stage === 'queue' && (!active.has(customer.checkoutLane)||customer.checkoutLane==='auto'&&basketArticleCount(customer)>AUTO_CHECKOUT_MAX_ARTICLES)) customer.checkoutLane = null;
   }
 }
 
@@ -44,18 +48,20 @@ export function updateCheckouts(state, recordSale) {
     customer.checkoutRemaining--;
     if (customer.checkoutRemaining > 0) continue;
     customer.paid = true; recordSale(customer); paid.add(customer.id);
-    state.satisfaction = Math.min(100, state.satisfaction + .03);
+    adjustSatisfaction(state,'paymentRecovery',.03);
   }
   state.customers = state.customers.filter(c => !paid.has(c.id));
   for (const customer of state.customers.filter(c => c.stage === 'queue' && c.checkoutLane == null)) {
     const workload = lane => state.customers.filter(c => c.checkoutLane === lane && ['queue', 'checkout'].includes(c.stage)).length;
-    customer.checkoutLane = active.reduce((best, lane) => workload(lane) < workload(best) ? lane : best, active[0]);
+    const eligible=active.filter(lane=>lane!=='auto'||basketArticleCount(customer)<=AUTO_CHECKOUT_MAX_ARTICLES);
+    customer.checkoutLane=eligible.reduce((best,lane)=>workload(lane)<workload(best)?lane:best,eligible[0]);
   }
   for (const lane of active) {
     if (state.customers.some(c => c.stage === 'checkout' && c.checkoutLane === lane)) continue;
     const customer = state.customers.find(c => c.stage === 'queue' && c.checkoutLane === lane);
     if (!customer) continue;
     const articles = customer.basket.reduce((sum, item) => sum + item.quantity, 0);
+    const metrics=satisfactionMetrics(state);metrics.waitingCustomers++;metrics.waitMinutes+=customer.wait;metrics.maxWait=Math.max(metrics.maxWait,customer.wait);
     customer.stage = 'checkout'; customer.wait = 0; customer.checkoutArrived = !customer.motion;
     customer.checkoutRemaining = checkoutDuration(articles);
     customer.checkoutDuration = customer.checkoutRemaining;

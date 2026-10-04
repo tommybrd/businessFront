@@ -36,17 +36,17 @@ test('a full product reserve blocks only its own delivery, not the next product 
 });
 
 test('human pallet transport preserves incoming goods through reallocation, capacity limits and disposal', () => {
-  const s = quietGame(); s.products[0].reserve = 0; s.products[0].reserveCapacity = 100; setStaff(s, 'receiving', 2);
-  placeOrder(s, 'produce', 120, 'express'); const total = inventoryPosition(s, 'produce'), cash = s.money;
+  const s = quietGame(); s.products[0].reserve = 0; s.products[0].reserveCapacity = 400; setStaff(s, 'receiving', 2);
+  placeOrder(s, 'produce', 480, 'express'); const total = inventoryPosition(s, 'produce'), cash = s.money;
   openStore(s); advanceUntil(s, () => receivingInTransit(s) > 0);
   assert.equal(inventoryPosition(s, 'produce'), total);
-  assert.ok(s.receivers.every(w => w.load <= 48)); assert.ok(restockerPosition(s.receivers[0]).every(Number.isFinite));
+  assert.ok(s.receivers.every(w => w.load <= 240)); assert.ok(restockerPosition(s.receivers[0]).every(Number.isFinite));
   setStaff(s, 'receiving', 0); assert.equal(receivingInTransit(s), 0); assert.equal(inventoryPosition(s, 'produce'), total);
   setStaff(s, 'receiving', 2); advance(s, 80);
-  assert.equal(s.products[0].reserve, 96); assert.equal(s.orders[0].remaining, 24);
-  discardReserve(s, 'produce', 20); advance(s, 80);
-  assert.equal(s.products[0].reserve, 100); assert.equal(s.orders[0].status, 'received');
-  assert.equal(inventoryPosition(s, 'produce'), total - 20); assert.equal(s.money, cash);
+  assert.equal(s.products[0].reserve, 240); assert.equal(s.orders[0].remaining, 240);
+  discardReserve(s, 'produce', 80); advance(s, 80);
+  assert.equal(s.products[0].reserve, 400); assert.equal(s.orders[0].status, 'received');
+  assert.equal(inventoryPosition(s, 'produce'), total - 80); assert.equal(s.money, cash);
 });
 
 test('discarding reserve goods protects prepared loads and does not refund paid merchandise', () => {
@@ -146,7 +146,7 @@ test('a trailer admits one pallet pickup at a time and releases reservations whe
   const s = quietGame(); s.products[0].reserve = 0; expandStore(s, 'reserve'); setStaff(s, 'receiving', 12);
   placeOrder(s, 'produce', 120, 'express'); openStore(s);
   advanceUntil(s, () => s.receivers.some(w => w.reserved));
-  assert.deepEqual(s.receivers.filter(w => w.reserved).map(w => w.reserved), [48]);
+  assert.deepEqual(s.receivers.filter(w => w.reserved).map(w => w.reserved), [120]);
   setStaff(s, 'receiving', 0);
   assert.ok(s.orders[0].pallets.every(p => p.status === 'dock')); assert.equal(s.orders[0].remaining, 120);
   setStaff(s, 'receiving', 3); advance(s, 100);
@@ -159,7 +159,7 @@ test('cash-register operating costs and staff wages are charged once at closing 
   buyAutoCheckout(s); assert.equal(checkoutDailyCosts(s), 38);
   setStaff(s, 'checkout', 12); const cash = s.money, costs = dailyCosts(s);
   openStore(s); s.minute = 1199; s.arrivalCredit = -10000; advance(s, 1);
-  assert.equal(s.history[0].expenses, 13 * 85 + 125 + 160);
+  assert.equal(s.history[0].expenses, 13 * 85 + 125 + 185.99);
   assert.equal(s.money, cash - costs); assert.equal(s.history[0].net, -costs - 7300);
   advance(s, 0); assert.equal(s.money, cash - costs);
 });

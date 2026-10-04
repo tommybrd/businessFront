@@ -1,4 +1,4 @@
-import { RESERVE_BACK_EXTENSION } from './store-layout.js';
+import { STORE_SIZES } from './store-layout.js';
 import * as THREE from 'three';
 import { storeFrontExtension } from './engine.js';
 
@@ -188,11 +188,11 @@ export function createSurroundings(scene, box, material, textSprite) {
         value.route = [[value.group.position.x, 16.5], [drivewayX, 16.5], [drivewayX, 26], [drivewayX + 5, 26]];
       }
     },
-    update(seconds, running, expansions) {
-      extension = storeFrontExtension(expansions); parking.position.z = extension; access.position.z = -(RESERVE_BACK_EXTENSION + expansions.reserve * 3); access.position.x = Math.max(.8, expansions.checkout);
+    update(seconds, running, expansions, size='standard') {
+      extension = storeFrontExtension(expansions,size); parking.position.z = extension; access.position.z = -(STORE_SIZES[size].back + expansions.reserve * 3); access.position.x = Math.max(.8, expansions.checkout);
       drivewayX = 16 + access.position.x;
       driveway.scale.x = (4.6 + access.position.x) / 4.6; driveway.position.x = 15.2 + access.position.x / 2;
-      const back = (RESERVE_BACK_EXTENSION + expansions.reserve * 3), streetLength = 49 + extension + back;
+      const back = (STORE_SIZES[size].back + expansions.reserve * 3), streetLength = 49 + extension + back;
       serviceRoad.scale.z = (52 + extension + back) / 52; serviceRoad.position.z = 1 + (extension + back) / 2;
       backStreet.position.z = -23 - back;
       backMarkings.position.z = -back;

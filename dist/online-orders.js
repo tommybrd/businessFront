@@ -1,3 +1,6 @@
+import {restockReserved} from './restock-load.js';
+import { packingAccessPoint,storeFrontExtension } from './store-layout.js';
+import { routeWaypoints } from './walking-route.js';
 // Customer fulfilment, separate from supplier purchase orders. All quantities are real units.
 export const ONLINE_CHANNELS = {
   drive: { name: 'Drive', customerFee: 0, packaging: .5, transport: 0, promise: 75 },
@@ -8,8 +11,8 @@ export const activeOnlineOrder = o => !['completed', 'cancelled'].includes(o.sta
 const round = n => Math.round(n * 100) / 100;
 export const onlineDaily = () => ({ accepted: 0, completed: 0, cancelled: 0, sales: 0, drive: 0, web: 0, expenses: 0 });
 export const newOnlineState = seed => ({ enabled: { drive: false, web: false }, orders: [], workers: [], credit: { drive: 0, web: 0 }, nextId: 1, seed: seed ^ 9173, daily: onlineDaily(), carrier: null, nextCarrier: 0 });
-export const packPoint = s => [-9.5, 3.4 + 2.2 + s.expansions.checkout * 3 + s.expansions.shelves * 7.6];
-export const drivePoint = (s, slot) => [-10.5 + slot * 3, 12.8 + 2.2 + s.expansions.checkout * 3 + s.expansions.shelves * 7.6];
+export const packPoint = s => packingAccessPoint(s);
+export const drivePoint = (s, slot) => [-10.5 + slot * 3, 12.8 + storeFrontExtension(s.expansions,s.storeSize)];
 export function onlineReserved(s, productId, source) {
   return s.online.orders.filter(activeOnlineOrder).reduce((sum, o) => sum + o.lines.filter(l => l.productId === productId).reduce((n, l) => n + (l[source] || 0) - (l[`picked${source}`] || 0), 0), 0);
 }
@@ -21,7 +24,7 @@ export const onlinePicked = o => o.lines.reduce((n, l) => n + l.pickedreserve + 
 function allocate(s, order) {
   const lines = order.lines.map(l => {
     const p = s.products[l.index];
-    const restock = s.restockers.filter(w => w.productId === p.id).reduce((n, w) => n + w.reserved, 0);
+    const restock = s.restockers.reduce((n,w)=>n+restockReserved(w,p.id),0);
     const reserve = Math.min(l.quantity, Math.max(0, p.reserve - restock - onlineReserved(s, p.id, 'reserve')));
     const shelf = l.quantity - reserve;
     if (shelf > p.shelf - onlineReserved(s, p.id, 'shelf')) return null;
@@ -94,8 +97,8 @@ function travel(w, destination, phase, s) {
     if (destination[1] < -4) path.push([11.65,-3.65],[11.65,destination[1]]);
     else path.push([-10.5,-3.65],[-10.5,destination[1]]);
   } else path.push([-10.5,start[1]],[-10.5,destination[1]]);
-  path.push(destination); w.path = path;
-  w.total = w.remaining = Math.max(1, Math.ceil(path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-path[i][0],p[1]-path[i][1]),0)/3)); w.phase = phase;
+  path.push(destination); w.path = routeWaypoints(s,path);
+  w.total = w.remaining = Math.max(1, Math.ceil(w.path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-w.path[i][0],p[1]-w.path[i][1]),0)/3)); w.phase = phase;
 }
 function targetNext(s, w, o, hooks) {
   for (let i=0;i<o.lines.length;i++) for (const source of ['reserve','shelf']) {
@@ -104,7 +107,7 @@ function targetNext(s, w, o, hooks) {
     const p=s.products[l.index];
     w.reserveRack = source === 'reserve' ? Math.max(0,Math.min(p.reserveRacks-1,Math.ceil(p.reserve / (500 + s.expansions.reserve*250))-1)) : null;
     const point = source === 'reserve' ? hooks.reservePoint(l.index,w.reserveRack) : hooks.shelfPoint(s,l.index);
-    const destination = source === 'reserve' ? [point[0],point[1]+1.25] : [point[0],point[1]+point[2]*1.45];
+    const destination = point;
     travel(w,destination,'travelling',s); return;
   }
   travel(w,packPoint(s),'returning',s);

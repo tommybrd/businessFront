@@ -1,20 +1,20 @@
 import * as THREE from 'three';
+import { packingPlacement,storeFrontExtension } from './store-layout.js';
 import { packPoint, drivePoint, onlineUnits } from './online-orders.js';
 export function createOnlineScene(scene,state,{box,material,textSprite}) {
   const group=new THREE.Group(); group.name='online-services'; group.userData.selection={view:'online'}; scene.add(group);
-  const packing=new THREE.Group(); packing.name='online-packing'; group.add(packing);
+  const packing=new THREE.Group(); packing.name='online-packing';packing.userData.selection={view:'online',fixtureId:'packing'}; group.add(packing);
   box(packing,1.1,.12,2,0,.88,0,0x789a80);
   for(const x of [-.45,.45]) for(const z of [-.85,.85]) box(packing,.07,.8,.07,x,.43,z,0x547460);
   box(packing,.35,.3,.25,0,1.08,-.7,0x213e32);box(packing,.28,.15,.05,0,1.22,-.54,0x93c9bc);
   box(packing,.42,.35,.42,0,.28,.5,0xbc9764);
-  const label=textSprite('DRIVE / WEB',{worldWidth:2.1,size:32}); label.position.set(0,1.8,0); packing.add(label);
   const spaces=new THREE.Group();spaces.name='drive-pickup';group.add(spaces);
   for(let slot=0;slot<2;slot++) {
     const point=drivePoint(state,slot),z=point[1];
     const bay=new THREE.Group();bay.userData.slot=slot;spaces.add(bay);
     box(bay,2.75,.035,4,0,-.07,0,0x749d83,false);
     box(bay,.06,1.9,.06,1.15,.9,-2.2,0x486650);
-    const sign=textSprite(`DRIVE ${slot+1}`,{worldWidth:1.7,background:'#294f3a',color:'#fff8df'});sign.position.set(1.15,1.85,-2.2);bay.add(sign);
+    box(bay,.45,.35,.1,1.15,1.85,-2.2,0xc4e7ad);
     bay.position.set(point[0],0,z);
   }
   const parcels=new THREE.Group();parcels.name='online-ready-parcels';group.add(parcels);
@@ -38,8 +38,8 @@ export function createOnlineScene(scene,state,{box,material,textSprite}) {
   function remove(car){group.remove(car);car.traverse(o=>o.geometry?.dispose());}
   let courier=null;
   return {group,update(fraction=0){
-    const point=packPoint(state),front=point[1]-3.4;
-    packing.visible=Boolean(state.infrastructure.drive||state.infrastructure.web); packing.position.set(point[0]-.55,0,point[1]-.4);
+    const point=packPoint(state),front=storeFrontExtension(state.expansions,state.storeSize),placement=packingPlacement(state);
+    packing.visible=Boolean(state.infrastructure.drive||state.infrastructure.web); packing.position.set(placement.x,0,placement.z);packing.rotation.y=placement.rotation;
     spaces.visible=Boolean(state.infrastructure.drive); spaces.children.forEach((bay,slot)=>{const p=drivePoint(state,slot);bay.position.set(p[0],0,p[1]);});
     const ready=state.online.orders.filter(o=>['ready','dispatching'].includes(o.status));
     const key=ready.map(o=>`${o.id}:${o.channel}:${onlineUnits(o)}`).join('|');

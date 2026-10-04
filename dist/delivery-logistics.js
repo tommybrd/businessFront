@@ -1,12 +1,13 @@
-import { RESERVE_BACK_EXTENSION } from './store-layout.js';
+import { reserveBackExtension, RESERVE_BACK_EXTENSION } from './store-layout.js';
 // Truck movements and pallet coordinates share the simulation clock.
 export const DELIVERY_BAYS = [2.2, 5.6, 9, 12.4, 15.8];
 export const deliveryBayCount = state => state.infrastructure?.bays ?? 3;
 export const outsideCapacity = state => state.infrastructure?.outside ?? OUTSIDE_PALLET_CAPACITY;
 export const PALLETS_PER_TRUCK = 10;
+export const ARTICLES_PER_PALLET = 240;
 export const OUTSIDE_PALLET_CAPACITY = 30;
 export function outsidePalletPosition(state, pallet) {
-  return [-10.9 + (pallet.outsideSlot % 5) * 1.7, -10.9 - Math.floor(pallet.outsideSlot / 5) * 1.75 - (RESERVE_BACK_EXTENSION + state.expansions.reserve * 3)];
+  return [-10.9 + (pallet.outsideSlot % 5) * 1.7, -10.9 - Math.floor(pallet.outsideSlot / 5) * 1.75 - (reserveBackExtension(state))];
 }
 export function outsidePallets(state) {
   return state.orders.flatMap(order => order.pallets.filter(p => p.status === 'outside' || (p.status === 'reserved' && p.outsideOrigin)).map(pallet => ({ order, pallet })));
@@ -22,7 +23,7 @@ export function freeOutsideSlot(state) {
 const clamp = n => Math.max(0, Math.min(1, n));
 const lerp = (a, b, t) => a + (b - a) * t;
 export function truckPose(state, shipment, minuteFraction = 0) {
-  const back = (RESERVE_BACK_EXTENSION + state.expansions.reserve * 3), wide = Math.max(state.expansions.shelves * 2, state.expansions.checkout) + Math.max(0, deliveryBayCount(state) - 3) * 3.4;
+  const back = (reserveBackExtension(state)), wide = Math.max(state.expansions.shelves * 2, state.expansions.checkout) + Math.max(0, deliveryBayCount(state) - 3) * 3.4;
   const x = DELIVERY_BAYS[shipment.bay ?? 0], z = -11.15 - back;
   const time = state.elapsed + minuteFraction;
   if (shipment.phase === 'enroute') return { x: 16 + wide, z: -19 - back - Math.max(0, shipment.eta - time - 8) * 1.8, rotation: 0 };
