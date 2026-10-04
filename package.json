@@ -1,9 +1,9 @@
 {
   "name": "market-front",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "private": true,
   "type": "module",
-  "description": "Jeu de gestion de supermarché en vue d'ensemble",
+  "description": "Jeu de gestion de supermarch\u00e9 en vue d'ensemble",
   "scripts": {
     "dev": "node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
