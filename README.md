@@ -1,4 +1,4 @@
-# Market Front · v0.11.5
+# Market Front · v0.11.6
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
@@ -14,7 +14,7 @@ Finances propose petit, moyen ou grand magasin, avec surface, coût de changemen
 
 Aménager ouvre un plan et met la partie en pause. Sélectionner un équipement puis le glisser, ou toucher sa destination ; Tourner le pivote de 90°. Rayons, caisses, caisse automatique, racks et poste de préparation sont déplaçables. Les chevauchements, sorties bloquées et passages coupés sont refusés. Un équipement en cours d’utilisation attend la fin de son opération. La simulation, les chemins autour des obstacles et la scène 3D utilisent les positions sauvegardées.
 
-Les repères de la scène sont les portillons, barrières, voyants et meubles. Le pain est présenté dans un meuble en bois à quatre niveaux compartimentés, avec baguettes debout en bas et petits pains emballés en haut ; le frais utilise des armoires réfrigérées à deux portes vitrées, avec éclairage et ventilation. Les portes s’entrouvrent pendant le prélèvement ou le rangement. Chaque meuble montre son stock réel et conserve ses emplacements, sa capacité et ses accès sauvegardés. Aucun panneau Entrée, Sortie, Caisse 1, Auto, Module libre, Quai ou Drive ne flotte dans le magasin. Les plaques des produits font partie du mobilier. Le montant du paiement reste près du poste et un bip unique accompagne le paiement (après autorisation audio du navigateur), sans option de désactivation.
+Les repères de la scène sont les portillons, barrières, voyants et meubles. Le pain est présenté dans un meuble en bois à quatre niveaux compartimentés, avec baguettes debout en bas et petits pains emballés en haut ; le frais utilise des bacs réfrigérés bas et ouverts sur le dessus, avec éclairage et ventilation. Les articles sont disposés à plat pour rendre le remplissage visible depuis la vue du magasin. Chaque meuble montre son stock réel et conserve ses emplacements, sa capacité et ses accès sauvegardés. Aucun panneau Entrée, Sortie, Caisse 1, Auto, Module libre, Quai ou Drive ne flotte dans le magasin. Les plaques des produits font partie du mobilier. Le montant du paiement reste près du poste et un bip unique accompagne le paiement (après autorisation audio du navigateur), sans option de désactivation.
 
 ## Stocks, clients et livraisons
 
@@ -70,3 +70,5 @@ Les horaires se règlent dans Finances, entre 05:00 et 23:00 (au moins une heure
 La satisfaction affiche des notes A à E pour la disponibilité, l’attente et les achats aboutis. La note globale pondère ces trois scores (50 %, 30 %, 20 %). Seuils : A ≥95, B ≥85, C ≥70, D ≥50, E en dessous. La disponibilité suit les demandes servies (avant les premières demandes : rayons approvisionnés) ; l’attente utilise le maximum entre la moyenne du jour et l’attente actuelle, avec 7 points retirés par minute ; les achats aboutis mesurent les départs sans achat parmi les visites terminées. Les mesures détaillées sont conservées en sauvegarde.
 
 Les jauges de réserve distinguent le stock présent, les commandes fournisseurs en cours (bleu) et les lots prévus pour le soir (bleu hachuré). Les articles déchargés restent en commande jusqu’au rangement en réserve ; le volume attendu et les dépassements de capacité sont affichés.
+
+L’échelle des surfaces est multipliée par cinq : 1 085 m², 1 585 m² et 2 060 m² avant agrandissements. Le loyer, l’électricité liée à la surface, l’assurance et l’entretien suivent cette surface ; les salaires et frais fixes des équipements restent séparés. Les bilans clôturés conservent leurs charges historiques.

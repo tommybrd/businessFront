@@ -19,29 +19,20 @@ export function createShelfFurniture(group,product,{box,material}) {
     return {layout:'bread-display',levels:4,unitsPerLevel:SHELF_MODULE_CAPACITY/4,signY:2.74,signZ:.75,doors:[]};
   }
   if(product.id==='dairy') {
-    group.userData.fixture='refrigerated-cabinet';
-    box(group,1.8,.25,1.45,0,.22,0,0x8da2a0);
-    box(group,1.8,2.15,.1,0,1.35,-.67,0xe0e9e6);
-    for(const x of [-.85,.85])box(group,.1,2.15,1.45,x,1.35,0,0xe3ece9);
-    for(let level=0;level<SHELF_INITIAL_LEVELS;level++){
-      box(group,1.65,.075,1.25,0,.42+level*.38,0,0xcddcda);
-      box(group,1.65,.045,.04,0,.47+level*.38,.63,0xa8bbba);
-    }
-    box(group,1.8,.18,1.45,0,2.35,0,0xdbe7e4);
-    box(group,1.66,.17,.06,0,.24,.74,0x819492);
-    for(let i=0;i<14;i++)box(group,.05,.11,.018,-.75+i*.115,.24,.78,0x364c4c,false);
-    const light=new THREE.MeshStandardMaterial({color:0xddffff,emissive:0xb7edf1,emissiveIntensity:.9});
-    for(const x of [-.78,.78]){const led=box(group,.025,1.8,.03,x,1.34,.55,0xddffff,false);led.material=light;}
-    const glass=new THREE.MeshPhysicalMaterial({color:0xbbe6e8,transparent:true,opacity:.14,roughness:.12,metalness:.03,depthWrite:false});
-    const doors=[-1,1].map(side=>{
-      const door=new THREE.Group();door.name='fridge-door';door.position.set(side*.84,0,.73);group.add(door);const direction=-side,center=direction*.4;
-      const pane=new THREE.Mesh(new THREE.BoxGeometry(.76,1.86,.025),glass);pane.name='fridge-glass';pane.position.set(center,1.34,0);door.add(pane);
-      for(const x of [direction*.02,direction*.8])box(door,.035,1.94,.06,x,1.34,0,0xf0f5f1,false);
-      for(const y of [.37,2.31])box(door,.82,.035,.06,center,y,0,0xf0f5f1,false);
-      box(door,.035,.43,.055,direction*.71,1.26,.075,0x596e70,false);
-      return {group:door,side};
-    });
-    return {layout:'shelf',levels:SHELF_INITIAL_LEVELS,unitsPerLevel:SHELF_UNITS_PER_LEVEL,signY:2.34,signZ:.75,doors};
+    group.userData.fixture='refrigerated-island';
+    box(group,1.8,.52,1.45,0,.38,0,0xa6bebc);
+    box(group,1.68,.12,1.32,0,.12,0,0x526b6b);
+    box(group,1.56,.06,1.16,0,.81,0,0xddebea);
+    for(const x of [-.835,.835])box(group,.13,.36,1.45,x,.82,0,0xd1e1df);
+    for(const z of [-.66,.66])box(group,1.56,.36,.13,0,.82,z,0xd1e1df);
+    for(const x of [-.86,.86])box(group,.08,.055,1.3,x,1.03,0,0x78999c);
+    for(const z of [-.685,.685])box(group,1.8,.055,.08,0,1.03,z,0x78999c);
+    for(const z of [-.22,.22])box(group,1.56,.08,.012,0,.87,z,0xb3c9c8,false);
+    box(group,1.56,.09,.035,0,.22,.738,0x556e70);
+    for(let i=0;i<16;i++)box(group,.035,.07,.018,-.71+i*.095,.22,.76,0x253e40,false);
+    const light=new THREE.MeshStandardMaterial({color:0xdcffff,emissive:0xb1e7ed,emissiveIntensity:.55});
+    for(const z of [-.58,.58]){const led=box(group,1.48,.025,.025,0,.94,z,0xdcffff,false);led.material=light;}
+    return {layout:'refrigerated-island',levels:1,unitsPerLevel:SHELF_MODULE_CAPACITY,signY:.58,signZ:.75,doors:[]};
   }
   const stall=product.id==='produce';
   if(stall){

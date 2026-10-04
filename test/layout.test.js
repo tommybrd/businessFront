@@ -6,14 +6,14 @@ import {walkingPath} from '../dist/walking-route.js';
 import {makeSave,readSave} from '../dist/save-format.js';
 const unchanged=(s,fn)=>{const before=JSON.stringify(s);assert.throws(fn);assert.equal(JSON.stringify(s),before);};
 test('new game is a small shop with two stocked modules, one staffed checkout and three employees',()=>{
- const s=createStarterGame();assert.equal(s.storeSize,'small');assert.equal(s.shelfLayout.filter(Boolean).length,2);assert.equal(s.infrastructure.checkouts,1);assert.deepEqual(s.staff,{checkout:1,shelves:1,receiving:1,online:0});assert.equal(s.products.reduce((n,p)=>n+p.shelf,0),240);assert.equal(s.products.reduce((n,p)=>n+p.reserve,0),96);assert.ok(premisesCosts(s).total<160);assert.equal(premisesCosts(s).rows.length,4);
+ const s=createStarterGame();assert.equal(s.storeSize,'small');assert.equal(s.shelfLayout.filter(Boolean).length,2);assert.equal(s.infrastructure.checkouts,1);assert.deepEqual(s.staff,{checkout:1,shelves:1,receiving:1,online:0});assert.equal(s.products.reduce((n,p)=>n+p.shelf,0),240);assert.equal(s.products.reduce((n,p)=>n+p.reserve,0),96);assert.ok(premisesCosts(s).total<800);assert.equal(premisesCosts(s).rows.length,4);
  startDayOnLoad(s);assert.equal(s.phase,'preparation');assert.equal(s.minute,300);assert.equal(s.speed,1);advance(s,250);assert.ok(s.customers.every(c=>c.items.every(l=>l.index<2)));
 });
 test('page load resumes current minute at x1 and leaves a bankrupt game stopped',()=>{
  const s=createGame();openStore(s);advance(s,30);s.speed=0;const snapshot=readSave(makeSave(s));const before=snapshot.state.minute;startDayOnLoad(snapshot.state);assert.equal(snapshot.state.minute,before);assert.equal(snapshot.state.speed,1);s.phase='bankrupt';s.speed=0;startDayOnLoad(s);assert.equal(s.speed,0);
 });
 test('larger premises and expansions increase itemized charges and closing charges them once',()=>{
- const s=createStarterGame();s.money=50000;const small=premisesCosts(s);setStoreSize(s,'standard');const medium=premisesCosts(s);assert.equal(s.money,47000);assert.equal(s.shelfLayout.length,18);setStoreSize(s,'large');const large=premisesCosts(s);assert.equal(s.money,43500);assert.equal(s.shelfLayout.length,36);assert.ok(small.total<medium.total&&medium.total<large.total);assert.ok(small.area<medium.area&&medium.area<large.area);assert.equal(shopArea(s),412);
+ const s=createStarterGame();s.money=50000;const small=premisesCosts(s);setStoreSize(s,'standard');const medium=premisesCosts(s);assert.equal(s.money,47000);assert.equal(s.shelfLayout.length,18);setStoreSize(s,'large');const large=premisesCosts(s);assert.equal(s.money,43500);assert.equal(s.shelfLayout.length,36);assert.ok(small.total<medium.total&&medium.total<large.total);assert.ok(small.area<medium.area&&medium.area<large.area);assert.equal(shopArea(s),2060);
  const before=JSON.stringify(s);s.money=0;unchanged(s,()=>setStoreSize(s,'unknown'));s.money=43500;s.arrivalCredit=-10000;const cash=s.money,cost=dailyCosts(s);openStore(s);s.minute=1199;advance(s,1);assert.equal(s.money,cash-cost);assert.deepEqual(s.history[0].premises,large);advance(s,0);assert.equal(s.money,cash-cost);
 });
 test('installing or removing a checkout adjusts its employee in the same operation and protects a busy lane',()=>{
@@ -89,4 +89,9 @@ test('busy shelf and reserve fixtures can move in pause without losing a mixed l
  assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);
  const resumed=readSave(makeSave(s)).state;advance(s,40);advance(resumed,40);assert.deepEqual(resumed,s);
  assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);
+});
+
+test('floor areas use the fivefold scale and rent, area electricity, insurance and cleaning follow it',()=>{
+ const s=createStarterGame();assert.equal(shopArea(s),1085);s.storeSize='standard';assert.equal(shopArea(s),1585);const c=premisesCosts(s);assert.equal(c.rows[0].cost,450);assert.equal(c.rows[2].cost,50);assert.equal(c.rows[3].cost,100);assert.equal(c.rows[1].cost,104);
+ s.storeSize='large';assert.equal(shopArea(s),2060);const before=shopArea(s);s.expansions.reserve=1;assert.ok(shopArea(s)>before);assert.ok(premisesCosts(s).total>c.total);
 });

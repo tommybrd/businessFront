@@ -18,6 +18,14 @@ export function productUnit(product, index, box, material) {
     bottle.position.y = 0.12; group.add(bottle);
     box(group, 0.07, 0.07, 0.07, 0, 0.26, 0, 0xf2eee0, false);
     box(group, 0.16, 0.07, 0.01, 0, 0.13, 0.08, 0xe9eadb, false);
+  } else if(product.id==='dairy'&&index%3===1) {
+    const tub=new THREE.Mesh(new THREE.CylinderGeometry(.09,.07,.18,10),material(0xf3f3e7));tub.position.y=.1;group.add(tub);
+    const lid=new THREE.Mesh(new THREE.CylinderGeometry(.095,.095,.025,10),material(0x9cbfcf));lid.position.y=.202;group.add(lid);
+    box(group,.13,.06,.012,0,.105,.075,0x4a819f,false);
+  } else if(product.id==='dairy'&&index%3===2) {
+    box(group,.18,.055,.19,0,.04,0,0x659b86,false);
+    box(group,.16,.045,.17,0,.085,0,0xead791,false);
+    box(group,.09,.01,.06,0,.115,.04,0xf4f1e2,false);
   } else if (product.id === 'bakery') {
     const small=index%4>=2;
     const geometry=new THREE.CapsuleGeometry(small?.09:.055,small?.12:.4,2,7);
@@ -35,7 +43,7 @@ export function productUnit(product, index, box, material) {
 
 // Batch the dense stock while retaining one instance for each real article.
 export function shelfStock(product, maximum, unitsPerLevel, parent, box, material, layout = 'shelf') {
-  const variants = product.id==='bakery'?4:product.id==='produce'?3:1,batches=[];
+  const variants = product.id==='bakery'?4:['produce','dairy'].includes(product.id)?3:1,batches=[];
   const group = new THREE.Group(); group.name = `shelf-stock-${product.id}`; parent.add(group);
   for (let variant = 0; variant < variants; variant++) {
     const template = productUnit(product, variant, box, material);
@@ -51,7 +59,7 @@ export function shelfStock(product, maximum, unitsPerLevel, parent, box, materia
   let currentLevels = 0;
   return { update(count, levels) {
     if (levels !== currentLevels) {
-      const position = new THREE.Matrix4(), matrix = new THREE.Matrix4(), itemScale = new THREE.Matrix4().makeScale(.85, .85, .85);
+      const position = new THREE.Matrix4(), matrix = new THREE.Matrix4(), itemScale = layout==='refrigerated-island'?new THREE.Matrix4().makeScale(.4,.4,.4):new THREE.Matrix4().makeScale(.85,.85,.85);
       for (const batch of batches) {
         for (let n = 0; n < batch.capacity; n++) {
           const index = batch.variant + n * variants, slot = Math.floor(index / levels);
@@ -61,6 +69,7 @@ export function shelfStock(product, maximum, unitsPerLevel, parent, box, materia
             if(level<2)position.multiply(new THREE.Matrix4().makeScale(1,1,1.4));
             position.setPosition(x,[.34,1.12,1.9,2.34][level]+(level<2?.35:.09),z);
           }
+          else if(layout==='refrigerated-island')position.makeTranslation(-.76+(index%20)*.08,.84,.495-Math.floor(index/20)*.11);
           else if (layout === 'stall') position.makeTranslation(-.75 + (index % 10) * .165, 1.02 + Math.floor(index / 60) * .17, .65 - Math.floor((index % 60) / 10) * .26);
           else position.makeTranslation(-.735 + (slot % 8) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 8) * .275);
           position.multiply(itemScale); batch.mesh.setMatrixAt(n, matrix.multiplyMatrices(position, batch.partMatrix));

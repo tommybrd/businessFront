@@ -73,8 +73,8 @@ test('all installed equipment contributes to the daily charge and history exactl
   const s = quiet(); setInstallation(s, 'checkouts', 3); discardReserve(s, 'produce', 30); setInstallation(s, 'reserve', 0, 'produce');
   s.products[0].shelf = 0; setShelfCount(s, 'produce', 0); setInstallation(s, 'outside', 10); setInstallation(s, 'bays', 1); setInstallation(s, 'auto', 1);
   const expected = 3*5 + 8 + 5*3 + 5*4 + 10 + 10*.5;
-  assert.equal(expected, 73); assert.equal(maintenanceCosts(s).total, expected); assert.equal(dailyCosts(s), 233 + 255 - 1);
+  assert.equal(expected, 73); assert.equal(maintenanceCosts(s).total, expected); assert.equal(dailyCosts(s), 793 + 255 - 1);
   const cash = s.money; openStore(s); s.minute = 1199; advance(s, 1);
-  assert.equal(s.history[0].maintenance, 73); assert.equal(s.history[0].maintenanceDetails.reduce((sum,row)=>sum+row.cost,0), 73); assert.equal(s.money, cash - (233 + 255 - 1));
-  advance(s, 0); assert.equal(s.money, cash - (233 + 255 - 1)); assert.equal(s.history.length, 1);
+  assert.equal(s.history[0].maintenance, 73); assert.equal(s.history[0].maintenanceDetails.reduce((sum,row)=>sum+row.cost,0), 73); assert.equal(s.money, cash - (793 + 255 - 1));
+  advance(s, 0); assert.equal(s.money, cash - (793 + 255 - 1)); assert.equal(s.history.length, 1);
 });

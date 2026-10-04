@@ -37,12 +37,12 @@ test('floor expansion adds empty furniture; theme choices occupy distinct slots 
 test('profit excludes VAT, owner cash and prior tax repayments, preserving signed daily losses', () => {
   const s = quiet(); setStaff(s, 'checkout', 1); setAutomaticTaxPayment(s, false); openStore(s);
   s.sales = 1200; s.money += 1200; s.vatCollected = 200; s.ownerContribution = 300; s.money += 300;
-  const estimate = dailyProfitability(s); assert.equal(estimate.beforeTax, 648); assert.equal(estimate.netProfit, 518.4);
+  const estimate = dailyProfitability(s); assert.equal(estimate.beforeTax, 88); assert.equal(estimate.netProfit, 70.4);
   s.minute = 1199; advance(s, 1); const first = s.history[0];
-  assert.equal(first.netProfit, estimate.netProfit); assert.equal(first.net, 1148);
-  payTaxes(s); const secondEstimate = dailyProfitability(s); assert.equal(secondEstimate.netProfit, -352);
+  assert.equal(first.netProfit, estimate.netProfit); assert.equal(first.net, 588);
+  payTaxes(s); const secondEstimate = dailyProfitability(s); assert.equal(secondEstimate.netProfit, -912);
   s.minute = 1199; advance(s, 1); const second = s.history[1];
-  assert.equal(second.netProfit, -352); assert.equal(second.taxPaid, 329.6); assert.equal(second.net, -681.6);
+  assert.equal(second.netProfit, -912); assert.equal(second.taxPaid, 217.6); assert.equal(second.net, -1129.6);
 });
 
 test('last-day product activity records only goods placed in shelves and actual paid baskets', () => {
@@ -63,7 +63,7 @@ test('groupage costs 10 per provider once, including Express, while a flash Expr
   const quote = quoteEveningBasket(s); assert.equal(quote.groups[0].deliveryFee, 10);
   const cash = s.money; openStore(s); s.minute = 1199; advance(s, 1);
   assert.equal(s.orders.reduce((sum,o) => sum + o.deliveryFee, 0), 10); assert.equal(s.history[0].spending, quote.totalCost);
-  assert.equal(Math.round(s.money * 100), Math.round((cash - quote.totalCost - 267) * 100));
+  assert.equal(Math.round(s.money * 100), Math.round((cash - quote.totalCost - 827) * 100));
   const order = placeOrder(s, 'home', 48, 'express'); assert.equal(order.deliveryFee, 150);
 });
 

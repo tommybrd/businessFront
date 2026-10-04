@@ -224,7 +224,7 @@ function satisfactionPanel() {
 }
 
 function sizePicker() {
-  return `<section class="size-picker"><h3>Local · ${shopArea(state)} m²</h3><div class="size-options">${Object.entries(STORE_SIZES).map(([key,size])=>{const candidate={...state,storeSize:key},cost=Math.max(0,size.lease-STORE_SIZES[state.storeSize||'standard'].lease);return `<button data-store-size="${key}" aria-pressed="${key===state.storeSize}" ${key===state.storeSize?'disabled':''}><strong>${size.name}</strong><span>${shopArea(candidate)} m² · ${euros(premisesCosts(candidate).total)} / jour</span><small>${cost?euros(cost)+' de travaux':'Sans frais de changement'}</small></button>`;}).join('')}</div></section>`;
+  return `<section class="size-picker"><h3>Local · ${new Intl.NumberFormat('fr-FR').format(shopArea(state))} m²</h3><div class="size-options">${Object.entries(STORE_SIZES).map(([key,size])=>{const candidate={...state,storeSize:key},cost=Math.max(0,size.lease-STORE_SIZES[state.storeSize||'standard'].lease);return `<button data-store-size="${key}" aria-pressed="${key===state.storeSize}" ${key===state.storeSize?'disabled':''}><strong>${size.name}</strong><span>${new Intl.NumberFormat('fr-FR').format(shopArea(candidate))} m² · ${euros(premisesCosts(candidate).total)} / jour</span><small>${cost?euros(cost)+' de travaux':'Sans frais de changement'}</small></button>`;}).join('')}</div></section>`;
 }
 function stockAccountingRows(stock,other) {
  if(!stock)return '';

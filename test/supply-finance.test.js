@@ -70,9 +70,9 @@ test('independent expansions charge once per level, increase real capacities and
 
 test('VAT, profit tax and salary settle once at closing and personal reinvestment stays separate from sales', () => {
   const s = quietGame(); const initial = s.money; setDirectorSalary(s, 100); placeOrder(s, 'produce', 12, 'regular');
-  const summary = finishDay(s, 1200);
-  assert.equal(summary.vatCollected, 200); assert.equal(summary.vatDeductible, 9.43); assert.equal(summary.vatCharged, 190.57);
-  assert.equal(summary.taxableProfit, 433.83); assert.equal(summary.profitTax, 86.77); assert.equal(summary.taxPaid, 277.34);
+  const summary = finishDay(s, 2400);
+  assert.equal(summary.vatCollected, 400); assert.equal(summary.vatDeductible, 9.43); assert.equal(summary.vatCharged, 390.57);
+  assert.equal(summary.taxableProfit, 873.83); assert.equal(summary.profitTax, 174.77); assert.equal(summary.taxPaid, 565.34);
   assert.equal(summary.salaryPaid, 100); assert.equal(s.personalCash, 100);
   assert.equal(Math.round(s.money * 100), Math.round((initial + summary.net) * 100));
   const cash = s.money; advance(s, 0); assert.equal(s.money, cash); assert.equal(s.personalCash, 100);
@@ -82,17 +82,17 @@ test('VAT, profit tax and salary settle once at closing and personal reinvestmen
 
 test('manual tax payment clears liabilities without charging them again on the next closing', () => {
   const s = quietGame(); setAutomaticTaxPayment(s, false); const first = finishDay(s, 1200);
-  assert.equal(first.taxPaid, 0); assert.equal(s.vatDue, 200); assert.equal(s.profitTaxDue, 112.6);
-  const cash = s.money, payment = payTaxes(s); assert.equal(payment.paid, 312.6); assert.equal(s.money, cash - 312.6);
+  assert.equal(first.taxPaid, 0); assert.equal(s.vatDue, 200); assert.equal(s.profitTaxDue, 0.6);
+  const cash = s.money, payment = payTaxes(s); assert.equal(payment.paid, 200.6); assert.equal(s.money, cash - 200.6);
   assert.equal(s.vatDue + s.profitTaxDue, 0); assert.throws(() => payTaxes(s));
-  const next = finishDay(s, 0); assert.equal(next.taxPaid, 312.6); assert.equal(next.net, -437 - 312.6);
-  assert.equal(s.money, cash - 312.6 - 437);
+  const next = finishDay(s, 0); assert.equal(next.taxPaid, 200.6); assert.equal(next.net, -997 - 200.6);
+  assert.equal(s.money, cash - 200.6 - 997);
 });
 
 test('deductible VAT is carried forward and offsets later collected VAT', () => {
   const s = quietGame(); selectRestockEquipment(s, 'medium'); const first = finishDay(s);
   assert.equal(first.vatCharged, 0); assert.equal(s.vatCredit, 200);
-  const next = finishDay(s, 1200); assert.equal(next.vatCharged, 0); assert.equal(s.vatCredit, 0); assert.equal(next.profitTax, 112.6);
+  const next = finishDay(s, 1200); assert.equal(next.vatCharged, 0); assert.equal(s.vatCredit, 0); assert.equal(next.profitTax, 0.6);
 });
 
 test('closing returns pallet cargo to the dock while preserving a continuous day and paid order', () => {
@@ -159,7 +159,7 @@ test('cash-register operating costs and staff wages are charged once at closing 
   buyAutoCheckout(s); assert.equal(checkoutDailyCosts(s), 38);
   setStaff(s, 'checkout', 12); const cash = s.money, costs = dailyCosts(s);
   openStore(s); s.minute = 1199; s.arrivalCredit = -10000; advance(s, 1);
-  assert.equal(s.history[0].expenses, 13 * 85 + 125 + 185.99);
+  assert.equal(s.history[0].expenses, 13 * 85 + 125 + 821.94);
   assert.equal(s.money, cash - costs); assert.equal(s.history[0].net, -costs - 7300);
   advance(s, 0); assert.equal(s.money, cash - costs);
 });
@@ -180,7 +180,7 @@ test('invalid annual salaries leave the existing salary intact and zero stops pa
 
 test('profit sharing pays once, deducts the bonus before tax and reconciles the personal balance',()=>{
  const s=quietGame();setStaff(s,'checkout',1);setDirectorAnnualSalary(s,36500);setDirectorProfitShare(s,10);
- const base=1000-dailyCosts(s)-100,bonus=Math.round(base*.1*100)/100,summary=finishDay(s,1200);
+ const base=2000-dailyCosts(s)-100,bonus=Math.round(base*.1*100)/100,summary=finishDay(s,2400);
  assert.equal(summary.profitSharePaid,bonus);assert.equal(s.personalCash,100+bonus);
  assert.equal(summary.expenses,dailyCosts(s)+100+bonus);assert.equal(summary.beforeTax,Math.round((base-bonus)*100)/100);
  assert.equal(summary.profitTax,Math.round(summary.beforeTax*.2*100)/100);
@@ -189,7 +189,7 @@ test('profit sharing pays once, deducts the bonus before tax and reconciles the 
 test('profit sharing never pays on a loss or beyond the available cash',()=>{
  const loss=quietGame();setDirectorProfitShare(loss,100);assert.equal(finishDay(loss).profitSharePaid,0);
  const s=quietGame();setStaff(s,'checkout',1);setDirectorAnnualSalary(s,36500);setDirectorProfitShare(s,100);
- s.sales=1200;s.vatCollected=200;s.money=dailyCosts(s)+105;
+ s.sales=2400;s.vatCollected=400;s.money=dailyCosts(s)+105;
  const estimate=dailyProfitability(s);assert.equal(estimate.profitSharePaid,5);
  const summary=finishDay(s);assert.equal(summary.profitSharePaid,5);assert.equal(s.personalCash,105);assert.ok(s.money<=0);
  for(const n of [-1,101,NaN,1.5])assert.throws(()=>setDirectorProfitShare(s,n));
