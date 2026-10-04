@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { simulateDay } from '../scripts/balance.mjs';
-import { createGame, setStaff, openStore, advance, requestRestock, expandStore, setShelfCount } from '../dist/engine.js';
+import { createGame, createStarterGame, setStaff, openStore, advance, requestRestock, expandStore, setShelfCount, selectRestockEquipment, storeDemandScale, restockReserved, inventoryPosition, queueEveningOrder } from '../dist/engine.js';
 import { checkoutProgress } from '../dist/checkout-flow.js';
 
 const seeds = [73471, 9944, 2026];
@@ -13,7 +13,7 @@ test('a normal day requires shelf replenishment; prepared medium carts avoid sho
     assert.ok(unattended.shortfall > 300);
     assert.equal(prepared.shortfall, 0);
     assert.ok(prepared.restocked > 1000 && prepared.trips > 0 && prepared.trips < 30);
-    assert.ok(prepared.sold > unattended.sold + 300);
+    assert.ok(prepared.sold > unattended.sold + 200);
   }
 });
 
@@ -28,7 +28,80 @@ test('larger carts reduce trips on Saturday; exceptional demand still needs supp
     assert.ok(large.sold >= medium.sold && medium.sold >= small.sold);
     assert.ok(small.trips>medium.trips&&medium.trips>large.trips);
     const blackFriday = simulateDay({ seed, day: 4, mode: 'large' });
-    assert.ok(blackFriday.requested > large.requested * 1.3 && blackFriday.shortfall > 1000);
+    assert.ok(blackFriday.requested > large.requested * 1.3 && blackFriday.shortfall > 500);
+  }
+});
+
+test('a prepared two-rayon starter is manageable with one mixed-cart employee on ordinary days and Saturday', () => {
+  for (const seed of seeds) for (const day of [1,2,3]) {
+    const result=simulateDay({seed,day,starter:true,reserve:480});
+    assert.equal(result.shortfall,0); assert.equal(result.emptyMinutes,0);
+    assert.ok(result.sold>250 && result.trips>0 && result.trips<=12);
+    assert.ok(result.peakCustomers<15);
+    if(day===1){assert.ok(result.arrivals>=50&&result.arrivals<80);assert.ok(result.requested>=400&&result.requested<600);}
+  }
+});
+
+test('customer demand follows installed capacity, not the amount currently in stock or empty floor area', () => {
+  const s=createStarterGame(),scale=storeDemandScale(s);
+  assert.ok(scale<.4); s.products.forEach(p=>{p.shelf=0;p.reserve=0;}); assert.equal(storeDemandScale(s),scale);
+  s.storeSize='large';assert.equal(storeDemandScale(s),scale);
+  s.money=50000;setShelfCount(s,'produce',3);assert.ok(storeDemandScale(s)>scale);
+  setShelfCount(s,'bakery',0);setShelfCount(s,'produce',0);assert.equal(storeDemandScale(s),0);
+  assert.equal(storeDemandScale(createGame()),1);
+});
+
+test('five continuous starter days with explicit morning supply preserve every article and remain playable', () => {
+  for(const seed of seeds){
+    const s=createStarterGame(seed),initialCash=s.money;
+    s.products.forEach(p=>{p.shelf=p.capacity;p.reserve=p.capacity?480:0;});
+    const initial=s.products.map(p=>inventoryPosition(s,p.id)),planned=new Set();openStore(s);
+    let minutes=0;
+    while(s.history.length<5&&minutes++<4500){
+      if(!planned.has(s.day)){
+        // The player prepares larger morning deliveries ahead of busy days.
+        const quantity=[240,480,720,480,240][s.day-1];
+        for(const id of ['produce','bakery'])queueEveningOrder(s,id,quantity,'regular');
+        planned.add(s.day);
+      }
+      advance(s,1);assert.notEqual(s.phase,'bankrupt');
+      s.products.forEach((p,index)=>{
+        const purchased=s.orders.filter(o=>o.productId===p.id).reduce((n,o)=>n+o.quantity,0);
+        const sold=s.history.reduce((n,h)=>n+h.products[index].sold,0)+p.soldToday;
+        const stolen=s.history.reduce((n,h)=>n+(h.theft?.products[index]??0),0)+(s.theft?.daily.products[index]??0);
+        const held=s.customers.reduce((n,c)=>n+c.basket.filter(l=>l.index===index).reduce((sum,l)=>sum+l.quantity,0),0);
+        assert.equal(inventoryPosition(s,p.id)+sold+stolen+held,initial[index]+purchased);
+        assert.ok(p.shelf<=p.capacity&&p.reserve<=p.reserveCapacity&&p.reserve>=0);
+      });
+    }
+    assert.equal(s.history.length,5);
+    assert.ok(s.history.every(h=>h.satisfactionDetails.missing.every(n=>n===0)));
+    assert.ok(s.history.slice(0,3).every(h=>h.satisfactionDetails.waitDepartures===0));
+    assert.equal(Math.round(s.money*100),Math.round((initialCash+s.history.reduce((n,h)=>n+h.net,0))*100));
+  }
+});
+
+test('shopping lists never repeat a family to inflate a small assortment into a large basket', () => {
+  for(const starter of [false,true]){
+    const s=starter?createStarterGame():createGame();openStore(s);const seen=new Set();
+    for(let minute=0;minute<300;minute++){
+      advance(s,1);
+      for(const c of s.customers){seen.add(c.id);assert.equal(new Set(c.items.map(l=>l.index)).size,c.items.length);assert.ok(c.items.length<=(starter?2:6));assert.ok(c.items.every(l=>s.products[l.index].capacity>0));}
+    }
+    assert.ok(seen.size>10);
+  }
+});
+
+test('automatic replenishment starts at 75 percent with a partial cart and counts loads already coming', () => {
+  for(const mixed of [false,true])for(const mode of ['medium','hyper']){
+    const s=createGame();s.money=50000;s.mixedRestock=mixed;setStaff(s,'shelves',2);s.arrivalCredit=-100000;
+    for(const equipment of ['medium','large','hyper']){selectRestockEquipment(s,equipment);if(equipment===mode)break;}
+    s.products.forEach(p=>{p.shelf=p.capacity;p.reserve=500;});const p=s.products[0],total=inventoryPosition(s,p.id);
+    p.shelf=451;openStore(s);advance(s,1);assert.ok(s.restockers.every(w=>w.phase==='idle'));
+    p.shelf=450;advance(s,1);assert.notEqual(s.restockers[0].phase,'idle');assert.equal(restockReserved(s.restockers[0],p.id),150);assert.equal(s.restockers[1].phase,'idle');
+    const actualTotal=total-150;
+    for(let minute=0;minute<150;minute++){advance(s,1);assert.equal(inventoryPosition(s,p.id),actualTotal);assert.equal(s.restockers[1].phase,'idle');}
+    assert.equal(p.shelf,p.capacity);assert.equal(s.restockers[0].completed,1);
   }
 });
 

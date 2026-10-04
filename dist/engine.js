@@ -194,6 +194,9 @@ const newReceiver = id => ({ id, phase: 'idle', productId: null, orderId: null, 
 export const restockInTransit = s => s.restockers.reduce((sum, worker) => sum + worker.load, 0);
 const round = n => Math.round(n * 100) / 100;
 export const currentEvent = s => EVENTS[(s.day - 1) % EVENTS.length];
+// Footfall follows the installed assortment, even when its shelves are empty.
+// The reference store has eighteen modules; growth has diminishing returns.
+export const storeDemandScale = s => Math.min(2, Math.sqrt(s.products.reduce((n,p)=>n+p.capacity,0) / PRODUCTS.reduce((n,p)=>n+p.capacity,0)));
 export const reserveUsed = s => s.products.reduce((sum, p) => sum + p.reserve, 0);
 export const clock = minute => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(Math.floor(minute % 60)).padStart(2, '0')}`;
 
@@ -453,7 +456,10 @@ function mixedTarget(s,w,index,source) {
 }
 function updateMixedRestocker(s,w) {
  if(w.phase==='idle') {
-  const candidates=s.products.map((p,index)=>({p,index,available:p.reserve-onlineReserved(s,p.id,'reserve')-s.restockers.reduce((n,o)=>n+restockReserved(o,p.id),0),need:p.capacity-p.shelf-onlineHeld(s,p.id,'shelf')-s.restockers.reduce((n,o)=>n+restockLoad(o,p.id)+restockReserved(o,p.id),0)})).filter(c=>c.available>0&&c.need>0&&(s.restockRequests.includes(c.p.id)||c.p.shelf<=c.p.capacity*RESTOCK_TRIGGER_RATIO)).sort((a,b)=>{const priority=p=>{const i=s.restockRequests.indexOf(p.id);return i<0?999:i;};return priority(a.p)-priority(b.p)||a.p.shelf/a.p.capacity-b.p.shelf/b.p.capacity;}).slice(0,3);
+  const candidates=s.products.map((p,index)=>{
+    const incoming=s.restockers.reduce((n,o)=>n+restockLoad(o,p.id)+restockReserved(o,p.id),0);
+    return {p,index,projected:p.shelf+incoming,available:p.reserve-onlineReserved(s,p.id,'reserve')-s.restockers.reduce((n,o)=>n+restockReserved(o,p.id),0),need:p.capacity-p.shelf-onlineHeld(s,p.id,'shelf')-incoming};
+  }).filter(c=>c.available>0&&c.need>0&&(s.restockRequests.includes(c.p.id)||c.projected<=c.p.capacity*RESTOCK_TRIGGER_RATIO)).sort((a,b)=>{const priority=p=>{const i=s.restockRequests.indexOf(p.id);return i<0?999:i;};return priority(a.p)-priority(b.p)||a.projected/a.p.capacity-b.projected/b.p.capacity;}).slice(0,3);
   if(!candidates.length)return;
   w.mode=s.restockMode;
   const cargo=candidates.map(c=>({productId:c.p.id,quantity:0,reserved:0,reserveRack:Math.max(0,Math.min(c.p.reserveRacks-1,Math.ceil(c.available/(RESERVE_PRODUCT_CAPACITY+s.expansions.reserve*RESERVE_EXPANSION_CAPACITY))-1))}));
@@ -494,13 +500,12 @@ function updateRestocking(s) {
         const jobs = s.restockers.filter(w => workerHasProduct(w,p.id) && w.phase !== 'returning');
         const allocated = jobs.reduce((sum,w)=>sum+restockLoad(w,p.id)+restockReserved(w,p.id),0);
         const reserved = jobs.reduce((sum,w)=>sum+restockReserved(w,p.id),0);
-        return { p, index, available: p.reserve - reserved - onlineReserved(s,p.id,'reserve'), need: p.capacity - p.shelf - allocated - onlineHeld(s,p.id,'shelf') };
-      }).filter(({ p, available, need }) => available > 0 && need > 0 &&
-        (s.restockRequests.includes(p.id) || (p.shelf <= p.capacity * RESTOCK_TRIGGER_RATIO &&
-          need >= Math.min(RESTOCK_EQUIPMENT[s.restockMode].capacity, available)))).sort((a, b) => {
+        return { p, index, projected: p.shelf + allocated, available: p.reserve - reserved - onlineReserved(s,p.id,'reserve'), need: p.capacity - p.shelf - allocated - onlineHeld(s,p.id,'shelf') };
+      }).filter(({ p, projected, available, need }) => available > 0 && need > 0 &&
+        (s.restockRequests.includes(p.id) || projected <= p.capacity * RESTOCK_TRIGGER_RATIO)).sort((a, b) => {
         const priority = p => { const i = s.restockRequests.indexOf(p.id); return i < 0 ? Infinity : i; };
         const priorityDifference = priority(a.p) - priority(b.p);
-        return (Number.isNaN(priorityDifference) ? 0 : priorityDifference) || a.p.shelf / a.p.capacity - b.p.shelf / b.p.capacity;
+        return (Number.isNaN(priorityDifference) ? 0 : priorityDifference) || a.projected / a.p.capacity - b.projected / b.p.capacity;
       });
       const target = candidates[0]; if (!target) continue;
       worker.mode = s.restockMode; worker.productId = target.p.id;
@@ -747,10 +752,12 @@ function spawnCustomer(s) {
   const items = [],offered=s.products.map((p,i)=>p.capacity>0?i:-1).filter(i=>i>=0);if(!offered.length)return;
   // A few quick visits, mostly weekly shopping across product families.
   const quickVisit = random(s) < .2;
-  const count = quickVisit ? 2 + Math.floor(random(s) * 2) : 4 + Math.floor(random(s) * 3);
+  const count = Math.min(offered.length, quickVisit ? 2 + Math.floor(random(s) * 2) : 4 + Math.floor(random(s) * 3));
+  const remaining = [...offered];
   for (let i = 0; i < count; i++) {
-    let index = offered[Math.floor(random(s) * offered.length)];
-    if (currentEvent(s).focus >= 0 && random(s) < 0.38) index = offered.includes(currentEvent(s).focus)?currentEvent(s).focus:index;
+    let index = remaining[Math.floor(random(s) * remaining.length)];
+    if (currentEvent(s).focus >= 0 && random(s) < 0.38 && remaining.includes(currentEvent(s).focus)) index = currentEvent(s).focus;
+    remaining.splice(remaining.indexOf(index), 1);
     const quantity = quickVisit ? 1 + Math.floor(random(s) * 2) : 3 + Math.floor(random(s) * 4);
     items.push({ index, quantity });
   }
@@ -865,11 +872,11 @@ function minuteStep(s) {
   updateShipments(s);
   updateReceiving(s);
   finishShipments(s);
-  updateOnline(s, { reservePoint: (i,r)=>reserveAccessPoint(s,i,r), shelfPoint: shelfAccessPoint, sale: recordSale, demand: state => currentEvent(state).factor });
+  updateOnline(s, { reservePoint: (i,r)=>reserveAccessPoint(s,i,r), shelfPoint: shelfAccessPoint, sale: recordSale, demand: state => currentEvent(state).factor * storeDemandScale(state) });
   updateRestocking(s);
   const peak = (s.minute >= 720 && s.minute < 840) ? 1.9 : (s.minute >= 1020 && s.minute < 1140) ? 1.55 : 1;
   if (s.minute < storeHours(s).close-30) {
-    s.arrivalCredit += 0.22 * peak * currentEvent(s).factor * (0.7 + random(s) * 0.6);
+    s.arrivalCredit += 0.22 * storeDemandScale(s) * peak * currentEvent(s).factor * (0.7 + random(s) * 0.6);
     while (s.arrivalCredit >= 1 && s.customers.length < 80) { spawnCustomer(s); s.arrivalCredit--; }
   }
   const abandoned = new Set();
@@ -912,7 +919,7 @@ export function advance(s, minutes) {
   for(let i=0;i<Math.floor(minutes)&&active();i++) {
     if(s.phase==='preparation'){
       s.minute++;s.elapsed++;updateShipments(s);updateReceiving(s);finishShipments(s);updateRestocking(s);
-      updateOnline(s,{reservePoint:(index,rack)=>reserveAccessPoint(s,index,rack),shelfPoint:shelfAccessPoint,sale:recordSale,demand:state=>currentEvent(state).factor});
+      updateOnline(s,{reservePoint:(index,rack)=>reserveAccessPoint(s,index,rack),shelfPoint:shelfAccessPoint,sale:recordSale,demand:state=>currentEvent(state).factor*storeDemandScale(state)});
       if(s.minute>=storeHours(s).open){const runningSpeed=s.speed;openStore(s);s.speed=runningSpeed;}
     }else minuteStep(s);
   }
