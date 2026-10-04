@@ -2,24 +2,21 @@ import * as THREE from 'three';
 import {SHELF_INITIAL_LEVELS,SHELF_UNITS_PER_LEVEL,SHELF_MODULE_CAPACITY} from './store-layout.js';
 
 export function createShelfFurniture(group,product,{box,material}) {
-  const mesh=(geometry,color,name)=>{const object=new THREE.Mesh(geometry,material(color));object.name=name;object.castShadow=true;object.receiveShadow=true;group.add(object);return object;};
   if(product.id==='bakery') {
-    group.userData.fixture='bread-basket';
-    for(const x of [-.7,.7])for(const z of [-.5,.5])box(group,.12,.74,.12,x,.43,z,0x8e643e);
-    box(group,1.68,.1,1.3,0,.8,0,0xa78051);
-    box(group,1.58,.17,1.2,0,.67,0,0xbd9765);
-    const base=mesh(new THREE.CylinderGeometry(.5,.5,.07,32),0xa8814c,'basket-base');base.position.y=.89;base.scale.set(1.53,1,1.13);
-    const levels=5;
-    for(let level=0;level<levels;level++){
-      const t=level/(levels-1),rim=mesh(new THREE.TorusGeometry(.5,level===levels-1?.019:.013,5,40),level%2?0xbd975d:0xa8814c,'basket-weave');
-      rim.rotation.x=Math.PI/2;rim.scale.set(1.53+t*.23,1.13+t*.23,1);rim.position.y=.89+t*.3;
-    }
-    const up=new THREE.Vector3(0,1,0);
-    for(let i=0;i<40;i++){
-      const angle=i/40*Math.PI*2,a=new THREE.Vector3(Math.cos(angle)*.765,.89,Math.sin(angle)*.565),b=new THREE.Vector3(Math.cos(angle)*.88,1.19,Math.sin(angle)*.68),delta=b.clone().sub(a);
-      const weave=mesh(new THREE.CylinderGeometry(.012,.012,delta.length(),5),i%2?0xc39f68:0xac8954,'basket-weave');weave.position.copy(a.add(b).multiplyScalar(.5));weave.quaternion.setFromUnitVectors(up,delta.normalize());
-    }
-    return {layout:'basket',levels:1,unitsPerLevel:SHELF_MODULE_CAPACITY,signY:.68,signZ:.67,doors:[]};
+    group.userData.fixture='bread-display';
+    box(group,1.8,.24,1.45,0,.2,0,0x55402b);
+    box(group,1.8,2.5,.09,0,1.5,-.68,0x9a7649);
+    for(const x of [-.85,.85])box(group,.1,2.5,1.45,x,1.5,0,0x725333);
+    const heights=[.34,1.12,1.9,2.34];
+    heights.forEach((y,level)=>{
+      box(group,1.7,.075,1.38,0,y,0,0xb58b55);
+      box(group,1.7,.07,.07,0,y+.07,.69,0x453b2c);
+      const dividerHeight=level<2?.65:.3;
+      for(const x of [-.28,.28])box(group,.035,dividerHeight,1.25,x,y+dividerHeight/2,-.015,0x8d683e);
+      for(const x of [-.55,0,.55])box(group,.22,.045,.012,x,y+.08,.735,0xede5cc,false);
+    });
+    box(group,1.8,.23,1.45,0,2.74,0,0x45372a);
+    return {layout:'bread-display',levels:4,unitsPerLevel:SHELF_MODULE_CAPACITY/4,signY:2.74,signZ:.75,doors:[]};
   }
   if(product.id==='dairy') {
     group.userData.fixture='refrigerated-cabinet';

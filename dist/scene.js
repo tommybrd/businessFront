@@ -362,7 +362,7 @@ export function createStoreScene(canvas, state, onSelect) {
       });
     });
     deliveryYard.update(minuteFraction);
-    onlineScene.update(minuteFraction);
+    onlineScene.update(minuteFraction,seconds);
     const installedFixtures = new Set(state.shelfLayout.flatMap((id, slot) => id ? [shelfFixtureId(slot)] : []));
     fixtures.forEach((group, id) => { group.visible = installedFixtures.has(id); });
     emptyShelves.forEach(group => { group.visible = false; });

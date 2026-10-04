@@ -226,3 +226,15 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 .shelf-count-control{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:8px 0 0;color:#bdccc4;font-size:13px}.shelf-count-control>div{display:flex;align-items:center;gap:8px}.shelf-count-control strong{color:#e7efea;min-width:20px;text-align:center;font-size:14px;font-variant-numeric:tabular-nums}.shelf-count-control .shelf-count-button{display:grid;place-items:center;min-height:30px;width:30px;padding:0;border:1px solid #496247;border-radius:5px;background:transparent;color:#c7d9cd;font-size:18px;line-height:1}.shelf-count-control .shelf-count-button:hover:not(:disabled){background:#284236;border-color:#86a179}.shelf-count-control .shelf-count-button:disabled{opacity:.35}@media(pointer:coarse),(max-width:800px){.shelf-count-control .shelf-count-button{min-height:44px;width:44px}}
 
 .stock-accounting,.supplier-invoices{margin:18px 0;padding-top:14px;border-top:1px solid #496247}.stock-accounting h3,.supplier-invoices h3{font-size:16px;margin-bottom:10px}.supplier-invoices label{display:block;font-size:13px;margin:10px 0 6px}.supplier-invoices select{width:100%;background:#284236;color:#e7efea;border:1px solid #58745f;border-radius:5px;padding:10px}.supplier-invoice{display:flex;flex-wrap:wrap;align-items:center;gap:10px;border-top:1px solid #496247;padding:12px 0;font-size:13px}.supplier-invoice>div{flex:1;min-width:120px}.supplier-invoice small{display:block;color:#b7c9bd;margin-top:4px}.supplier-invoice button{background:#284236;color:#e7efea}.summary-inner .stock-accounting{border-color:#cad8ce}
+
+.hours-fields {display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.hours-fields label {display:flex;flex-direction:column;gap:6px;min-width:0;}
+.hours-fields input {width:100%;min-width:0;box-sizing:border-box;}
+.store-hours {padding-bottom:14px;border-bottom:1px solid #536d58;margin-bottom:16px;}
+.grade-scale {display:flex;gap:3px;align-items:center;padding:5px 0;}
+.grade-cell {display:grid;place-items:center;width:43px;height:32px;color:#fff;border-radius:4px;font-weight:800;font-size:17px;opacity:.35;}
+.grade-cell.is-active {height:44px;width:49px;font-size:25px;opacity:1;outline:2px solid currentColor;outline-offset:2px;margin:0 3px;}
+.grade-a {background:#15774b;}.grade-b {background:#79a822;}.grade-c {background:#dbb900;color:#172620;}.grade-d {background:#e57f19;}.grade-e {background:#cf4337;}
+.satisfaction-global {padding-bottom:16px;border-bottom:1px solid #536d58;}
+#satisfaction {padding:2px 10px;border-radius:6px;background:#15774b;color:#fff;}
+#satisfaction[data-grade="b"] {background:#79a822;}#satisfaction[data-grade="c"] {background:#dbb900;color:#172620;}#satisfaction[data-grade="d"] {background:#e57f19;}#satisfaction[data-grade="e"] {background:#cf4337;}

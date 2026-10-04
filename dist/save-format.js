@@ -1,3 +1,4 @@
+import {validStoreHours} from './store-hours.js';
 export const SAVE_VERSION = 1;
 export const MAX_SAVE_BYTES = 1000000;
 const saveProductIds = ['produce','bakery','dairy','grocery','drinks','home'];
@@ -11,7 +12,7 @@ function saveTree(value, depth=0) {
 }
 export function validateSave(snapshot) {
   saveAssert(snapshot?.schemaVersion===SAVE_VERSION);saveTree(snapshot);
-  const s=snapshot.state;saveAssert(s && Number.isSafeInteger(s.day) && s.day>0 && Number.isSafeInteger(s.minute) && s.minute>=0 && s.minute<=1200 && Number.isFinite(s.money));
+  const s=snapshot.state;saveAssert(s && Number.isSafeInteger(s.day) && s.day>0 && Number.isSafeInteger(s.minute) && s.minute>=0 && s.minute<=1380 && Number.isFinite(s.money));
   saveAssert(['preparation','open','closed','bankrupt'].includes(s.phase));
   for(const key of ['seed','nextId','elapsed','sales','spending','sold','lost','satisfaction','directorSalary','personalCash','vatCollected','vatDeductible','vatCredit','vatDue','profitTaxDue','taxPaidToday','ownerContribution','discarded','arrivalCredit','checkoutCredit'])saveAssert(Number.isFinite(s[key]));
   for(const key of ['orders','shipments','eveningBasket','customers','restockers','receivers','restockRequests','history','log','personalTransactions','shelfLayout'])saveAssert(Array.isArray(s[key]));
@@ -29,12 +30,16 @@ export function validateSave(snapshot) {
   if(s.theft!==undefined)saveAssert(s.theft&&['basic','cameras','reinforced'].includes(s.theft.level)&&Number.isSafeInteger(s.theft.seed)&&s.theft.daily&&['checked','stolen','lostRevenue','lostCost','autoStolen','staffedStolen'].every(k=>Number.isFinite(s.theft.daily[k])&&s.theft.daily[k]>=0)&&Array.isArray(s.theft.daily.products)&&s.theft.daily.products.length===6);
   if(s.satisfactionDetails!==undefined)saveAssert(s.satisfactionDetails&&['opening','since','requests','fulfilled','waitingCustomers','waitMinutes','maxWait','waitDepartures','stockDepartures','closingDepartures','stockPenalty','waitPenalty','paymentRecovery'].every(k=>Number.isFinite(s.satisfactionDetails[k])&&s.satisfactionDetails[k]>=0)&&['shortages','missing'].every(k=>Array.isArray(s.satisfactionDetails[k])&&s.satisfactionDetails[k].length===6));
   for(const c of s.customers)if(c.carryMode!==undefined)saveAssert(['bag','mini','cart'].includes(c.carryMode));
+  if(s.online?.lastPostCollectionDay!==undefined)saveAssert(Number.isSafeInteger(s.online.lastPostCollectionDay)&&s.online.lastPostCollectionDay>=0&&s.online.lastPostCollectionDay<=s.day);
+  if(s.minimumSupplierQuantity!==undefined)saveAssert(Number.isInteger(s.minimumSupplierQuantity)&&s.minimumSupplierQuantity>=12&&s.minimumSupplierQuantity<=1000);
+  if(s.directorProfitShare!==undefined)saveAssert(Number.isInteger(s.directorProfitShare)&&s.directorProfitShare>=0&&s.directorProfitShare<=100);
+  for(const key of ['storeHours','dayHours'])if(s[key]!==undefined)saveAssert(validStoreHours(s[key]));
   if(s.morningPreparation!==undefined)saveAssert(typeof s.morningPreparation==='boolean');
   if(s.inventoryAccounting!==undefined){const a=s.inventoryAccounting;saveAssert(a&&a.method==='weighted-average'&&Array.isArray(a.unitCosts)&&a.unitCosts.length===6&&a.unitCosts.every(n=>Number.isFinite(n)&&n>=0)&&['openingHT','purchasesHT','costOfSalesHT','lossesHT'].every(k=>Number.isFinite(a[k])&&a[k]>=0));}
   if(s.supplierPayments!==undefined){const p=s.supplierPayments;saveAssert(p&&[0,7,30].includes(p.termDays)&&['invoicedToday','paidToday'].every(k=>Number.isFinite(p[k])&&p[k]>=0)&&Array.isArray(p.invoices));const ids=new Set();for(const i of p.invoices){saveAssert(Number.isSafeInteger(i.id)&&!ids.has(i.id)&&['regular','express'].includes(i.supplierId)&&Number.isSafeInteger(i.day)&&Number.isSafeInteger(i.dueDay)&&i.day>0&&i.dueDay>=i.day&&Number.isFinite(i.total)&&Number.isFinite(i.remaining)&&i.total>=0&&i.remaining>=0&&i.remaining<=i.total);ids.add(i.id);}}
   const orderIds=new Set(s.orders.map(o=>o.id));
   for(const o of s.orders){saveAssert(saveProductIds.includes(o.productId)&&Array.isArray(o.pallets));for(const p of o.pallets)saveAssert(Number.isInteger(p.remaining)&&p.remaining>=0);}
-  for(const t of s.shipments){saveAssert(Array.isArray(t.pallets));if(t.vehicleKind!==undefined)saveAssert(['heavy','rigid','van'].includes(t.vehicleKind)&&t.pallets.length<=({heavy:10,rigid:4,van:2}[t.vehicleKind]));if(t.arrivalDay!==undefined)saveAssert(Number.isSafeInteger(t.arrivalDay)&&t.arrivalDay>0&&Number.isSafeInteger(t.arrivalMinute)&&t.arrivalMinute>=300&&t.arrivalMinute<1200&&Number.isFinite(t.eta));for(const ref of t.pallets)saveAssert(orderIds.has(ref.orderId)&&s.orders.find(o=>o.id===ref.orderId).pallets[ref.palletIndex]);}
+  for(const t of s.shipments){saveAssert(Array.isArray(t.pallets));if(t.vehicleKind!==undefined)saveAssert(['heavy','rigid','van'].includes(t.vehicleKind)&&t.pallets.length<=({heavy:10,rigid:4,van:2}[t.vehicleKind]));if(t.arrivalDay!==undefined)saveAssert(Number.isSafeInteger(t.arrivalDay)&&t.arrivalDay>0&&Number.isSafeInteger(t.arrivalMinute)&&t.arrivalMinute>=300&&t.arrivalMinute<1440&&Number.isFinite(t.eta));for(const ref of t.pallets)saveAssert(orderIds.has(ref.orderId)&&s.orders.find(o=>o.id===ref.orderId).pallets[ref.palletIndex]);}
   for(const w of [...s.restockers,...s.receivers]){saveAssert(typeof w.phase==='string' && Number.isSafeInteger(w.load)&&w.load>=0&&Number.isSafeInteger(w.reserved)&&w.reserved>=0);if(w.orderId!==null&&w.orderId!==undefined)saveAssert(orderIds.has(w.orderId));}
   for(const w of s.restockers)if(w.cargo){saveAssert(Array.isArray(w.cargo)&&w.cargo.length>0&&w.cargo.length<=6&&Number.isInteger(w.cargoIndex)&&w.cargoIndex>=0&&w.cargoIndex<w.cargo.length);for(const l of w.cargo)saveAssert(saveProductIds.includes(l.productId)&&['quantity','reserved','reserveRack'].every(k=>Number.isSafeInteger(l[k])&&l[k]>=0));saveAssert(w.load===w.cargo.reduce((n,l)=>n+l.quantity,0)&&w.reserved===w.cargo.reduce((n,l)=>n+l.reserved,0));}
   const customerIds=new Set();for(const c of s.customers){saveAssert(Number.isSafeInteger(c.id)&&!customerIds.has(c.id)&&['shopping','queue','checkout'].includes(c.stage)&&Array.isArray(c.basket)&&Array.isArray(c.items)&&Number.isFinite(c.value));customerIds.add(c.id);for(const l of [...c.basket,...c.items])saveAssert(Number.isInteger(l.index)&&l.index>=0&&l.index<6&&Number.isInteger(l.quantity)&&l.quantity>0);}

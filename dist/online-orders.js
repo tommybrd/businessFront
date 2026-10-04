@@ -1,3 +1,4 @@
+import {storeHours,nextStoreHours,postCollectionMinute} from './store-hours.js';
 import {restockReserved} from './restock-load.js';
 import { packingAccessPoint,storeFrontExtension } from './store-layout.js';
 import { routeWaypoints } from './walking-route.js';
@@ -6,6 +7,7 @@ export const ONLINE_CHANNELS = {
   drive: { name: 'Drive', customerFee: 0, packaging: .5, transport: 0, promise: 75 },
   web: { name: 'E-commerce', customerFee: 6, packaging: 1, transport: 4.5, promise: 180 },
 };
+export const POST_COLLECTION_MINUTE=17*60;
 export const ONLINE_STATUSES = { waiting: 'En attente de stock', queued: 'À préparer', picking: 'Préparation', packing: 'Emballage', ready: 'Prête', handover: 'Remise au client', dispatching: 'Chargement transporteur', completed: 'Terminée', cancelled: 'Annulée' };
 export const activeOnlineOrder = o => !['completed', 'cancelled'].includes(o.status);
 const round = n => Math.round(n * 100) / 100;
@@ -49,7 +51,9 @@ export function createOnlineOrder(s, channel, basket) {
     seen.add(l.productId); return { productId: l.productId, index, quantity: l.quantity, price: s.products[index].price, reserve: 0, shelf: 0, pickedreserve: 0, pickedshelf: 0 };
   });
   if (s.online.orders.filter(activeOnlineOrder).length >= 40) throw new Error('40 commandes en cours : terminez-en avant d’en accepter davantage.');
-  const order = { id: s.online.nextId++, channel, lines, status: 'waiting', created: s.elapsed, day: s.day, due: s.elapsed + ONLINE_CHANNELS[channel].promise, fee: ONLINE_CHANNELS[channel].customerFee, value: round(lines.reduce((n, l) => n + l.price * l.quantity, 0) + ONLINE_CHANNELS[channel].customerFee), paid: false, packaged: false, slot: null, car: null };
+  const collection=postCollectionMinute(s),nextCollection=Math.min(1020,nextStoreHours(s).close-20);
+  const untilPost=s.minute<collection&&(s.online.lastPostCollectionDay??0)<s.day?collection-s.minute:storeHours(s).close-s.minute+nextCollection-(s.morningPreparation?300:nextStoreHours(s).open);
+  const order = { id: s.online.nextId++, channel, lines, status: 'waiting', created: s.elapsed, day: s.day, due: s.elapsed + (channel==='web'?untilPost:ONLINE_CHANNELS[channel].promise), fee: ONLINE_CHANNELS[channel].customerFee, value: round(lines.reduce((n, l) => n + l.price * l.quantity, 0) + ONLINE_CHANNELS[channel].customerFee), paid: false, packaged: false, slot: null, car: null };
   allocate(s, order); s.online.orders.push(order); s.online.daily.accepted++;
   return order;
 }
@@ -124,7 +128,7 @@ function complete(s,o,hooks) {
 function random(online) { online.seed=(Math.imul(1664525,online.seed)+1013904223)>>>0; return online.seed/4294967296; }
 export function updateOnline(s,hooks) {
   const online=s.online;
-  for (const channel of Object.keys(ONLINE_CHANNELS)) if (s.phase==='open' && online.enabled[channel] && s.minute>=480 && s.minute<1080) {
+  for (const channel of Object.keys(ONLINE_CHANNELS)) if (s.phase==='open' && online.enabled[channel] && s.minute>=storeHours(s).open && s.minute<storeHours(s).close-120) {
     online.credit[channel]+=(channel==='drive'?.012:.008)*hooks.demand(s);
     if (online.credit[channel]>=1 && online.orders.filter(activeOnlineOrder).length<40) {
       const count=2+Math.floor(random(online)*3), start=Math.floor(random(online)*s.products.length);
@@ -134,7 +138,7 @@ export function updateOnline(s,hooks) {
   for (const o of online.orders) {
     if (o.car==='departing' && s.elapsed-o.finished>=10) { o.car=null; o.slot=null; }
     if (!activeOnlineOrder(o)) continue;
-    if (s.elapsed>o.due+(o.channel==='drive'?45:180) && o.status!=='dispatching') { cancelOnlineOrder(s,o.id); continue; }
+    if (s.elapsed>o.due+(o.channel==='drive'?45:180) && o.status!=='dispatching' && !(o.channel==='web'&&o.status==='ready')) { cancelOnlineOrder(s,o.id); continue; }
     if (o.status==='waiting') allocate(s,o);
     if (o.channel==='drive' && !o.car && s.elapsed>=o.due-6) {
       const slot=[0,1].find(slot=>!online.orders.some(other=>other.car && other.slot===slot));
@@ -168,10 +172,11 @@ export function updateOnline(s,hooks) {
     else if (w.phase==='handover') { complete(s,o,hooks); w.load=0; travel(w,packPoint(s),'backFromDrive',s); }
     else if (w.phase==='backFromDrive') idleWorker(w,s);
   }
-  if (!online.carrier && s.elapsed>=online.nextCarrier && online.orders.some(o=>o.channel==='web' && o.status==='ready')) {
-    const ids=online.orders.filter(o=>o.channel==='web' && o.status==='ready').slice(0,12).map(o=>o.id);
+  if (!online.carrier && (online.lastPostCollectionDay??0)<s.day && s.minute>=postCollectionMinute(s)) {
+    online.lastPostCollectionDay=s.day;
+    const ids=online.orders.filter(o=>o.channel==='web' && o.status==='ready').map(o=>o.id);
     for (const id of ids) online.orders.find(o=>o.id===id).status='dispatching';
-    online.carrier={phase:'arriving',started:s.elapsed,ids,load:0};
+    if(ids.length)online.carrier={phase:'arriving',started:s.elapsed,ids,load:0};
   }
   const carrier=online.carrier;
   if (carrier) {
@@ -180,7 +185,7 @@ export function updateOnline(s,hooks) {
     else if (age>=4 && carrier.phase==='loading') {
       for (const id of carrier.ids) { const o=online.orders.find(o=>o.id===id); complete(s,o,hooks); carrier.load+=Math.ceil(onlineUnits(o)/12); }
       carrier.phase='departing';carrier.started=s.elapsed;
-    } else if (age>=6 && carrier.phase==='departing') {online.carrier=null;online.nextCarrier=s.elapsed+60;}
+    } else if (age>=6 && carrier.phase==='departing') {online.carrier=null;}
   }
   // Keep active orders and moving vehicles; retain the latest 30 closed orders.
   const archived=online.orders.filter(o=>!activeOnlineOrder(o) && !o.car);

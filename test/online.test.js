@@ -7,7 +7,7 @@ function setup(channel='drive',people=1) {
   setInstallation(s,channel,1);setStaff(s,'online',people);openStore(s);s.arrivalCredit=-1e6;
   return s;
 }
-function until(s,fn,max=400){for(let i=0;i<max&&!fn();i++)advance(s,1);assert.ok(fn());}
+function until(s,fn,max=700){for(let i=0;i<max&&!fn();i++)advance(s,1);assert.ok(fn());}
 function total(s,id){return inventoryPosition(s,id)+s.customers.reduce((n,c)=>n+c.basket.filter(l=>s.products[l.index].id===id).reduce((a,l)=>a+l.quantity,0),0);}
 function frozen(s,fn){const before=JSON.stringify(s);assert.throws(fn);assert.equal(JSON.stringify(s),before);}
 test('services start absent, with no extra wages, upkeep or sales; installation opens intake',()=>{
@@ -59,13 +59,13 @@ test('timed-out drive orders return picked goods, remove the waiting car, and ne
   until(s,()=>o.status==='ready');setStaff(s,'online',0);until(s,()=>o.status==='cancelled');assert.equal(total(s,'produce'),before);assert.equal(s.sales,0);assert.equal(s.online.daily.cancelled,1);advance(s,11);assert.equal(o.car,null);
 });
 test('held stock protects physical shelf and rack capacity and survives a continuous day change',()=>{
-  const s=setup('web');s.online.nextCarrier=10000;s.products[0].reserve=0;const o=createOnlineOrder(s,'web',[{productId:'produce',quantity:4}]);setOnlineEnabled(s,'web',false);
+  const s=setup('web');s.online.lastPostCollectionDay=s.day;s.products[0].reserve=0;const o=createOnlineOrder(s,'web',[{productId:'produce',quantity:4}]);setOnlineEnabled(s,'web',false);
   until(s,()=>o.status==='ready');s.products[0].shelf=0;frozen(s,()=>setShelfCount(s,'produce',0));
   const day=s.day;s.minute=1199;advance(s,1);assert.equal(s.day,day+1);assert.equal(o.status,'ready');assert.equal(s.history[0].online.expenses,1);assert.equal(s.online.daily.sales,0);assert.equal(onlineHeld(s,'produce','shelf'),4);
   cancelOnlineOrder(s,o.id);assert.equal(s.products[0].shelf,4);
 });
 test('supplier receiving leaves space for picked reserve articles to be returned, and competing stock stays conserved',()=>{
-  const s=setup('web');s.products[0].reserve=490;s.online.nextCarrier=10000;const o=createOnlineOrder(s,'web',[{productId:'produce',quantity:20}]);setOnlineEnabled(s,'web',false);
+  const s=setup('web');s.products[0].reserve=490;s.online.lastPostCollectionDay=s.day;const o=createOnlineOrder(s,'web',[{productId:'produce',quantity:20}]);setOnlineEnabled(s,'web',false);
   const before=total(s,'produce');until(s,()=>o.status==='ready');assert.equal(total(s,'produce'),before);frozen(s,()=>setInstallation(s,'reserve',0,'produce'));
   setStaff(s,'receiving',1);placeOrder(s,'produce',48,'express');advance(s,100);assert.ok(s.products[0].reserve+onlineHeld(s,'produce','reserve')<=500);assert.equal(total(s,'produce'),before+48);
   cancelOnlineOrder(s,o.id);assert.ok(s.products[0].reserve<=500);assert.equal(total(s,'produce'),before+48);
@@ -83,4 +83,30 @@ test('two channels compete with real shoppers, replenishment and receiving witho
     for(let j=0;j<sold.length;j++){const p=s.products[j];sold[j]+=p.soldToday-last[j];last[j]=p.soldToday;assert.equal(total(s,p.id)+sold[j],initial[j]);assert.ok(p.reserve>=0&&p.reserve<=p.reserveCapacity);assert.ok(p.shelf>=0&&p.shelf<=p.capacity);}
   }
   assert.ok(s.history[0].online.drive>0);assert.ok(s.history[0].online.web>0);
+});
+
+test('La Poste collects once at 17h and later ready parcels wait for the next day',()=>{
+ const s=setup('web');const first=createOnlineOrder(s,'web',[{productId:'grocery',quantity:4}]);setOnlineEnabled(s,'web',false);
+ until(s,()=>first.status==='ready');assert.equal(s.online.carrier,null);
+ s.minute=1019;advance(s,1);assert.equal(s.online.carrier.phase,'arriving');assert.equal(s.online.lastPostCollectionDay,s.day);
+ until(s,()=>first.paid);advance(s,10);assert.equal(s.online.carrier,null);
+ setOnlineEnabled(s,'web',true);const late=createOnlineOrder(s,'web',[{productId:'grocery',quantity:3}]);setOnlineEnabled(s,'web',false);
+ until(s,()=>late.status==='ready');assert.equal(s.online.carrier,null);assert.equal(late.paid,false);
+ s.minute=1199;advance(s,1);assert.equal(late.status,'ready');assert.equal(late.paid,false);
+ s.minute=1019;advance(s,1);assert.equal(s.online.carrier.phase,'arriving');until(s,()=>late.paid);assert.equal(s.online.daily.web,1);
+});
+
+test('3D receipts appear only when drive or web revenue is paid, and restored payments are not replayed',async()=>{
+ const THREE=await import('three'),{createOnlineScene}=await import('../dist/online-scene.js');
+ for(const channel of ['drive','web']){
+  const s=setup(channel),orders=[createOnlineOrder(s,channel,[{productId:'produce',quantity:2}])];
+  if(channel==='web')orders.push(createOnlineOrder(s,channel,[{productId:'bakery',quantity:3}]));setOnlineEnabled(s,channel,false);
+  const scene=new THREE.Scene(),material=color=>new THREE.MeshStandardMaterial({color}),labels=[];
+  const box=(parent,w,h,d,x,y,z,color)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color));mesh.position.set(x,y,z);parent.add(mesh);return mesh;};
+  const textSprite=text=>{labels.push(text);return new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.Texture()}));};
+  const view=createOnlineScene(scene,s,{box,material,textSprite});view.update();assert.equal(labels.length,0);
+  for(let i=0;i<700&&!orders.every(o=>o.paid);i++){advance(s,1);view.update();}
+  assert.ok(orders.every(o=>o.paid));assert.equal(labels.length,1);assert.equal(view.group.getObjectByName('online-payment').userData.amount,orders.reduce((n,o)=>n+o.value,0));
+  view.update();assert.equal(labels.length,1);s.online=structuredClone(s.online);view.update();assert.equal(view.group.getObjectByName('online-payment'),undefined);assert.equal(labels.length,1);
+ }
 });

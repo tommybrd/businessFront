@@ -1,3 +1,5 @@
+import {storeHours,nextStoreHours,validStoreHours} from './store-hours.js';
+export {storeHours,nextStoreHours} from './store-hours.js';
 import {ensureInventoryAccounting,accountPurchase,accountSale,accountDiscard,inventoryReport,startInventoryDay} from './inventory-accounting.js';
 import {newSupplierPayments,ensureSupplierPayments,invoiceSupplier,paySupplierInvoices,supplierPaymentReport,cashPurchases,startSupplierDay} from './supplier-payments.js';
 export {setSupplierPaymentTerm,paySupplierInvoices,supplierPaymentReport} from './supplier-payments.js';
@@ -10,14 +12,15 @@ import { walkingPath, routeWaypoints, reachable } from './walking-route.js';
 import { stepCustomerMotion } from './customer-motion.js';
 import { STORE_SIZES, storeSize, shopArea, reserveBackExtension, shopBounds, shelfAccessPoint, reserveAccessPoint, layoutObjects, objectBox, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, shelfPosition, shelfRotation, shelfFixtureId, shelfFixtureCount, productShelfPosition, productShelfAccess, storeFrontExtension, reserveProductPosition } from './store-layout.js';
 export { SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, SHELF_MODULE_CAPACITY, shelfPosition, shelfRotation, shelfFixtureId, shelfFixtureCount, productShelfPosition, productShelfAccess, storeFrontExtension, reserveProductPosition } from './store-layout.js';
-import { newOnlineState, onlineDaily, onlineReserved, onlineHeld, resizeOnlineStaff, onlineInstallationBusy, updateOnline } from './online-orders.js';
+import { newOnlineState, onlineDaily, onlineReserved, onlineHeld, onlineWorkerPosition, packPoint, resizeOnlineStaff, onlineInstallationBusy, updateOnline } from './online-orders.js';
 import { checkoutCount, checkoutSpace, activeCheckoutLanes, releaseClosedCheckouts, updateCheckouts } from './checkout-flow.js';
 export { checkoutCount, activeCheckoutLanes } from './checkout-flow.js';
 import { DELIVERY_VEHICLES,deliveryVehicle,deliverySchedule,ARTICLES_PER_PALLET, PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
 export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
 export const ORDER_MAX_QUANTITY = 1000;
+export const ORDER_MIN_QUANTITY = 240;
 export const GROUPED_DELIVERY_FEE = 10;
-export const ORDER_QUANTITIES = [12, 24, 48, 96, 120, 240, 480, 720, 1000];
+export const ORDER_QUANTITIES = [240, 480, 720, 960, 1000];
 export const INITIAL_SHELF_STOCK = 480;
 export const RESTOCK_TRIGGER_RATIO = .75;
 export const PRODUCTS = [
@@ -169,7 +172,7 @@ export function createGame(seed = 73471) {
     products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: RESERVE_PRODUCT_CAPACITY, reserveRacks: 1, soldToday: 0, restockedToday: 0 })),
     orders: [], shipments: [], eveningBasket: [], eveningError: null, customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
     satisfaction: 100, satisfactionDetails: newSatisfactionMetrics(), autoCheckout: false, checkoutCredit: 0,
-    directorSalary: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
+    directorSalary: 0, directorProfitShare: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
     vatCollected: 0, vatDeductible: 0, vatCredit: 0, vatDue: 0, profitTaxDue: 0, taxPaidToday: 0, autoPayTaxes: true,
     restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false, hyper: false }, restockRequests: [],
     restockers: Array.from({ length: 5 }, (_, id) => newRestocker(id)),
@@ -188,6 +191,7 @@ export function createStarterGame(seed=73471) {
   s.log[0].text='Bienvenue, directeur.';return s;
 }
 export function startDayOnLoad(s) {
+  s.minimumSupplierQuantity=ORDER_MIN_QUANTITY;
   if(s.phase==='closed')nextDay(s);
   if(s.phase==='preparation'&&!s.morningPreparation)openStore(s);
   if(s.phase==='preparation'&&s.morningPreparation)s.speed=1;
@@ -225,10 +229,6 @@ export function moveFixture(s,id,x,z,rotation=0) {
   if(!['preparation','open'].includes(s.phase)||s.speed)throw new Error('Mettez le magasin en pause pour aménager.');
   if(![x,z,rotation].every(Number.isFinite)||![0,Math.PI/2,Math.PI,Math.PI*1.5,-Math.PI/2].some(a=>Math.abs(a-rotation)<.00001))throw new Error('Placement invalide.');
   const o=layoutObjects(s).find(o=>o.id===id);if(!o)throw new Error('Équipement introuvable.');
-  const busyShelf=id.startsWith('shelf:')&&s.restockers.some(w=>w.phase!=='idle'&&workerHasProduct(w,s.shelfLayout[Number(id.split(':')[1])]));
-  const busyReserve=id.startsWith('reserve:')&&[...s.restockers,...s.receivers].some(w=>w.phase!=='idle'&&(w.cargo?w.cargo.some(l=>l.productId===s.products[Number(id.split(':')[1])].id&&l.reserveRack===Number(id.split(':')[2])&&(l.reserved||l.quantity)):w.productId===s.products[Number(id.split(':')[1])].id&&w.reserveRack===Number(id.split(':')[2])));
-  const busyCheckout=s.customers.some(c=>c.stage==='checkout'&&(id==='auto'?c.checkoutLane==='auto':id===`checkout:${c.checkoutLane}`));
-  if(busyShelf||busyReserve||busyCheckout||s.online.workers.some(w=>w.phase!=='idle'))throw new Error('Cet équipement est utilisé. Terminez son opération avant de le déplacer.');
   const placement={x:Math.round(x*2)/2,z:Math.round(z*2)/2,rotation};
   const candidate={...s,layout:{...s.layout,[id]:placement}},objects=layoutObjects(candidate),moved=objects.find(o=>o.id===id);
   if(!fitsPlacement(candidate,moved))throw new Error('Gardez cet équipement dans sa zone et laissez les portillons libres.');
@@ -236,8 +236,37 @@ export function moveFixture(s,id,x,z,rotation=0) {
   if(objects.some(other=>{if(other.id===id)return false;const b=objectBox(other,.2);return a.left<b.right&&a.right>b.left&&a.back<b.front&&a.front>b.back;}))throw new Error('Laissez de la place entre les équipements.');
   const front=storeFrontExtension(s.expansions,s.storeSize),origin=[9.5,7.1+front];
   if(objects.some(other=>!reachable(candidate,origin,other.access)))throw new Error('Conservez une allée accessible vers chaque équipement.');
-  const reroutes=[...s.restockers,...s.receivers].filter(w=>w.path?.length&&w.remaining>0).map(w=>{const start=restockerPosition(w),path=walkingPath(candidate,start,w.path.at(-1));if(!path)throw new Error('Ce placement bloque un transport en cours.');return {w,path};});
-  s.layout=candidate.layout;for(const {w,path}of reroutes){w.path=path;w.total=w.remaining=Math.max(1,Math.ceil(path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-path[i][0],p[1]-path[i][1]),0)/2.4));}s.customers.forEach(c=>{if(c.motion)c.motion.key='';});
+  const changes=[];
+  const reroute=(w,patch,target,speed,start)=>{
+    const path=walkingPath(candidate,start,target);
+    if(!path)throw new Error('Ce placement bloque un passage.');
+    const duration=Math.max(1,Math.ceil(path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-path[i][0],p[1]-path[i][1]),0)/speed));
+    changes.push({w,patch:{...patch,path,total:duration,remaining:duration}});
+  };
+  for(const w of s.restockers.filter(w=>w.phase!=='idle')){
+    const i=s.products.findIndex(p=>p.id===w.productId),pickup=reserveAccessPoint(candidate,i,w.reserveRack||0,w.cargo||w.mode!=='small'?2.7:2);
+    const shelf=shelfAccessPoint(candidate,i,w.completed),collecting=['collecting','loading'].includes(w.phase);
+    const destination=w.cargo?(collecting?pickup:w.phase==='returning'?RESTOCK_PICKUP:shelf):shelf;
+    const patch={destination:[...destination],...(w.phase==='loading'||!w.cargo?{pickup:[...pickup]}:{})};
+    if(['collecting','outbound','returning'].includes(w.phase))reroute(w,patch,w.phase==='returning'&&!w.cargo?pickup:destination,RESTOCK_EQUIPMENT[w.mode].travelSpeed,restockerPosition(w));
+    else changes.push({w,patch});
+  }
+  for(const w of s.receivers.filter(w=>w.phase!=='idle')){
+    const i=s.products.findIndex(p=>p.id===w.productId),destination=w.toOutside?w.destination:reserveAccessPoint(candidate,i,w.reserveRack||0,2.7);
+    const patch={destination:[...destination],...(w.phase==='storing'?{path:[[...destination]]}:{})};
+    if(['approaching','outbound','returning'].includes(w.phase))reroute(w,patch,w.phase==='outbound'?destination:w.pickup,2.4,restockerPosition(w));
+    else changes.push({w,patch});
+  }
+  for(const w of s.online.workers.filter(w=>w.phase!=='idle')){
+    const order=s.online.orders.find(o=>o.id===w.orderId),line=order?.lines[w.line];let target;
+    if(['travelling','picking'].includes(w.phase)&&line)target=w.source==='reserve'?reserveAccessPoint(candidate,line.index,w.reserveRack||0):shelfAccessPoint(candidate,line.index);
+    else if(['returning','packing','backFromDrive'].includes(w.phase))target=packPoint(candidate);
+    else target=w.path?.at(-1)||w.position;
+    if(['picking','packing','handover'].includes(w.phase))changes.push({w,patch:{position:[...target],path:[]}});
+    else reroute(w,{},target,3,onlineWorkerPosition(w));
+  }
+  s.layout=candidate.layout;for(const {w,patch}of changes)Object.assign(w,patch);
+  s.customers.forEach(c=>{if(c.motion){c.motion.key='';if(c.stage==='checkout')c.checkoutArrived=false;}});
   return {id,...placement};
 }
 function random(s) {
@@ -510,16 +539,18 @@ function commitSupplierBatch(s, lines, supplierId, mode) {
   return { batchId, cost, orders: orderList, cash: s.money };
 }
 export function placeOrder(s, productId, quantity, supplierId) {
+  if(quantity<(s.minimumSupplierQuantity??12))throw new Error(`Commande minimale : ${s.minimumSupplierQuantity??12} articles.`);
   return { ...commitSupplierBatch(s, [{ productId, quantity }], supplierId, 'flash').orders[0] };
 }
 export function queueEveningOrder(s, productId, quantity, supplierId = 'regular') {
+  if(quantity<(s.minimumSupplierQuantity??12))throw new Error(`Commande minimale : ${s.minimumSupplierQuantity??12} articles.`);
   quoteOrder(productId, quantity, supplierId);
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus préparer de commandes.');
   const line = { productId, quantity, supplierId };
   const index = s.eveningBasket.findIndex(item => item.productId === productId);
   if (index < 0) s.eveningBasket.push(line); else s.eveningBasket[index] = line;
   s.eveningError = null;
-  return { ...line, dispatchTime: '20:00', quote: quoteEveningBasket(s) };
+  return { ...line, dispatchTime: clock(storeHours(s).close), quote: quoteEveningBasket(s) };
 }
 export function removeEveningOrder(s, productId) {
   if (!s.eveningBasket.some(line => line.productId === productId)) throw new Error('Ce produit ne figure pas au groupage.');
@@ -548,13 +579,29 @@ export function buyAutoCheckout(s) {
 export function openStore(s) {
   if (s.phase !== 'preparation') throw new Error('Le magasin ne peut pas ouvrir maintenant.');
   ensureInventoryAccounting(s,ownedStockQuantities(s));
-  s.phase = 'open'; s.minute = 480; s.speed = 1;
+  s.phase = 'open'; s.minute = Math.max(s.minute,storeHours(s).open); s.speed = 1;
   log(s, `Ouverture du magasin : ${currentEvent(s).name.toLowerCase()}.`, 'success');
 }
+export function setStoreHours(s, open, close) {
+  const hours={open,close};
+  if(!validStoreHours(hours)||!['preparation','open'].includes(s.phase)||s.phase==='preparation'&&close<=s.minute)throw new Error('Choisissez des horaires entre 05:00 et 23:00, avec au moins une heure d’ouverture.');
+  s.storeHours={...hours};
+  if(s.phase==='preparation')s.dayHours={...hours};
+  return {...hours,appliesDay:s.day+(s.phase==='open'?1:0)};
+}
 export function setDirectorSalary(s, amount) {
-  if (!Number.isInteger(amount) || amount < 0 || amount > 1000 || !['preparation', 'open'].includes(s.phase)) throw new Error('Choisissez un salaire entre 0 et 1 000 € par jour.');
+  if (!Number.isFinite(amount) || amount < 0 || amount > 1000 || !['preparation', 'open'].includes(s.phase)) throw new Error('Choisissez un salaire entre 0 et 1 000 € par jour.');
   s.directorSalary = amount;
   return { dailySalary: amount };
+}
+export function setDirectorAnnualSalary(s, amount) {
+  if(!Number.isInteger(amount)||amount<0||amount>365000)throw new Error('Choisissez un salaire brut annuel entre 0 et 365 000 €.');
+  const result=setDirectorSalary(s,amount/365);
+  return {...result,annualGrossSalary:amount};
+}
+export function setDirectorProfitShare(s, percent) {
+  if(!Number.isInteger(percent)||percent<0||percent>100||!['preparation','open'].includes(s.phase))throw new Error('Choisissez une part des bénéfices entre 0 et 100 %.');
+  s.directorProfitShare=percent;return {percent};
 }
 export function reinvestPersonalCash(s, amount) {
   if (!['preparation', 'open'].includes(s.phase) || !Number.isFinite(amount) || amount <= 0 || round(amount) !== amount || amount > s.personalCash) throw new Error('Solde personnel insuffisant ou montant invalide.');
@@ -591,17 +638,22 @@ function ownedStockQuantities(s) {
  return s.products.map((p,i)=>inventoryPosition(s,p.id)+s.customers.filter(c=>!c.paid).reduce((n,c)=>n+c.basket.filter(l=>l.index===i).reduce((sum,l)=>sum+l.quantity,0),0));
 }
 export function stockValuation(s){return inventoryReport(s,ownedStockQuantities(s));}
-export function dailyProfitability(s, salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money - dailyCosts(s))))) {
+export function dailyProfitability(s, salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money - dailyCosts(s)))), profitSharePaid = null) {
   const operatingCost=dailyCosts(s),stock=stockValuation(s),a=s.inventoryAccounting;
   const otherExpensesHT=round(s.spending-s.vatDeductible-a.purchasesHT);
-  const beforeTax=round(s.sales-s.vatCollected-otherExpensesHT-a.costOfSalesHT-a.lossesHT-operatingCost-salaryPaid);
+  const beforeShare=round(s.sales-s.vatCollected-otherExpensesHT-a.costOfSalesHT-a.lossesHT-operatingCost-salaryPaid);
+  const profitShareEarned=round(Math.max(0,beforeShare)*(s.directorProfitShare??0)/100);
+  profitSharePaid??=round(Math.min(profitShareEarned,Math.max(0,s.money-operatingCost-salaryPaid)));
+  const beforeTax=round(beforeShare-profitSharePaid);
   const profitTax=round(Math.max(0,beforeTax)*.2);
-  return {operatingCost,salaryPaid,otherExpensesHT,stock,beforeTax,profitTax,netProfit:round(beforeTax-profitTax)};
+  return {operatingCost,salaryPaid,profitShareEarned,profitSharePaid,otherExpensesHT,stock,beforeTax,profitTax,netProfit:round(beforeTax-profitTax)};
 }
 export function nextDay(s) {
   if (s.phase !== 'closed') throw new Error('La journée doit être terminée.');
   startInventoryDay(s,ownedStockQuantities(s));startSupplierDay(s);
-  s.day++; s.minute = s.morningPreparation?300:450; s.phase = 'preparation'; s.speed = 0;
+  s.dayHours={...nextStoreHours(s)};
+  s.day++; s.minute = s.morningPreparation?300:storeHours(s).open-30; s.phase = 'preparation'; s.speed = 0;
+  if(s.morningPreparation)for(const shipment of s.shipments.filter(t=>t.phase==='enroute'&&t.arrivalDay===s.day)){shipment.arrivalMinute=Math.max(300,Math.min(shipment.arrivalMinute,storeHours(s).close-1));shipment.eta=s.elapsed+shipment.arrivalMinute-300;}
   s.online.daily = onlineDaily();if(s.theft)s.theft.daily=newTheftState(s.theft.seed).daily;
   s.sold = 0; s.lost = 0; s.sales = 0; s.spending = 0; s.summary = null;
   s.products.forEach(p => { p.soldToday = 0; p.restockedToday = 0; });
@@ -624,15 +676,21 @@ function closeStore(s) {
   const salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money)));
   s.money = round(s.money - salaryPaid); s.personalCash = round(s.personalCash + salaryPaid);
   if (salaryPaid) { s.personalTransactions.unshift({ day: s.day, amount: salaryPaid, label: 'Salaire du directeur' }); s.personalTransactions = s.personalTransactions.slice(0, 16); }
-  if (salaryPaid < s.directorSalary) log(s, 'Le salaire du directeur est limité par la trésorerie disponible.', 'warning');
+  if (salaryPaid < round(s.directorSalary)) log(s, 'Le salaire du directeur est limité par la trésorerie disponible.', 'warning');
+  const bonusBase=dailyProfitability(s,salaryPaid,0).beforeTax;
+  const bonusEarned=round(Math.max(0,bonusBase)*(s.directorProfitShare??0)/100);
+  const profitSharePaid=round(Math.min(bonusEarned,Math.max(0,s.money)));
+  s.money=round(s.money-profitSharePaid);s.personalCash=round(s.personalCash+profitSharePaid);
+  if(profitSharePaid){s.personalTransactions.unshift({day:s.day,amount:profitSharePaid,label:`Part des bénéfices · ${s.directorProfitShare} %`});s.personalTransactions=s.personalTransactions.slice(0,16);}
+  if(profitSharePaid<bonusEarned)log(s,'La part des bénéfices du directeur est limitée par la trésorerie disponible.','warning');
   const vatBalance = round(s.vatCollected - s.vatDeductible - s.vatCredit), vatCharged = Math.max(0, vatBalance);
   s.vatCredit = Math.max(0, -vatBalance); s.vatDue = round(s.vatDue + vatCharged);
-  const profitability = dailyProfitability(s, salaryPaid), taxableProfit = Math.max(0, profitability.beforeTax);
+  const profitability = dailyProfitability(s, salaryPaid, profitSharePaid), taxableProfit = Math.max(0, profitability.beforeTax);
   const profitTax = profitability.profitTax; s.profitTaxDue = round(s.profitTaxDue + profitTax);
   paySupplierInvoices(s,null,true);
   if (s.autoPayTaxes) settleTaxes(s);
   s.phase = s.money < -1000 ? 'bankrupt' : 'closed';
-  s.summary = { day: s.day, stock:profitability.stock,otherExpensesHT:profitability.otherExpensesHT,suppliers:supplierPaymentReport(s),cashSpending:cashPurchases(s), theft:s.theft?structuredClone(s.theft.daily):null, satisfactionDetails: structuredClone(satisfactionMetrics(s)), satisfaction:s.satisfaction, premises: premisesCosts(s), online: { ...s.online.daily }, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - cashPurchases(s) - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
+  s.summary = { day: s.day, stock:profitability.stock,otherExpensesHT:profitability.otherExpensesHT,suppliers:supplierPaymentReport(s),cashSpending:cashPurchases(s), theft:s.theft?structuredClone(s.theft.daily):null, satisfactionDetails: structuredClone(satisfactionMetrics(s)), satisfaction:s.satisfaction, premises: premisesCosts(s), online: { ...s.online.daily }, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid + profitSharePaid, salaryPaid, profitSharePaid, directorProfitShare:s.directorProfitShare??0, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - cashPurchases(s) - operatingCost - salaryPaid - profitSharePaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
   s.history.push({ ...s.summary });
   s.summary.products = s.products.map(p => ({ id: p.id, sold: p.soldToday, restocked: p.restockedToday }));
   s.history.at(-1).products = s.summary.products;
@@ -774,7 +832,7 @@ function minuteStep(s) {
   updateOnline(s, { reservePoint: (i,r)=>reserveAccessPoint(s,i,r), shelfPoint: shelfAccessPoint, sale: recordSale, demand: state => currentEvent(state).factor });
   updateRestocking(s);
   const peak = (s.minute >= 720 && s.minute < 840) ? 1.9 : (s.minute >= 1020 && s.minute < 1140) ? 1.55 : 1;
-  if (s.minute < 1170) {
+  if (s.minute < storeHours(s).close-30) {
     s.arrivalCredit += 0.22 * peak * currentEvent(s).factor * (0.7 + random(s) * 0.6);
     while (s.arrivalCredit >= 1 && s.customers.length < 80) { spawnCustomer(s); s.arrivalCredit--; }
   }
@@ -810,7 +868,7 @@ function minuteStep(s) {
   }
   s.customers = s.customers.filter(c => !abandoned.has(c.id));
   updateCheckouts(s, customer => recordSale(s, customer));
-  if (s.minute >= 1200) closeStore(s);
+  if (s.minute >= storeHours(s).close) closeStore(s);
 }
 export function advance(s, minutes) {
   if (!Number.isFinite(minutes) || minutes < 0 || minutes > 1440) throw new Error('Durée invalide.');
@@ -819,7 +877,7 @@ export function advance(s, minutes) {
     if(s.phase==='preparation'){
       s.minute++;s.elapsed++;updateShipments(s);updateReceiving(s);finishShipments(s);updateRestocking(s);
       updateOnline(s,{reservePoint:(index,rack)=>reserveAccessPoint(s,index,rack),shelfPoint:shelfAccessPoint,sale:recordSale,demand:state=>currentEvent(state).factor});
-      if(s.minute>=480){const runningSpeed=s.speed;openStore(s);s.speed=runningSpeed;}
+      if(s.minute>=storeHours(s).open){const runningSpeed=s.speed;openStore(s);s.speed=runningSpeed;}
     }else minuteStep(s);
   }
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, openStore, setStaff, advance, placeOrder, inventoryPosition, receivingInTransit, restockerPosition, requestRestock, expandStore, checkoutCount, discardReserve, setDirectorSalary, reinvestPersonalCash, payTaxes, setAutomaticTaxPayment, selectRestockEquipment, dailyCosts, setInstallation, checkoutDailyCosts, buyAutoCheckout } from '../dist/engine.js';
+import { createGame, openStore, setStaff, advance, placeOrder, inventoryPosition, receivingInTransit, restockerPosition, requestRestock, expandStore, checkoutCount, discardReserve, setDirectorSalary, setDirectorAnnualSalary, setDirectorProfitShare, dailyProfitability, startDayOnLoad, reinvestPersonalCash, payTaxes, setAutomaticTaxPayment, selectRestockEquipment, dailyCosts, setInstallation, checkoutDailyCosts, buyAutoCheckout } from '../dist/engine.js';
 
 function quietGame() {
   const s = createGame(); setStaff(s, 'shelves', 0); setStaff(s, 'checkout', 0);
@@ -162,4 +162,40 @@ test('cash-register operating costs and staff wages are charged once at closing 
   assert.equal(s.history[0].expenses, 13 * 85 + 125 + 185.99);
   assert.equal(s.money, cash - costs); assert.equal(s.history[0].net, -costs - 7300);
   advance(s, 0); assert.equal(s.money, cash - costs);
+});
+
+
+test('annual gross director salary converts to daily pay and closes without a rounding warning',()=>{
+  const s=quietGame();setDirectorAnnualSalary(s,30000);
+  assert.equal(s.directorSalary,30000/365);
+  const summary=finishDay(s);
+  assert.equal(summary.salaryPaid,82.19);assert.equal(s.personalCash,82.19);
+  assert.ok(!s.log.some(entry=>entry.text?.includes('salaire du directeur est limité')));
+});
+test('invalid annual salaries leave the existing salary intact and zero stops payment',()=>{
+  const s=quietGame();setDirectorAnnualSalary(s,40000);
+  for(const amount of [-1,365001,Infinity,NaN,100.5]){assert.throws(()=>setDirectorAnnualSalary(s,amount));assert.equal(s.directorSalary,40000/365);}
+  setDirectorAnnualSalary(s,0);assert.equal(finishDay(s).salaryPaid,0);
+});
+
+test('profit sharing pays once, deducts the bonus before tax and reconciles the personal balance',()=>{
+ const s=quietGame();setStaff(s,'checkout',1);setDirectorAnnualSalary(s,36500);setDirectorProfitShare(s,10);
+ const base=1000-dailyCosts(s)-100,bonus=Math.round(base*.1*100)/100,summary=finishDay(s,1200);
+ assert.equal(summary.profitSharePaid,bonus);assert.equal(s.personalCash,100+bonus);
+ assert.equal(summary.expenses,dailyCosts(s)+100+bonus);assert.equal(summary.beforeTax,Math.round((base-bonus)*100)/100);
+ assert.equal(summary.profitTax,Math.round(summary.beforeTax*.2*100)/100);
+ const paid=s.personalCash;advance(s,1);assert.equal(s.personalCash,paid);
+});
+test('profit sharing never pays on a loss or beyond the available cash',()=>{
+ const loss=quietGame();setDirectorProfitShare(loss,100);assert.equal(finishDay(loss).profitSharePaid,0);
+ const s=quietGame();setStaff(s,'checkout',1);setDirectorAnnualSalary(s,36500);setDirectorProfitShare(s,100);
+ s.sales=1200;s.vatCollected=200;s.money=dailyCosts(s)+105;
+ const estimate=dailyProfitability(s);assert.equal(estimate.profitSharePaid,5);
+ const summary=finishDay(s);assert.equal(summary.profitSharePaid,5);assert.equal(s.personalCash,105);assert.ok(s.money<=0);
+ for(const n of [-1,101,NaN,1.5])assert.throws(()=>setDirectorProfitShare(s,n));
+});
+test('loaded player games enforce the 240 unit minimum for express and evening purchases',()=>{
+ const s=quietGame();startDayOnLoad(s);
+ for(const quantity of [12,48,120,239]){const before=JSON.stringify(s);assert.throws(()=>placeOrder(s,'produce',quantity,'express'));assert.equal(JSON.stringify(s),before);}
+ assert.equal(placeOrder(s,'produce',240,'express').quantity,240);
 });

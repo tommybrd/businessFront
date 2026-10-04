@@ -19,8 +19,12 @@ export function productUnit(product, index, box, material) {
     box(group, 0.07, 0.07, 0.07, 0, 0.26, 0, 0xf2eee0, false);
     box(group, 0.16, 0.07, 0.01, 0, 0.13, 0.08, 0xe9eadb, false);
   } else if (product.id === 'bakery') {
-    const loaf = new THREE.Mesh(new THREE.CapsuleGeometry(index%3===2?.09:.055,index%3===2?.12:.4,2,7),material(index%3===1?0xe4bd7a:0xcf9c53));
+    const small=index%4>=2;
+    const geometry=new THREE.CapsuleGeometry(small?.09:.055,small?.12:.4,2,7);
+    const loaf = new THREE.Mesh(geometry,material(index%3===1?0xe4bd7a:0xcf9c53));
     loaf.rotation.x=Math.PI/2;loaf.position.y=.08;group.add(loaf);
+    const wrap=new THREE.Mesh(geometry,new THREE.MeshPhysicalMaterial({color:0xfff4d5,transparent:true,opacity:.13,roughness:.25,depthWrite:false}));wrap.rotation.copy(loaf.rotation);wrap.position.copy(loaf.position);wrap.scale.set(1.1,1.06,1.1);group.add(wrap);
+    box(group,.065,.012,.07,0,.145,.035,0xf4ecd8,false);
   } else {
     box(group, 0.18, 0.26, 0.19, 0, 0.13, 0, product.color, false);
     box(group, 0.14, 0.08, 0.012, 0, 0.13, 0.102, 0xf2efe5, false);
@@ -31,7 +35,7 @@ export function productUnit(product, index, box, material) {
 
 // Batch the dense stock while retaining one instance for each real article.
 export function shelfStock(product, maximum, unitsPerLevel, parent, box, material, layout = 'shelf') {
-  const variants = ['produce','bakery'].includes(product.id)?3:1,batches=[];
+  const variants = product.id==='bakery'?4:product.id==='produce'?3:1,batches=[];
   const group = new THREE.Group(); group.name = `shelf-stock-${product.id}`; parent.add(group);
   for (let variant = 0; variant < variants; variant++) {
     const template = productUnit(product, variant, box, material);
@@ -51,7 +55,12 @@ export function shelfStock(product, maximum, unitsPerLevel, parent, box, materia
       for (const batch of batches) {
         for (let n = 0; n < batch.capacity; n++) {
           const index = batch.variant + n * variants, slot = Math.floor(index / levels);
-          if(layout==='basket'){const row=index%50,column=row%10,zRow=Math.floor(row/10),layer=Math.floor(index/50);position.makeRotationY(((index%3)-1)*.16);position.setPosition((-.59+column*.131)*(1-Math.abs(zRow-2)*.15),.99+layer*.1,-.3+zRow*.15);}
+          if(layout==='bread-display'){
+            const level=index%4,column=slot%10,row=Math.floor(slot/10),x=-.72+column*.16,z=.49-row*.235;
+            position.makeRotationX(level<2?Math.PI/2-.12:0);
+            if(level<2)position.multiply(new THREE.Matrix4().makeScale(1,1,1.4));
+            position.setPosition(x,[.34,1.12,1.9,2.34][level]+(level<2?.35:.09),z);
+          }
           else if (layout === 'stall') position.makeTranslation(-.75 + (index % 10) * .165, 1.02 + Math.floor(index / 60) * .17, .65 - Math.floor((index % 60) / 10) * .26);
           else position.makeTranslation(-.735 + (slot % 8) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 8) * .275);
           position.multiply(itemScale); batch.mesh.setMatrixAt(n, matrix.multiplyMatrices(position, batch.partMatrix));

@@ -21,10 +21,10 @@ export function createOnlineScene(scene,state,{box,material,textSprite}) {
   const cars=new Map();let parcelKey='';
   function vehicle(van=false) {
     const car=new THREE.Group(); car.name=van?'online-carrier':'drive-customer-car';
-    box(car,1.65,.42,van?3.1:2.8,0,.49,0,van?0xe8debf:0x6d9e96);
-    box(car,1.45,van?1.1:.6,van?1.9:1.35,0,van?1.17:.99,van?-.4:-.13,van?0xe8debf:0x557d7e);
+    box(car,1.65,.42,van?3.1:2.8,0,.49,0,van?0xf3c629:0x6d9e96);
+    box(car,1.45,van?1.1:.6,van?1.9:1.35,0,van?1.17:.99,van?-.4:-.13,van?0xf3c629:0x557d7e);
     box(car,1.3,.38,.05,0,1.03,van?1: .58,0x9fc6c7);
-    if(van) {box(car,.8,.4,.03,0,1.25,-1.37,0x3e7755);}
+    if(van) {box(car,.8,.4,.03,0,1.25,-1.37,0x244f87);}
     for(const x of [-.79,.79])for(const z of [-.91,.91]){
       const wheel=new THREE.Mesh(new THREE.CylinderGeometry(.25,.25,.15,10),material(0x354a40));wheel.rotation.z=Math.PI/2;wheel.position.set(x,.25,z);car.add(wheel);
     }
@@ -36,8 +36,22 @@ export function createOnlineScene(scene,state,{box,material,textSprite}) {
     car.position.set(route.at(-1)[0],0,route.at(-1)[1]);
   }
   function remove(car){group.remove(car);car.traverse(o=>o.geometry?.dispose());}
-  let courier=null;
-  return {group,update(fraction=0){
+  let courier=null, observedOnline=null, paidSeen=new Set();
+  const payments=[];
+  const clearPayments=()=>{for(const p of payments){p.sprite.removeFromParent();p.sprite.material.map.dispose();p.sprite.material.dispose();}payments.length=0;};
+  const payment=(amount,x,z)=>{
+    const label=new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR'}).format(amount);
+    const sprite=textSprite(`+ ${label}`,{color:'#edffcf',background:'#245738ed',width:384,height:112,size:46,worldWidth:2.7});
+    sprite.name='online-payment';sprite.userData.amount=amount;sprite.position.set(x,2.4,z);sprite.renderOrder=20;group.add(sprite);payments.push({sprite,age:0});
+  };
+  return {group,update(fraction=0,seconds=0){
+    if(observedOnline!==state.online){observedOnline=state.online;paidSeen=new Set(state.online.orders.filter(o=>o.paid).map(o=>o.id));clearPayments();}
+    const received=state.online.orders.filter(o=>o.paid&&!paidSeen.has(o.id));
+    for(const o of received)paidSeen.add(o.id);
+    const webAmount=received.filter(o=>o.channel==='web').reduce((n,o)=>n+o.value,0);
+    if(webAmount)payment(webAmount,-4.5,12.8+storeFrontExtension(state.expansions,state.storeSize));
+    for(const o of received.filter(o=>o.channel==='drive')){const [x,z]=drivePoint(state,o.slot??0);payment(o.value,x,z);}
+    for(let i=payments.length-1;i>=0;i--){const p=payments[i];if(state.speed)p.age+=seconds;p.sprite.position.y=2.4+p.age*.2;p.sprite.material.opacity=Math.min(1,(3-p.age)*2);if(p.age>=3){p.sprite.removeFromParent();p.sprite.material.map.dispose();p.sprite.material.dispose();payments.splice(i,1);}}
     const point=packPoint(state),front=storeFrontExtension(state.expansions,state.storeSize),placement=packingPlacement(state);
     packing.visible=Boolean(state.infrastructure.drive||state.infrastructure.web); packing.position.set(placement.x,0,placement.z);packing.rotation.y=placement.rotation;
     spaces.visible=Boolean(state.infrastructure.drive); spaces.children.forEach((bay,slot)=>{const p=drivePoint(state,slot);bay.position.set(p[0],0,p[1]);});

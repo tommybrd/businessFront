@@ -80,3 +80,13 @@ test('saving a mixed load resumes deterministically and removing the employee re
  const s=createStarterGame();s.arrivalCredit=-100000;s.products[0].shelf=0;s.products[1].shelf=0;openStore(s);for(let i=0;i<150&&!s.restockers[0].cargo?.every(l=>l.quantity>0);i++)advance(s,1);assert.ok(s.restockers[0].cargo.every(l=>l.quantity>0));const snapshot=readSave(makeSave(s)).state,total=s.products.map(p=>inventoryPosition(s,p.id));
  const original=readSave(makeSave(s)).state;advance(original,35);advance(snapshot,35);assert.deepEqual(snapshot,original);setStaff(s,'shelves',0);assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);assert.equal(s.products[0].reserve,48);assert.equal(s.products[1].reserve,48);
 });
+
+test('busy shelf and reserve fixtures can move in pause without losing a mixed load or received goods',()=>{
+ const s=createStarterGame();s.arrivalCredit=-100000;s.products[0].shelf=0;openStore(s);
+ for(let i=0;i<180&&!s.restockers.some(w=>w.phase==='stocking');i++)advance(s,1);
+ const total=s.products.map(p=>inventoryPosition(s,p.id));s.speed=0;
+ moveFixture(s,'shelf:1',-4,0,Math.PI/2);moveFixture(s,'reserve:0:0',-10,-9.5,Math.PI/2);
+ assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);
+ const resumed=readSave(makeSave(s)).state;advance(s,40);advance(resumed,40);assert.deepEqual(resumed,s);
+ assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);
+});

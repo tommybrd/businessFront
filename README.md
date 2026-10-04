@@ -1,4 +1,4 @@
-# Market Front · v0.11.2
+# Market Front · v0.11.3
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
@@ -14,7 +14,7 @@ Finances propose petit, moyen ou grand magasin, avec surface, coût de changemen
 
 Aménager ouvre un plan et met la partie en pause. Sélectionner un équipement puis le glisser, ou toucher sa destination ; Tourner le pivote de 90°. Rayons, caisses, caisse automatique, racks et poste de préparation sont déplaçables. Les chevauchements, sorties bloquées et passages coupés sont refusés. Un équipement en cours d’utilisation attend la fin de son opération. La simulation, les chemins autour des obstacles et la scène 3D utilisent les positions sauvegardées.
 
-Les repères de la scène sont les portillons, barrières, voyants et meubles. Le pain repose en vrac dans une grande corbeille tressée sur meuble en bois ; le frais utilise des armoires réfrigérées à deux portes vitrées, avec éclairage et ventilation. Les portes s’entrouvrent pendant le prélèvement ou le rangement. Chaque meuble montre son stock réel et conserve ses emplacements, sa capacité et ses accès sauvegardés. Aucun panneau Entrée, Sortie, Caisse 1, Auto, Module libre, Quai ou Drive ne flotte dans le magasin. Les plaques des produits font partie du mobilier. Le montant du paiement reste près du poste et un bip unique accompagne le paiement (après autorisation audio du navigateur), sans option de désactivation.
+Les repères de la scène sont les portillons, barrières, voyants et meubles. Le pain est présenté dans un meuble en bois à quatre niveaux compartimentés, avec baguettes debout en bas et petits pains emballés en haut ; le frais utilise des armoires réfrigérées à deux portes vitrées, avec éclairage et ventilation. Les portes s’entrouvrent pendant le prélèvement ou le rangement. Chaque meuble montre son stock réel et conserve ses emplacements, sa capacité et ses accès sauvegardés. Aucun panneau Entrée, Sortie, Caisse 1, Auto, Module libre, Quai ou Drive ne flotte dans le magasin. Les plaques des produits font partie du mobilier. Le montant du paiement reste près du poste et un bip unique accompagne le paiement (après autorisation audio du navigateur), sans option de désactivation.
 
 ## Stocks, clients et livraisons
 
@@ -57,3 +57,14 @@ Le build rassemble les fichiers publics dans le Worker et vérifie chaque fichie
 ## Pistes restantes
 
 Gestion RH détaillée, négociation et contrats fournisseurs, réglage des prix et marges, prévisions de gestion et produits périssables.
+
+Le suivi des journées affiche la marge brute (ventes HT moins coût des articles vendus) et la marge après charges communes (marge brute moins charges quotidiennes et salaire du directeur), en euros et en pourcentage des ventes HT. Les autres frais, pertes et impôts restent pris en compte dans le résultat net. Les alertes de stock sont intégrées à l’onglet Rayons, placé en premier, et chaque raccourci vers la réserve indique sa quantité.
+
+Le salaire du directeur se définit en brut annuel ; le montant journalier est calculé sur 365 jours et payé à la fermeture, dans la limite de la trésorerie disponible. Les anciennes sauvegardes conservent leur montant journalier et affichent son équivalent annuel.
+
+La section Mon argent rassemble le salaire brut annuel, un pourcentage du bénéfice positif avant impôt (après charges et salaire fixe), les versements, le solde et les réinvestissements. La prime est payée une seule fois à la fermeture, limitée par la trésorerie et déduite avant calcul de l’impôt. Les anciennes sauvegardes démarrent sans prime. Les nouvelles commandes accessibles au joueur commencent à 240 articles ; les anciennes commandes restent livrables. Les équipements en service peuvent être déplacés pendant la pause, avec trajets et points de travail recalculés sans perdre les articles transportés.
+
+La Poste collecte tous les colis web prêts une seule fois par jour à 17 h ; les colis prêts après ce passage attendent le lendemain sans être annulés. Le montant encaissé apparaît près du véhicule au drive et à la collecte web (total du chargement), sans rejouer les anciennes ventes au chargement de la sauvegarde.
+
+Les horaires se règlent dans Finances, entre 05:00 et 23:00 (au moins une heure). En préparation ils s’appliquent aujourd’hui ; une fois ouvert, le changement prend effet demain. La préparation commence à 05:00. Le groupage part à la fermeture. La Poste collecte une fois à 17:00, ou vingt minutes avant une fermeture plus tôt.
+La satisfaction affiche des notes A à E pour la disponibilité, l’attente et les achats aboutis. La note globale pondère ces trois scores (50 %, 30 %, 20 %). Seuils : A ≥95, B ≥85, C ≥70, D ≥50, E en dessous. La disponibilité suit les demandes servies (avant les premières demandes : rayons approvisionnés) ; l’attente utilise le maximum entre la moyenne du jour et l’attente actuelle, avec 7 points retirés par minute ; les achats aboutis mesurent les départs sans achat parmi les visites terminées. Les mesures détaillées sont conservées en sauvegarde.

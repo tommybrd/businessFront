@@ -1,3 +1,4 @@
+import {storeHours,nextStoreHours} from './store-hours.js';
 import { reserveBackExtension, RESERVE_BACK_EXTENSION } from './store-layout.js';
 // Truck movements and pallet coordinates share the simulation clock.
 export const DELIVERY_BAYS = [2.2, 5.6, 9, 12.4, 15.8];
@@ -15,12 +16,12 @@ export const deliveryVehicle = shipment => DELIVERY_VEHICLES[shipment.vehicleKin
 export function deliverySchedule(state, supplier, supplierId) {
   if(!state.morningPreparation)return {eta:state.elapsed+supplier.lead};
   if(supplierId==='regular'){
-    const today=state.minute>=300&&state.minute+supplier.lead<=480;
-    const arrivalMinute=today?state.minute+supplier.lead:390;
-    return {eta:state.elapsed+(today?supplier.lead:1200-state.minute+90),arrivalDay:state.day+(today?0:1),arrivalMinute};
+    const today=state.minute>=300&&state.minute+supplier.lead<=Math.min(480,storeHours(state).close-20);
+    const arrivalMinute=today?state.minute+supplier.lead:Math.min(390,nextStoreHours(state).close-20);
+    return {eta:state.elapsed+(today?supplier.lead:storeHours(state).close-state.minute+arrivalMinute-300),arrivalDay:state.day+(today?0:1),arrivalMinute};
   }
-  const next=state.minute+supplier.lead>=1200;
-  return {eta:state.elapsed+supplier.lead,arrivalDay:state.day+(next?1:0),arrivalMinute:next?300+state.minute+supplier.lead-1200:state.minute+supplier.lead};
+  const next=state.minute+supplier.lead>=storeHours(state).close;
+  return {eta:state.elapsed+supplier.lead,arrivalDay:state.day+(next?1:0),arrivalMinute:next?300+state.minute+supplier.lead-storeHours(state).close:state.minute+supplier.lead};
 }
 export function palletLocalPosition(shipment, pallet) {
   const v=deliveryVehicle(shipment),column=pallet.truckIndex%v.columns;
