@@ -39,7 +39,7 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
       clearCargo(station); station.key = key; station.scanned = 0; station.pulse = 0;
       if (customer) for (const item of customer.basket) for (let n = 0; n < item.quantity; n++) {
         const unit = productUnit(state.products[item.index], station.cargo.children.length, box, material);
-        unit.scale.setScalar(.85); unit.userData.productId = state.products[item.index].id; station.cargo.add(unit);
+        unit.scale.setScalar(.65); unit.userData.productId = state.products[item.index].id; station.cargo.add(unit);
       }
     }
     if (customer && actor) {
@@ -48,16 +48,20 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
       station.scanned = progress.scanned;
       station.group.userData.checkoutPhase = progress.phase; station.group.userData.scannedArticles = progress.scanned;
       station.group.updateWorldMatrix(true, false); actor.group.updateWorldMatrix(true, true);
+      const packed = progress.articles.filter(article => article.scanning === 1).length;
       station.cargo.children.forEach((unit, index) => {
         const step = progress.articles[index], cartUnit = actor.cartContents.children[index];
-        const inCart = step.loading === 0 || step.scanning === 1;
+        const inCart = station.automatic ? step.scanning === 0 || step.scanning === 1 : step.loading === 0 || step.scanning === 1;
         if (cartUnit) cartUnit.visible = inCart;
         unit.visible = !inCart;
         if (!unit.visible || !cartUnit) return;
         cartUnit.getWorldPosition(cartPosition);
-        const beltX = station.automatic ? 0 : -.92 + Math.min(.8, step.scanning) / .8 * 1.24;
-        beltPosition.set(beltX, 1.12, (index % 3 - 1) * .26); station.group.localToWorld(beltPosition);
-        if (step.loading < 1) {
+        const rank = Math.max(0, index - packed);
+        const beltX = station.automatic ? 0 : step.scanning > 0 ? .14 + Math.min(.8, step.scanning) / .8 * .18 : .14 - Math.floor((rank % 18) / 3) * .18;
+        beltPosition.set(beltX, 1.12 + Math.floor(rank / 18) * .19, (rank % 3 - 1) * .24); station.group.localToWorld(beltPosition);
+        if (station.automatic && step.scanning < .8) {
+          position.lerpVectors(cartPosition, beltPosition, step.scanning / .8); position.y += Math.sin(step.scanning / .8 * Math.PI) * .3;
+        } else if (step.loading < 1) {
           position.lerpVectors(cartPosition, beltPosition, step.loading); position.y += Math.sin(step.loading * Math.PI) * .4;
         } else if (step.scanning >= .8) {
           const packing = (step.scanning - .8) / .2;

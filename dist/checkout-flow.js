@@ -1,9 +1,12 @@
+// Keep small baskets at four minutes; larger shops share the same unload/payment overhead.
+export const checkoutDuration = count => 3 + Math.ceil(count / 8);
+
 export const checkoutCount = state => 4 + state.expansions.checkout * 2;
 
 // One minute to unload, a sequential scan, then one minute to pay.
 export function checkoutProgress(customer, minuteFraction = 0) {
   const count = customer.basket.reduce((sum, item) => sum + item.quantity, 0);
-  const duration = customer.checkoutDuration || 3 + Math.ceil(count / 2);
+  const duration = customer.checkoutDuration || checkoutDuration(count);
   const elapsed = customer.paid ? duration : Math.max(0, Math.min(duration, duration - customer.checkoutRemaining + minuteFraction));
   const scanDuration = duration - 2;
   const articles = Array.from({ length: count }, (_, index) => ({
@@ -51,7 +54,7 @@ export function updateCheckouts(state, recordSale) {
     if (!customer) continue;
     const articles = customer.basket.reduce((sum, item) => sum + item.quantity, 0);
     customer.stage = 'checkout'; customer.wait = 0;
-    customer.checkoutRemaining = 3 + Math.ceil(articles / 2);
+    customer.checkoutRemaining = checkoutDuration(articles);
     customer.checkoutDuration = customer.checkoutRemaining;
   }
 }

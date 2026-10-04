@@ -185,8 +185,8 @@ export function createStoreScene(canvas, state, onSelect) {
     }
     let count = 0;
     for (const item of customer.basket) for (let n = 0; n < item.quantity; n++) {
-      const unit = productUnit(state.products[item.index], count, box, material); unit.scale.setScalar(.85);
-      unit.position.set(count % 2 ? .13 : -.13, .48 + Math.floor(count / 6) * .23, .21 - Math.floor((count % 6) / 2) * .21);
+      const unit = productUnit(state.products[item.index], count, box, material); unit.scale.setScalar(.65);
+      unit.position.set((count % 3 - 1) * .17, .48 + Math.floor(count / 12) * .19, .225 - Math.floor((count % 12) / 3) * .15);
       unit.userData.productId = state.products[item.index].id; actor.cartContents.add(unit); count++;
     }
     actor.cartContents.userData.articleCount = count;

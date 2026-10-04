@@ -23,6 +23,14 @@ Les rayons commencent avec 480 articles chacun ; chaque article visible correspo
 
 Cette version constitue une boucle jouable. Le placement libre des rayons, la gestion RH, les produits périssables et les contrats fournisseurs restent à développer. Les caddies des clients ayant abandonné leurs achats redeviennent vides quand les produits sont remis en stock. Les parties ne sont pas encore sauvegardées entre deux rechargements.
 
+## Équilibrage v0.6.1
+
+Les capacités restent de 600 articles par meuble et 500 en réserve par famille (750 puis 1 000 après agrandissement). Les clients font maintenant des courses plus importantes : 20 % de petites visites de 2–3 lignes de 1–2 articles, et 80 % de paniers de 4–6 lignes de 3–6 articles. Une ligne représente une famille, qui peut apparaître plusieurs fois. Les pics horaires et événements multiplient la fréquentation existante.
+
+La mise en rayon automatique démarre à 75 % de remplissage ou moins ; elle privilégie les chargements complets quand il reste assez de stock. Le bouton Réapprovisionner permet de remplir avant ce seuil et donne la priorité au produit. Les trajets sont légèrement plus rapides, les capacités des trois chariots restent 8, 24 et 48. Une caisse garde un seul client et scanne toujours les articles un par un : 3 minutes de base plus une minute par tranche de 8 articles, pour que les grands paniers ne bloquent pas artificiellement toute la chaîne.
+
+`npm run balance` compare des journées complètes sur trois graines identiques, avec 480 articles au départ en rayon, 500 en réserve, quatre caisses et aucune livraison. En moyenne, une journée normale demande environ 3 540 articles : sans mise en rayon, environ 660 manquent ; cinq employés avec des chariots moyens évitent ces ruptures. Un samedi demande environ 5 650 articles : les petits, moyens et grands chariots laissent respectivement environ 2 050, 820 et 30 articles manquants. Black Friday exige aussi des livraisons ciblées pour Maison & entretien ; une réserve pleine et de grands chariots ne suffisent pas seuls. Ces scénarios contrôlent la conservation des articles à chaque minute. Les résultats correspondent à ces conditions de test, pas à une garantie pour toutes les configurations.
+
 ## Pistes pour approfondir la chaîne
 
 Priorités de déchargement et de mise en rayon, emplacements de réserve personnalisables, fiabilité des fournisseurs et anticipation des invendus. Ces pistes ont été discutées pour une prochaine version et ne font pas partie de la première boucle.

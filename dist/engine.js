@@ -8,6 +8,7 @@ export const ORDER_QUANTITIES = [12, 24, 48, 120, 240, 480, 720, 1000];
 export const SHELF_UNITS_PER_LEVEL = 120;
 export const SHELF_INITIAL_LEVELS = 5;
 export const INITIAL_SHELF_STOCK = 480;
+export const RESTOCK_TRIGGER_RATIO = .75;
 export const PRODUCTS = [
   { id: 'produce', name: 'Fruits & légumes', short: 'Fruits', color: '#87bd59', cost: 1.8, price: 3.4, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
   { id: 'bakery', name: 'Boulangerie', short: 'Pain', color: '#e9b85e', cost: 1.1, price: 2.5, capacity: SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS },
@@ -41,9 +42,9 @@ export const STORE_EXPANSIONS = {
 export const checkoutDailyCosts = s => checkoutCount(s) * 5 + (s.autoCheckout ? 8 : 0);
 export const receivingInTransit = s => s.receivers.reduce((sum, worker) => sum + worker.load, 0);
 export const RESTOCK_EQUIPMENT = {
-  small: { name: 'Petit chariot', capacity: 8, cost: 0, loading: 2, stockRate: 2, travelSpeed: 1.8, requires: null },
-  medium: { name: 'Chariot moyen', capacity: 24, cost: 1200, loading: 3, stockRate: 4, travelSpeed: 1.7, requires: 'small' },
-  large: { name: 'Grand chariot', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 1.5, requires: 'medium' },
+  small: { name: 'Petit chariot', capacity: 8, cost: 0, loading: 2, stockRate: 2, travelSpeed: 2.4, requires: null },
+  medium: { name: 'Chariot moyen', capacity: 24, cost: 1200, loading: 3, stockRate: 4, travelSpeed: 2.3, requires: 'small' },
+  large: { name: 'Grand chariot', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 2.1, requires: 'medium' },
 };
 export const RESTOCK_PICKUP = [-2.4, -4.65];
 export const RESTOCK_SHELVES = [[-6.4, -1.2], [0, -1.2], [6.4, -1.2], [-6.4, 2.6], [0, 2.6], [6.4, 2.6]];
@@ -216,7 +217,9 @@ function updateRestocking(s) {
         const allocated = jobs.reduce((sum, w) => sum + w.load + w.reserved, 0);
         const reserved = jobs.reduce((sum, w) => sum + w.reserved, 0);
         return { p, index, available: p.reserve - reserved, need: p.capacity - p.shelf - allocated };
-      }).filter(({ available, need }) => available > 0 && need > 0).sort((a, b) => {
+      }).filter(({ p, available, need }) => available > 0 && need > 0 &&
+        (s.restockRequests.includes(p.id) || (p.shelf <= p.capacity * RESTOCK_TRIGGER_RATIO &&
+          need >= Math.min(RESTOCK_EQUIPMENT[s.restockMode].capacity, available)))).sort((a, b) => {
         const priority = p => { const i = s.restockRequests.indexOf(p.id); return i < 0 ? Infinity : i; };
         const priorityDifference = priority(a.p) - priority(b.p);
         return (Number.isNaN(priorityDifference) ? 0 : priorityDifference) || a.p.shelf / a.p.capacity - b.p.shelf / b.p.capacity;
@@ -425,11 +428,14 @@ function returnBasket(s, customer) {
 }
 function spawnCustomer(s) {
   const items = [];
-  const count = 2 + Math.floor(random(s) * 3);
+  // A few quick visits, mostly weekly shopping across product families.
+  const quickVisit = random(s) < .2;
+  const count = quickVisit ? 2 + Math.floor(random(s) * 2) : 4 + Math.floor(random(s) * 3);
   for (let i = 0; i < count; i++) {
     let index = Math.floor(random(s) * s.products.length);
     if (currentEvent(s).focus >= 0 && random(s) < 0.38) index = currentEvent(s).focus;
-    items.push({ index, quantity: random(s) < 0.2 ? 2 : 1 });
+    const quantity = quickVisit ? 1 + Math.floor(random(s) * 2) : 3 + Math.floor(random(s) * 4);
+    items.push({ index, quantity });
   }
   s.customers.push({ id: s.nextId++, items, itemIndex: 0, basket: [], value: 0, stage: 'shopping', progress: 0, wait: 0, x: 530, y: 590, color: ['#f8ba63', '#85d9c0', '#c1a7ff', '#f291a8'][Math.floor(random(s) * 4)] });
 }
