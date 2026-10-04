@@ -16,7 +16,7 @@
     <canvas id="store-map" tabindex="0" role="img" aria-label="Magasin en 3D : cliquez sur les rayons, la réserve, les caisses ou le quai pour les gérer. ZQSD pour se déplacer, A et E pour tourner, molette pour zoomer."></canvas>
   </main>
   <header class="topbar hud-surface">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Directeur du magasin <span class="version">v0.5</span></p></div></div>
+    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Directeur du magasin <span class="version">v0.6</span></p></div></div>
     <div class="day-clock"><span id="day-label">Jour 1</span><strong id="clock">07:30</strong><span id="phase-label" class="phase">Préparation</span></div>
     <button id="event-toggle" class="event-chip" aria-controls="journal-panel" aria-expanded="false"><span aria-hidden="true">◷</span><span id="event-title">Journée habituelle</span></button>
     <div class="time-controls" role="group" aria-label="Vitesse du jeu"><button data-speed="0" class="active" aria-label="Pause" title="Pause — barre d’espace">Ⅱ</button><button data-speed="1">×1</button><button data-speed="3">×3</button><button data-speed="6">×6</button></div>
@@ -25,6 +25,7 @@
   <section class="hud-metrics hud-surface" aria-label="Indicateurs du magasin">
     <button class="hud-metric" data-open="finances"><span>Trésorerie</span><strong id="money">8 500 €</strong></button>
     <button class="hud-metric" data-open="finances"><span>Ventes</span><strong id="sales">0 €</strong></button>
+    <button class="hud-metric profit-metric" data-open="finances"><span>Résultat estimé</span><strong id="daily-profit">0 €</strong></button>
     <button class="hud-metric" data-open="caisses"><span>Clients</span><strong id="customers">0</strong></button>
     <button class="hud-metric" data-open="caisses"><span>Satisfaction</span><strong id="satisfaction">100 %</strong></button>
   </section>

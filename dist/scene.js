@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
-import { RESTOCK_EQUIPMENT, RESTOCK_SHELVES, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, restockerPosition, checkoutCount, activeCheckoutLanes, reserveProductPosition } from './engine.js';
+import { RESTOCK_EQUIPMENT, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, restockerPosition, checkoutCount, activeCheckoutLanes, reserveProductPosition, shelfPosition, productShelfPosition, storeFrontExtension } from './engine.js';
+import { createCheckoutVisuals } from './checkout-visuals.js';
 import { createKeyboardCameraControls } from './camera-controls.js';
 import { createDeliveryYard } from './delivery-scene.js';
 import { productUnit, shelfStock, stockCarton, staffOutfit, createSurroundings } from './scene-details.js';
 
 const COLORS = { green: 0x285c46, floor: 0xeef2e9, wall: 0xc9d6c8, steel: 0x859287 };
-const shelfPositions = RESTOCK_SHELVES;
 
 export function createStoreScene(canvas, state, onSelect) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
@@ -56,6 +56,7 @@ export function createStoreScene(canvas, state, onSelect) {
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(worldWidth, worldWidth * 96 / 512), new THREE.MeshBasicMaterial({ map: sprite.material.map, transparent: true, side: THREE.DoubleSide }));
     sprite.material.dispose(); return mesh;
   }
+  const checkoutVisuals = createCheckoutVisuals(scene, state, { box, material, textSprite });
   const surroundings = createSurroundings(scene, box, material, textSprite);
   const store = new THREE.Group(); scene.add(store);
   const foundation = box(store, 24, 0.45, 17, 0, -0.26, 0, 0xb2c1ac);
@@ -75,34 +76,52 @@ export function createStoreScene(canvas, state, onSelect) {
     const group = new THREE.Group(), [x, z] = reserveProductPosition(i); group.position.set(x, 0, z);
     group.userData.selection = { view: 'reserve', productId: product.id };
     box(group, 3.05, 0.025, 1.4, 0, 0.15, 0, product.color, false);
-    for (const x of [-1.3, 1.3]) for (const z of [-.59, .59]) box(group, .1, 2.65, .1, x, 1.46, z, 0x627d65);
-    for (const level of [.3, 1.1, 1.9]) {
-      box(group, 2.6, .08, 1.25, 0, level, 0, 0x9ba98d);
-      box(group, 2.6, .12, .06, 0, level, .64, 0xd3ad5e);
-    }
+    const posts = [];
+    for (const x of [-1.48, 1.48]) for (const z of [-.65, .65]) posts.push(box(group, .1, 2.65, .1, x, 1.46, z, 0x627d65));
+    const boards = Array.from({ length: 5 }, (_, level) => {
+      const y = .3 + level * .8;
+      return [box(group, 2.95, .08, 1.4, 0, y, 0, 0x9ba98d), box(group, 2.95, .12, .06, 0, y, .72, 0xd3ad5e)];
+    });
     const crates = [];
-    for (let n = 0; n < 18; n++) {
-      const slot = Math.floor(n / 3);
-      crates.push(stockCarton(group, box, slot % 2 ? .62 : -.62, .56 + (n % 3) * .8, .4 - Math.floor(slot / 2) * .4, product.color));
+    for (let n = 0; n < 90; n++) {
+      const slot = Math.floor(n / 5), level = n % 5;
+      crates.push(stockCarton(group, box, -1.2 + (slot % 6) * .48, .56 + level * .8, .42 - Math.floor(slot / 6) * .42, product.color));
+      crates.at(-1).userData.level = level;
     }
     const sign = plaque(product.short, 2.3); sign.position.set(0, .27, .75); group.add(sign);
-    reserve.add(group); return { group, crates };
+    reserve.add(group); return { group, crates, boards, posts };
   });
   const deliveryYard = createDeliveryYard(scene, state, box, material, plaque);
-  const shelves = state.products.map((product, index) => {
-    const group = new THREE.Group(), [x, z] = shelfPositions[index]; group.name = `shelf-${product.id}`; group.position.set(x, 0, z); store.add(group);
+  function createShelf(product, index, slot) {
+    const group = new THREE.Group(), [x, z] = shelfPosition(slot); group.name = `shelf-slot-${slot}`; group.position.set(x, 0, z); store.add(group);
     group.userData.selection = { view: 'rayons', productId: product.id };
-    box(group, 5.4, 0.25, 1.45, 0, 0.22, 0, 0xb9c8ae);
-    const boards = Array.from({ length: SHELF_INITIAL_LEVELS + 2 }, (_, n) => .42 + n * .38).map(level => box(group, 5.4, 0.1, 1.45, 0, level, 0, 0xd1dbc5));
-    const posts = [];
-    for (const px of [-2.6, 2.6]) for (const pz of [-0.65, 0.65]) posts.push(box(group, 0.09, 2.05, 0.09, px, 1.2, pz, COLORS.steel));
-    box(group, 5.4, 0.18, 0.14, 0, 1.45, 0.76, product.color);
-    const units = shelfStock(product, SHELF_UNITS_PER_LEVEL * (SHELF_INITIAL_LEVELS + 2), SHELF_UNITS_PER_LEVEL, group, box, material);
-    const selection = box(group, 5.7, 0.015, 2.05, 0, 0.1, 0, 0xc6e49f, false); selection.visible = false;
-    box(group, 5.1, 0.09, 0.04, 0, 0.31, 0.75, 0x4c6252);
-    const stockBar = box(group, 5.1, 0.09, 0.05, 0, 0.31, 0.78, product.color, false);
-    const sign = plaque(product.short, 2.2); sign.position.set(0, 1.12, 0.77); group.add(sign);
-    return { group, units, boards, posts, selection, stockBar };
+    const stall = product.id === 'produce';
+    if (stall) {
+      group.userData.fixture = 'produce-stall';
+      for (const x of [-2.45, 2.45]) for (const z of [-.65, .65]) box(group, .16, .85, .16, x, .5, z, 0x957046);
+      box(group, 5.4, .2, 1.8, 0, .88, 0, 0xb59462);
+      for (const x of [-2.7, -.9, .9, 2.7]) box(group, .065, .28, 1.8, x, 1.04, 0, 0xc1a272);
+      for (const z of [-.88, .88]) box(group, 5.4, .28, .06, 0, 1.04, z, 0xc1a272);
+    } else {
+      box(group, 5.4, .25, 1.45, 0, .22, 0, 0xb9c8ae);
+      for (let level = 0; level < SHELF_INITIAL_LEVELS; level++) box(group, 5.4, .1, 1.45, 0, .42 + level * .38, 0, 0xd1dbc5);
+      for (const px of [-2.6, 2.6]) for (const pz of [-.65, .65]) box(group, .09, 2.05, .09, px, 1.2, pz, COLORS.steel);
+      box(group, 5.4, .18, .14, 0, 1.45, .76, product.color);
+    }
+    const units = shelfStock(product, SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS, stall ? 600 : SHELF_UNITS_PER_LEVEL, group, box, material, stall ? 'stall' : 'shelf');
+    const selection = box(group, 5.7, .015, 2.05, 0, .1, 0, 0xc6e49f, false); selection.visible = false;
+    box(group, 5.1, .09, .04, 0, .31, .95, 0x4c6252);
+    const stockBar = box(group, 5.1, .09, .05, 0, .31, .98, product.color, false);
+    const sign = plaque(product.short, 2.2); sign.position.set(0, stall ? .8 : 1.12, stall ? .94 : .77); group.add(sign);
+    return { group, units, selection, stockBar, index, slot, stall, productId: product.id };
+  }
+  const shelves = [];
+  const emptyShelves = Array.from({ length: 18 }, (_, slot) => {
+    const group = new THREE.Group(), [x, z] = shelfPosition(slot); group.position.set(x, 0, z); group.name = `shelf-empty-${slot}`;
+    group.userData.selection = { view: 'rayons' }; store.add(group);
+    for (let level = 0; level < SHELF_INITIAL_LEVELS; level++) box(group, 5.4, .1, 1.45, 0, .42 + level * .38, 0, 0xd1dbc5);
+    for (const x of [-2.6, 2.6]) for (const z of [-.65, .65]) box(group, .09, 2.05, .09, x, 1.2, z, COLORS.steel);
+    const sign = plaque('À AFFECTER', 2.2); sign.position.set(0, 1.12, .77); group.add(sign); return group;
   });
   const checkouts = [];
   const laneX = (i, lanes) => (i - (lanes - 1) / 2) * (lanes <= 4 ? 4 : 3);
@@ -116,13 +135,14 @@ export function createStoreScene(canvas, state, onSelect) {
     box(group, 0.46, 0.32, 0.08, 0.77, 1.4, 0.02, 0x213e36);
     const light = box(group, 0.23, 0.23, 0.23, 0.83, 1.72, 0, 0xe56850, false);
     const sign = textSprite(`CAISSE ${i + 1}`, { worldWidth: 1.8, size: 36 }); sign.position.set(0, 0.2, 1.15); group.add(sign);
-    checkouts.push({ group, light });
+    checkouts.push({ group, light, effects: checkoutVisuals.station(group) });
   }
   const auto = new THREE.Group(); auto.position.set(9.2, 0, 6); store.add(auto);
   auto.userData.selection = { view: 'caisses' }; auto.name = 'checkout-auto'; auto.rotation.y = -Math.PI / 2;
   box(auto, 0.95, 0.9, 0.75, 0, 0.5, 0, 0x90b877);
   box(auto, 0.68, 0.4, 0.1, 0, 1.14, 0, 0x244b3c);
   const autoSign = textSprite('AUTO', { worldWidth: 1.2 }); autoSign.position.set(0, 1.8, 0); auto.add(autoSign);
+  const autoEffects = checkoutVisuals.station(auto, true);
   const entrance = textSprite('ENTRÉE', { worldWidth: 2.1, color: '#506649' }); entrance.position.set(9.5, 0.25, 7.5); store.add(entrance);
   const exitSign = textSprite('SORTIE', { worldWidth: 1.8, color: '#506649' }); exitSign.position.set(7.3, .25, 7.5); store.add(exitSign);
   function person(color, staff = false) {
@@ -156,6 +176,7 @@ export function createStoreScene(canvas, state, onSelect) {
   }
   function updateCustomerCart(actor, customer) {
     if (!actor.cartContents) return;
+    if (customer.stage !== 'checkout' || customer.paid) actor.cartContents.children.forEach(unit => { unit.visible = true; });
     const key = JSON.stringify(customer.basket);
     if (actor.basketKey === key) return;
     actor.basketKey = key;
@@ -259,12 +280,12 @@ export function createStoreScene(canvas, state, onSelect) {
     actor.route = [...(actor.arrivalRoute || []), ...route]; actor.arrivalRoute = null;
   }
   function walk(actor, seconds, speed, now) {
-    const waypoint = actor.route[0]; let moving = false;
-    if (waypoint && speed > 0) {
-      const pos = actor.group.position, dx = waypoint[0] - pos.x, dz = waypoint[1] - pos.z, distance = Math.hypot(dx, dz);
-      const amount = seconds * speed;
-      if (distance < amount + 0.03) { pos.x = waypoint[0]; pos.z = waypoint[1]; actor.route.shift(); }
-      else { pos.x += dx / distance * amount; pos.z += dz / distance * amount; actor.group.rotation.y = Math.atan2(dx, dz); moving = true; }
+    let amount = seconds * speed, moving = false;
+    while (actor.route.length && amount > 0) {
+      const waypoint = actor.route[0], pos = actor.group.position, dx = waypoint[0] - pos.x, dz = waypoint[1] - pos.z, distance = Math.hypot(dx, dz);
+      if (distance > .001) { actor.group.rotation.y = Math.atan2(dx, dz); moving = true; }
+      if (distance <= amount + .001) { pos.x = waypoint[0]; pos.z = waypoint[1]; amount -= distance; actor.route.shift(); }
+      else { pos.x += dx / distance * amount; pos.z += dz / distance * amount; amount = 0; }
     }
     if (moving) actor.walk += seconds * speed * 2;
     const stride = moving ? Math.sin(actor.walk) * 0.4 : 0;
@@ -276,7 +297,7 @@ export function createStoreScene(canvas, state, onSelect) {
     keyboardCamera.update(delta / 1000);
     controls.update();
     const seconds = delta / 1000, running = state.phase === 'open' ? state.speed : 0;
-    const front = state.expansions.checkout * 3, back = state.expansions.reserve * 3, wide = Math.max(state.expansions.shelves * 4, state.expansions.checkout * 2);
+    const front = storeFrontExtension(state.expansions), back = state.expansions.reserve * 3, wide = Math.max(1.6, state.expansions.checkout * 2);
     foundation.scale.set((24 + wide) / 24, 1, (17 + front + back) / 17); foundation.position.z = (front - back) / 2;
     floor.scale.set((22.8 + wide) / 22.8, 1, (15.8 + front + back) / 15.8); floor.position.z = (front - back) / 2;
     warehouseFloor.scale.set((22.8 + wide) / 22.8, 1, (3.6 + back) / 3.6); warehouseFloor.position.z = -5.9 - back / 2;
@@ -286,15 +307,30 @@ export function createStoreScene(canvas, state, onSelect) {
     entrance.position.z = 7.5 + front; exitSign.position.z = 7.5 + front;
     surroundings.update(seconds, running, state.expansions);
     reserveZones.forEach((zone, i) => {
-      const product = state.products[i]; zone.crates.forEach((crate, n) => { crate.visible = n < Math.ceil(product.reserve / 12); });
+      const product = state.products[i], levels = 3 + state.expansions.reserve;
+      const count = Math.ceil(product.reserve / 12);
+      zone.boards.forEach((pair, level) => pair.forEach(board => { board.visible = level < levels; }));
+      zone.posts.forEach(post => { post.scale.y = (2.65 + state.expansions.reserve * .8) / 2.65; post.position.y = 1.46 + state.expansions.reserve * .4; });
+      zone.crates.forEach((crate, n) => {
+        const slot = Math.floor(n / 5), level = n % 5;
+        crate.visible = level < levels && slot * levels + level < count;
+      });
     });
     deliveryYard.update(minuteFraction);
-    shelves.forEach((shelf, i) => {
-      const p = state.products[i]; shelf.units.update(p.shelf, SHELF_INITIAL_LEVELS + state.expansions.shelves);
-      shelf.boards.forEach((board, n) => { board.visible = n < SHELF_INITIAL_LEVELS + state.expansions.shelves; });
-      shelf.posts.forEach(post => { post.scale.y = (2.05 + state.expansions.shelves * .38) / 2.05; post.position.y = 1.2 + state.expansions.shelves * .19; });
+    emptyShelves.forEach((group, slot) => { group.visible = slot < state.shelfLayout.length && state.shelfLayout[slot] === null; });
+    for (let slot = 0; slot < state.shelfLayout.length; slot++) {
+      const id = state.shelfLayout[slot];
+      if (shelves[slot]?.productId === id) continue;
+      if (shelves[slot]) { store.remove(shelves[slot].group); shelves[slot].group.traverse(o => { o.geometry?.dispose(); if (o.material?.map) { o.material.map.dispose(); o.material.dispose(); } }); shelves[slot] = null; }
+      if (id) { const index = state.products.findIndex(p => p.id === id); shelves[slot] = createShelf(state.products[index], index, slot); }
+    }
+    shelves.forEach(shelf => {
+      if (!shelf) return;
+      const p = state.products[shelf.index], slots = state.shelfLayout.map((id, slot) => id === p.id ? slot : -1).filter(slot => slot >= 0), ordinal = slots.indexOf(shelf.slot);
+      const count = Math.floor(p.shelf / slots.length) + (ordinal < p.shelf % slots.length ? 1 : 0);
+      shelf.units.update(count, shelf.stall ? 1 : SHELF_INITIAL_LEVELS);
       shelf.selection.visible = selected === p.id;
-      const ratio = p.shelf / p.capacity; shelf.stockBar.scale.x = ratio; shelf.stockBar.position.x = -5.1 * (1 - ratio) / 2;
+      const ratio = p.capacity ? p.shelf / p.capacity : 0; shelf.stockBar.scale.x = ratio; shelf.stockBar.position.x = -5.1 * (1 - ratio) / 2;
       shelf.stockBar.material = material(p.shelf < 12 ? 0xefaa73 : p.color);
     });
     const lanes = checkoutCount(state);
@@ -310,12 +346,14 @@ export function createStoreScene(canvas, state, onSelect) {
         updateCustomerCart(actor, actor.customer); actor.exiting = true;
         if (actor.customer.paid) {
           const lane = actor.customer.checkoutLane, x = lane === 'auto' ? auto.position.x - .85 : laneX(lane, lanes) - .85;
+          checkoutVisuals.beginPayment(actor);
           actor.key = 'paid-exit'; actor.arrivalRoute = null;
           actor.route = [[x, 6 + front], [x, 7.7 + front], [7.3, 7.7 + front], [7.3, 10 + front], [actor.home[0], actor.home[1] + front]];
         } else setDestination(actor, actor.home[0], actor.home[1] + front, 'exit');
       }
-      walk(actor, seconds, 15 * running, now);
-      if (!actor.route.length) {
+      const paying = checkoutVisuals.updatePayment(actor, seconds, running);
+      if (!paying) walk(actor, seconds, 15 * running, now);
+      if (!actor.route.length && !actor.payment) {
         scene.remove(actor.group);
         actor.group.traverse(object => { if (object.geometry) object.geometry.dispose(); });
         surroundings.release(id);
@@ -333,17 +371,34 @@ export function createStoreScene(canvas, state, onSelect) {
       }
       actor.customer = customer; actor.group.name = `customer-${customer.id}`; updateCustomerCart(actor, customer);
       if (customer.stage === 'shopping') {
-        const item = customer.items[Math.min(customer.itemIndex, customer.items.length - 1)], [x, z] = shelfPositions[item.index];
+        const item = customer.items[Math.min(customer.itemIndex, customer.items.length - 1)], [x, z] = productShelfPosition(state, item.index, customer.id);
         setDestination(actor, x - 1.2 + (customer.id % 4) * 0.7, z + 1.3, `shelf-${customer.itemIndex}`);
       } else {
-        const lane = customer.checkoutLane ?? activeLanes[0] ?? 0;
+        const unassigned = queue.filter(c => c.checkoutLane == null);
+        const lane = customer.checkoutLane ?? (activeLanes.length ? activeLanes[0] : Math.max(0, unassigned.indexOf(customer)) % lanes);
         const x = lane === 'auto' ? auto.position.x - .85 : laneX(lane, lanes) - .85;
-        const index = queue.filter(c => c.checkoutLane === customer.checkoutLane).indexOf(customer);
-        const z = customer.stage === 'checkout' ? 5.65 + front : 4.65 + front - Math.max(0, index) * .85;
-        setDestination(actor, x, z, `${customer.stage}-${lane}-${index}-${lanes}-${front}`);
+        const index = customer.checkoutLane == null ? Math.floor(unassigned.indexOf(customer) / lanes) : queue.filter(c => c.checkoutLane === lane).indexOf(customer);
+        const column = Math.floor(Math.max(0, index) / 3), row = Math.max(0, index) % 3;
+        const qx = x - column * .7, qz = 4.55 + front - (column % 2 ? 2 - row : row) * .85;
+        const z = customer.stage === 'checkout' ? 5.65 + front : qz;
+        const targetX = customer.stage === 'checkout' ? x : qx;
+        const key = `${customer.stage}-${lane}-${index}-${lanes}-${front}`;
+        if (actor.key !== key) {
+          const alreadyWaiting = ['queue', 'checkout'].includes(actor.flowStage);
+          actor.key = key; actor.arrivalRoute = null;
+          actor.route = alreadyWaiting ? [[targetX, z]] : [[10.4, actor.group.position.z], [10.4, 2.7 + front], [targetX, 2.7 + front], [targetX, z]];
+        }
+
       }
+      actor.flowStage = customer.stage;
       walk(actor, seconds, 14 * running, now); actor.arms.forEach(arm => { arm.rotation.x = -.65; }); if (!actor.route.length && customer.stage !== 'shopping') actor.group.rotation.y = 0;
     }
+    checkouts.forEach((checkout, i) => {
+      const customer = state.customers.find(c => c.stage === 'checkout' && c.checkoutLane === i);
+      checkoutVisuals.updateStation(checkout.effects, customer, customers.get(customer?.id), minuteFraction, seconds, running);
+    });
+    const autoCustomer = state.customers.find(c => c.stage === 'checkout' && c.checkoutLane === 'auto');
+    checkoutVisuals.updateStation(autoEffects, autoCustomer, customers.get(autoCustomer?.id), minuteFraction, seconds, running);
     const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving')];
     while (employees.length < roles.length) addEmployee();
     let checkoutIndex = 0, shelfIndex = 0, receivingIndex = 0;
@@ -367,7 +422,11 @@ export function createStoreScene(canvas, state, onSelect) {
         const worker = state.receivers[receivingIndex++]; displayReceiver(actor, worker, running, seconds, minuteFraction); return;
       }
       walk(actor, seconds, running ? 6 * running : state.phase === 'preparation' ? 2 : 0, now);
-      if (!actor.route.length && checkoutIndex - 1 < lanes) actor.group.rotation.y = -Math.PI / 2;
+      if (!actor.route.length && checkoutIndex - 1 < lanes) {
+        actor.group.rotation.y = -Math.PI / 2;
+        const station = checkouts[checkoutIndex - 1].effects;
+        actor.arms.forEach((arm, index) => { arm.rotation.x = station.key ? -.6 - (running ? Math.sin(now / 140 + index) * .22 : 0) : 0; });
+      }
     });
     renderer.render(scene, camera);
   }
@@ -397,11 +456,11 @@ export function createStoreScene(canvas, state, onSelect) {
   };
   const observer = new ResizeObserver(resize); observer.observe(canvas); resize(); controls.saveState();
   window.addEventListener('pagehide', () => {
-    controls.dispose(); renderer.dispose();
+    checkoutVisuals.dispose(); controls.dispose(); renderer.dispose();
     keyboardCamera.dispose();
     observer.disconnect();
     scene.traverse(object => { if (object.geometry) object.geometry.dispose(); if (object.material?.map) object.material.map.dispose(); });
     for (const m of materials.values()) m.dispose();
   }, { once: true });
-  return { update, focusDocks: () => { keyboardCamera.reset(); controls.target.set(5, 0, -10 - state.expansions.reserve * 3); camera.position.set(23, 26, -33 - state.expansions.reserve * 3); camera.zoom = 1.15; camera.updateProjectionMatrix(); controls.update(); }, resetCamera: () => { keyboardCamera.reset(); controls.reset(); } };
+  return { update, setCheckoutSound: checkoutVisuals.setSound, focusDocks: () => { keyboardCamera.reset(); controls.target.set(5, 0, -10 - state.expansions.reserve * 3); camera.position.set(23, 26, -33 - state.expansions.reserve * 3); camera.zoom = 1.15; camera.updateProjectionMatrix(); controls.update(); }, resetCamera: () => { keyboardCamera.reset(); controls.reset(); } };
 }

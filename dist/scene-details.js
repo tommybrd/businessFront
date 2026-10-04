@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { storeFrontExtension } from './engine.js';
 
 export const CARTON_SIZE = { width: .45, height: .43, depth: .38 };
 export function stockCarton(parent, box, x, y, z, color) {
@@ -28,7 +29,7 @@ export function productUnit(product, index, box, material) {
 }
 
 // Batch the dense stock while retaining one instance for each real article.
-export function shelfStock(product, maximum, unitsPerLevel, parent, box, material) {
+export function shelfStock(product, maximum, unitsPerLevel, parent, box, material, layout = 'shelf') {
   const variants = product.id === 'produce' ? 3 : 1, batches = [];
   const group = new THREE.Group(); group.name = `shelf-stock-${product.id}`; parent.add(group);
   for (let variant = 0; variant < variants; variant++) {
@@ -49,7 +50,8 @@ export function shelfStock(product, maximum, unitsPerLevel, parent, box, materia
       for (const batch of batches) {
         for (let n = 0; n < batch.capacity; n++) {
           const index = batch.variant + n * variants, slot = Math.floor(index / levels);
-          position.makeTranslation(-2.415 + (slot % 24) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 24) * .275);
+          if (layout === 'stall') position.makeTranslation(-2.4 + (index % 30) * .165, 1.02 + Math.floor(index / 180) * .17, .65 - Math.floor((index % 180) / 30) * .26);
+          else position.makeTranslation(-2.415 + (slot % 24) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 24) * .275);
           position.multiply(itemScale); batch.mesh.setMatrixAt(n, matrix.multiplyMatrices(position, batch.partMatrix));
         }
         batch.mesh.instanceMatrix.needsUpdate = true; batch.mesh.computeBoundingBox(); batch.mesh.computeBoundingSphere();
@@ -184,7 +186,7 @@ export function createSurroundings(scene, box, material, textSprite) {
       }
     },
     update(seconds, running, expansions) {
-      extension = expansions.checkout * 3; parking.position.z = extension; access.position.z = -expansions.reserve * 3; access.position.x = Math.max(expansions.shelves * 2, expansions.checkout);
+      extension = storeFrontExtension(expansions); parking.position.z = extension; access.position.z = -expansions.reserve * 3; access.position.x = Math.max(.8, expansions.checkout);
       drivewayX = 16 + access.position.x;
       driveway.scale.x = (4.6 + access.position.x) / 4.6; driveway.position.x = 15.2 + access.position.x / 2;
       const back = expansions.reserve * 3, streetLength = 49 + extension + back;

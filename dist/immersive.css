@@ -159,3 +159,23 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 .pallet-breakdown li { display:grid; gap:3px; padding:8px; background:#294438; border-radius:4px; font-size:12px; }
 .pallet-breakdown small { color:#c3d0be; }
 @media(max-width:800px) { .delivery-status { max-width:calc(100vw - 16px); } }
+
+.positive{color:#c9efa0}.negative{color:var(--danger)}
+.profit-row{background:#2c4936;padding:12px;border-radius:4px}
+.finance-history{margin:18px 0;border-top:1px solid var(--line);padding-top:16px}
+.finance-history h3{font-size:17px;margin-bottom:10px}
+.finance-table-scroll{overflow-x:auto;max-width:100%;border:1px solid #4b6855;border-radius:4px;scrollbar-width:thin}
+.finance-table-scroll table{border-collapse:collapse;font-size:13px;width:100%}
+.finance-table-scroll caption{text-align:left;padding:10px;color:#bdccc4}
+.finance-table-scroll th,.finance-table-scroll td{padding:10px;border-top:1px solid #45604f;white-space:nowrap;text-align:right;font-variant-numeric:tabular-nums}
+.finance-table-scroll th:first-child{text-align:left}.finance-table-scroll thead{background:#2c483a}
+.reserve-quick-order,.reserve-activity{grid-column:2/4;width:100%;font-size:13px;color:#c6d4be;line-height:1.5}
+.reserve-quick-order{padding:10px 0;border-top:1px solid #47604e}.reserve-quick-order summary{cursor:pointer;color:#d5e9bb;padding:3px 0}
+.reserve-quick-order .quantity-tile{display:block;position:relative;cursor:pointer}
+.reserve-quick-order input{position:absolute;opacity:0;width:1px;height:1px}
+.reserve-quick-order .quantity-face strong{font-size:18px}.reserve-quick-order button{width:100%;margin:8px 0;font-size:13px}
+.reserve-quick-order small{display:block}.checkout-sound{display:flex;gap:8px;align-items:center;font-size:14px}.checkout-sound input{accent-color:#bce994;width:18px;height:18px}
+@media(max-width:800px){.hud-metric{padding:6px 7px}.hud-metric>span{font-size:11px}.hud-metric strong{font-size:14px}}
+@media(max-width:480px){.hud-metrics{flex-wrap:wrap}.hud-metric{flex:1 1 32%;min-height:44px}.hud-metric:nth-child(4){border-left:0}.management,.journal{top:210px}.delivery-status{top:210px}.hud-metric>span{margin-bottom:2px}}
+
+.shelf-allocation{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0;font-size:13px;color:#c6d4be}.shelf-title{flex-wrap:wrap}.stock-level{font-size:12px}

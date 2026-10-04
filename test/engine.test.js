@@ -32,7 +32,7 @@ test('deliveries wait for reception staff and do not overfill reserve', () => {
   setStaff(s, 'receiving', 1); advance(s, 30);
   assert.equal(s.orders.find(o => o.id === order.id).status, 'received');
   assert.ok(reserveUsed(s) <= RESERVE_CAPACITY);
-  const full = createGame(); full.products.forEach(p => { p.reserve = 100; });
+  const full = createGame(); full.products.forEach(p => { p.reserve = p.reserveCapacity; });
   setStaff(full, 'shelves', 0); setStaff(full, 'checkout', 0);
   placeOrder(full, 'produce', 48, 'express'); openStore(full); advance(full, 60);
   assert.equal(full.orders[0].remaining, 48); assert.ok(reserveUsed(full) <= RESERVE_CAPACITY);
@@ -119,7 +119,7 @@ test('equipment unlocks are sequential, charge once, and fail without changing s
 
 test('larger equipment carries more stock in the same working period without creating goods', () => {
   const results = ['small', 'medium', 'large'].map(mode => {
-    const s = isolatedRestocking(mode); advance(s, 100);
+    const s = isolatedRestocking(mode); advance(s, 150);
     assert.equal(s.products[0].shelf + s.products[0].reserve + restockInTransit(s), 160);
     assert.ok(s.restockers.every(w => w.load >= 0));
     return s.products[0].shelf;
@@ -165,7 +165,7 @@ test('quantity discounts and delivery fees are reflected in the actual cost of a
     assert.ok(quotes[i].unitPrice < quotes[i - 1].unitPrice);
     assert.ok(quotes[i].landedUnitCost < quotes[i - 1].landedUnitCost);
   }
-  assert.equal(quotes[0].deliveryFee, 35); assert.equal(quoteOrder('produce', 48, 'express').deliveryFee, 75);
+  assert.equal(quotes[0].deliveryFee, 35); assert.equal(quoteOrder('produce', 48, 'express').deliveryFee, 150);
   assert.equal(quotes[0].totalCost, 56.6);
   const s = createGame(), before = s.money, order = placeOrder(s, 'produce', 120, 'regular');
   assert.equal(order.cost, quotes[2].totalCost); assert.equal(s.money, before - order.cost);

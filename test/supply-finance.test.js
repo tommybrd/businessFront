@@ -27,7 +27,7 @@ test('requested shelf filling prioritizes that product without creating or insta
 });
 
 test('a full product reserve blocks only its own delivery, not the next product at the dock', () => {
-  const s = quietGame(); s.products[0].reserve = 100;
+  const s = quietGame(); s.products[0].reserve = s.products[0].reserveCapacity;
   placeOrder(s, 'produce', 48, 'express'); placeOrder(s, 'bakery', 48, 'express');
   openStore(s); advance(s, 90);
   assert.equal(s.orders[0].remaining, 48); assert.equal(s.orders[0].status, 'unloading');
@@ -36,7 +36,7 @@ test('a full product reserve blocks only its own delivery, not the next product 
 });
 
 test('human pallet transport preserves incoming goods through reallocation, capacity limits and disposal', () => {
-  const s = quietGame(); s.products[0].reserve = 0; setStaff(s, 'receiving', 2);
+  const s = quietGame(); s.products[0].reserve = 0; s.products[0].reserveCapacity = 100; setStaff(s, 'receiving', 2);
   placeOrder(s, 'produce', 120, 'express'); const total = inventoryPosition(s, 'produce'), cash = s.money;
   openStore(s); advanceUntil(s, () => receivingInTransit(s) > 0);
   assert.equal(inventoryPosition(s, 'produce'), total);
@@ -62,7 +62,7 @@ test('independent expansions charge once per level, increase real capacities and
   const s = createGame(), staff = { ...s.staff };
   for (const zone of ['checkout', 'shelves', 'reserve']) expandStore(s, zone);
   assert.equal(s.money, 1000); assert.equal(s.spending, 7500); assert.equal(checkoutCount(s), 6);
-  assert.ok(s.products.every(p => p.capacity === 720 && p.reserveCapacity === 150)); assert.deepEqual(s.staff, staff);
+  assert.ok(s.products.every(p => p.capacity === 600 && p.reserveCapacity === 750)); assert.deepEqual(s.staff, staff);
   const snapshot = JSON.stringify(s); assert.throws(() => expandStore(s, 'checkout')); assert.throws(() => expandStore(s, '__proto__')); assert.equal(JSON.stringify(s), snapshot);
   s.money = 20000; expandStore(s, 'checkout'); assert.equal(checkoutCount(s), 8);
   const full = JSON.stringify(s); assert.throws(() => expandStore(s, 'checkout')); assert.equal(JSON.stringify(s), full);
@@ -129,7 +129,7 @@ test('two busy continuous days keep per-product capacity and cash reconciliation
 
 
 test('receivers lift whole pallets and unpack only at the reserve', () => {
-  const s = quietGame(); s.products[0].reserve = 52;
+  const s = quietGame(); s.products[0].reserve = 52; s.products[0].reserveCapacity = 100;
   const order = placeOrder(s, 'produce', 48, 'express'); openStore(s);
   advanceUntil(s, () => s.receivers[0].reserved > 0);
   assert.equal(s.receivers[0].reserved, 48); assert.equal(s.orders[0].remaining, 48);

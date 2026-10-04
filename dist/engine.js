@@ -3,6 +3,7 @@ export { checkoutCount, activeCheckoutLanes } from './checkout-flow.js';
 import { PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
 export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed } from './delivery-logistics.js';
 export const ORDER_MAX_QUANTITY = 1000;
+export const GROUPED_DELIVERY_FEE = 10;
 export const ORDER_QUANTITIES = [12, 24, 48, 120, 240, 480, 720, 1000];
 export const SHELF_UNITS_PER_LEVEL = 120;
 export const SHELF_INITIAL_LEVELS = 5;
@@ -17,7 +18,7 @@ export const PRODUCTS = [
 ];
 export const SUPPLIERS = {
   regular: { name: 'Centrale Nord', lead: 90, multiplier: 1, deliveryFee: 35, discounts: [{ quantity: 48, rate: 0.04 }, { quantity: 120, rate: 0.08 }, { quantity: 240, rate: 0.12 }] },
-  express: { name: 'Express Marché', lead: 30, multiplier: 1.18, deliveryFee: 75, discounts: [{ quantity: 48, rate: 0.02 }, { quantity: 120, rate: 0.05 }, { quantity: 240, rate: 0.08 }] },
+  express: { name: 'Express Marché', lead: 30, multiplier: 1.18, deliveryFee: 150, discounts: [{ quantity: 48, rate: 0.02 }, { quantity: 120, rate: 0.05 }, { quantity: 240, rate: 0.08 }] },
 };
 export const EVENTS = [
   { name: 'Journée habituelle', factor: 1, hint: 'Rush de midi et sortie des bureaux.', focus: -1 },
@@ -26,7 +27,9 @@ export const EVENTS = [
   { name: 'Black Friday', factor: 2.3, hint: 'Forte demande en maison et entretien.', focus: 5 },
   { name: 'Préparatifs des fêtes', factor: 1.9, hint: 'Les produits frais et les boissons sont très demandés.', focus: 4 },
 ];
-export const RESERVE_CAPACITY = 600;
+export const RESERVE_PRODUCT_CAPACITY = 500;
+export const RESERVE_EXPANSION_CAPACITY = 250;
+export const RESERVE_CAPACITY = RESERVE_PRODUCT_CAPACITY * PRODUCTS.length;
 export const STAFF_DAILY_WAGE = 85;
 export const staffCount = s => Object.values(s.staff).reduce((sum, n) => sum + n, 0);
 export const dailyCosts = s => staffCount(s) * STAFF_DAILY_WAGE + checkoutDailyCosts(s) + 160;
@@ -43,7 +46,13 @@ export const RESTOCK_EQUIPMENT = {
   large: { name: 'Grand chariot', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 1.5, requires: 'medium' },
 };
 export const RESTOCK_PICKUP = [-2.4, -4.65];
-export const RESTOCK_SHELVES = [[-6, -2.45], [0, -2.45], [6, -2.45], [-6, 0.5], [0, 0.5], [6, 0.5]];
+export const RESTOCK_SHELVES = [[-6.4, -1.2], [0, -1.2], [6.4, -1.2], [-6.4, 2.6], [0, 2.6], [6.4, 2.6]];
+export const shelfPosition = slot => [-6.4 + (slot % 3) * 6.4, -1.2 + Math.floor(slot / 3) * 3.8];
+export function productShelfPosition(s, index, ordinal = 0) {
+  const slots = s.shelfLayout.map((id, slot) => id === s.products[index].id ? slot : -1).filter(slot => slot >= 0);
+  return shelfPosition(slots[ordinal % slots.length] ?? index);
+}
+export const storeFrontExtension = expansions => 2.2 + expansions.checkout * 3 + expansions.shelves * 7.6;
 export const reserveProductPosition = index => [-9.2 + (index % 3) * 3.5, -6.9 + Math.floor(index / 3) * 1.75];
 export function deliveryPalletPosition(s, order, pallet) {
   if (pallet.status === 'outside' || pallet.outsideOrigin) return outsidePalletPosition(s, pallet);
@@ -61,7 +70,7 @@ export function createGame(seed = 73471) {
   return {
     day: 1, minute: 450, money: 8500, phase: 'preparation', speed: 0,
     seed, nextId: 1, staff: { checkout: 2, shelves: 5, receiving: 1 },
-    products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: 100 })),
+    products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: RESERVE_PRODUCT_CAPACITY, soldToday: 0, restockedToday: 0 })),
     orders: [], shipments: [], eveningBasket: [], eveningError: null, customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
     satisfaction: 100, autoCheckout: false, checkoutCredit: 0,
     directorSalary: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
@@ -69,6 +78,7 @@ export function createGame(seed = 73471) {
     restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false }, restockRequests: [],
     restockers: Array.from({ length: 5 }, (_, id) => newRestocker(id)),
     expansions: { checkout: 0, shelves: 0, reserve: 0 }, discarded: 0,
+    shelfLayout: PRODUCTS.map(p => p.id),
     receivers: [newReceiver(0)],
     arrivalCredit: 0, elapsed: 0, history: [], summary: null,
     log: [{ text: 'Bienvenue, directeur. Préparez vos équipes et vos premières commandes.', kind: 'info', time: '07:30' }],
@@ -102,10 +112,26 @@ export function expandStore(s, zone) {
   if (s.money < cost) throw new Error('Trésorerie insuffisante pour cet agrandissement.');
   s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.expansions[zone]++;
   s.vatDeductible = round(s.vatDeductible + cost / 6);
-  if (zone === 'reserve') s.products.forEach(p => { p.reserveCapacity += 50; });
-  if (zone === 'shelves') s.products.forEach(p => { p.capacity += SHELF_UNITS_PER_LEVEL; });
+  if (zone === 'reserve') s.products.forEach(p => { p.reserveCapacity += RESERVE_EXPANSION_CAPACITY; });
+  if (zone === 'shelves') s.shelfLayout.push(...Array(6).fill(null));
   log(s, `${STORE_EXPANSIONS[zone].name} : agrandissement terminé, ${cost} €.`, 'success');
   return { zone, level: s.expansions[zone], cash: s.money };
+}
+export function setShelfCount(s, productId, amount) {
+  if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus être aménagé.');
+  const product = s.products.find(p => p.id === productId);
+  if (!product || !Number.isSafeInteger(amount) || amount < 0) throw new Error('Nombre de meubles invalide.');
+  const slots = s.shelfLayout.map((id, slot) => id === productId ? slot : -1).filter(slot => slot >= 0);
+  const capacity = amount * SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS;
+  const committed = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load + w.reserved, 0);
+  const held = s.customers.reduce((sum, c) => sum + c.basket.filter(item => s.products[item.index].id === productId).reduce((n, item) => n + item.quantity, 0), 0);
+  if (product.shelf + committed + held > capacity) throw new Error('Il reste trop d’articles ou de chargements pour retirer ce meuble. Attendez que le stock baisse.');
+  const free = s.shelfLayout.map((id, slot) => id === null ? slot : -1).filter(slot => slot >= 0);
+  if (amount - slots.length > free.length) throw new Error('Agrandissez la zone des rayons pour disposer de nouveaux emplacements.');
+  if (amount > slots.length) free.slice(0, amount - slots.length).forEach(slot => { s.shelfLayout[slot] = productId; });
+  else slots.slice(amount).forEach(slot => { s.shelfLayout[slot] = null; });
+  product.capacity = capacity;
+  return { productId, count: amount, capacity, freeSlots: s.shelfLayout.filter(id => id === null).length };
 }
 export function discardReserve(s, productId, quantity) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus être géré.');
@@ -172,7 +198,7 @@ export function restockerPosition(worker, minuteFraction = 0) {
 }
 function restockTravel(worker, returning = false) {
   const [x, z] = worker.destination;
-  const path = [restockPickup(worker), [worker.pickup[0], RESTOCK_PICKUP[1]], [0, RESTOCK_PICKUP[1]], [0, -3.75], [9.5, -3.75], [9.5, z], [x, z]];
+  const path = [restockPickup(worker), [worker.pickup[0], RESTOCK_PICKUP[1]], [0, RESTOCK_PICKUP[1]], [0, -3.75], [10.4, -3.75], [10.4, z], [x, z]];
   worker.path = returning ? path.reverse() : path;
   const distance = worker.path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - worker.path[i][0], p[1] - worker.path[i][1]), 0);
   beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.ceil(distance / RESTOCK_EQUIPMENT[worker.mode].travelSpeed));
@@ -198,7 +224,7 @@ function updateRestocking(s) {
       const target = candidates[0]; if (!target) continue;
       worker.mode = s.restockMode; worker.productId = target.p.id;
       worker.reserved = Math.min(RESTOCK_EQUIPMENT[worker.mode].capacity, target.available, target.need);
-      const [x, z] = RESTOCK_SHELVES[target.index]; worker.destination = [x + 1.8, z + 1.45];
+      const [x, z] = productShelfPosition(s, target.index, worker.completed); worker.destination = [x + 1.8, z + 1.45];
       const [rx, rz] = reserveProductPosition(target.index); worker.pickup = [rx + 1.75, rz];
       beginRestockPhase(worker, 'loading', RESTOCK_EQUIPMENT[worker.mode].loading);
       continue;
@@ -206,7 +232,7 @@ function updateRestocking(s) {
     if (worker.phase === 'stocking') {
       const product = s.products.find(p => p.id === worker.productId);
       const quantity = Math.min(worker.load, product.capacity - product.shelf, RESTOCK_EQUIPMENT[worker.mode].stockRate);
-      product.shelf += quantity; worker.load -= quantity;
+      product.shelf += quantity; product.restockedToday += quantity; worker.load -= quantity;
       if (!worker.load || product.shelf === product.capacity) restockTravel(worker, true);
       continue;
     }
@@ -241,13 +267,14 @@ export function inventoryPosition(s, productId) {
 }
 function commitSupplierBatch(s, lines, supplierId, mode) {
   const supplier = SUPPLIERS[supplierId], quotes = lines.map(line => quoteOrder(line.productId, line.quantity, supplierId));
-  const cost = round(quotes.reduce((sum, q) => sum + q.goodsCost, 0) + supplier.deliveryFee);
+  const deliveryFee = mode === 'grouped' ? GROUPED_DELIVERY_FEE : supplier.deliveryFee;
+  const cost = round(quotes.reduce((sum, q) => sum + q.goodsCost, 0) + deliveryFee);
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus commander.');
   if (cost > s.money) throw new Error('Trésorerie insuffisante pour cette commande.');
   const batchId = s.nextId++, orderList = [];
   quotes.forEach((q, index) => {
     const pallets = Array.from({ length: Math.ceil(q.quantity / 48) }, (_, index) => ({ index, quantity: Math.min(48, q.quantity - index * 48), remaining: Math.min(48, q.quantity - index * 48), status: 'dock', shipmentId: null, truckIndex: null, outsideSlot: null, outsideOrigin: false }));
-    const fee = index === 0 ? supplier.deliveryFee : 0;
+    const fee = index === 0 ? deliveryFee : 0;
     const order = { ...q, id: s.nextId++, batchId, mode, remaining: q.quantity, cost: round(q.goodsCost + fee), deliveryFee: fee, source: 'manual', pallets, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
     s.orders.push(order); orderList.push(order);
   });
@@ -258,7 +285,7 @@ function commitSupplierBatch(s, lines, supplierId, mode) {
     s.shipments.push(shipment);
   }
   s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.vatDeductible = round(s.vatDeductible + cost / 6);
-  log(s, `${mode === 'grouped' ? 'Groupage du soir' : 'Livraison spécifique'} : ${quotes.reduce((sum, q) => sum + q.quantity, 0)} unités chez ${supplier.name}. Livraison : ${supplier.deliveryFee} €.`, 'success');
+  log(s, `${mode === 'grouped' ? 'Groupage du soir' : 'Livraison spécifique'} : ${quotes.reduce((sum, q) => sum + q.quantity, 0)} unités chez ${supplier.name}. Livraison : ${deliveryFee} €.`, 'success');
   return { batchId, cost, orders: orderList, cash: s.money };
 }
 export function placeOrder(s, productId, quantity, supplierId) {
@@ -281,7 +308,7 @@ export function quoteEveningBasket(s) {
   const suppliers = [...new Set(s.eveningBasket.map(line => line.supplierId))];
   const groups = suppliers.map(supplierId => {
     const lines = s.eveningBasket.filter(line => line.supplierId === supplierId).map(line => quoteOrder(line.productId, line.quantity, supplierId));
-    const goodsCost = round(lines.reduce((sum, q) => sum + q.goodsCost, 0)), deliveryFee = SUPPLIERS[supplierId].deliveryFee;
+    const goodsCost = round(lines.reduce((sum, q) => sum + q.goodsCost, 0)), deliveryFee = GROUPED_DELIVERY_FEE;
     return { supplierId, supplier: SUPPLIERS[supplierId].name, lines, goodsCost, deliveryFee, totalCost: round(goodsCost + deliveryFee) };
   });
   return { groups, totalCost: round(groups.reduce((sum, group) => sum + group.totalCost, 0)) };
@@ -337,13 +364,21 @@ export function payTaxes(s) {
 }
 function recordSale(s, customer) {
   customer.paid = true;
+  for (const item of customer.basket) s.products[item.index].soldToday += item.quantity;
   s.money = round(s.money + customer.value); s.sales = round(s.sales + customer.value); s.sold++;
   s.vatCollected = round(s.vatCollected + customer.value / 6);
+}
+export function dailyProfitability(s, salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money - dailyCosts(s))))) {
+  const operatingCost = dailyCosts(s);
+  const beforeTax = round(s.sales - s.vatCollected - (s.spending - s.vatDeductible) - operatingCost - salaryPaid);
+  const profitTax = round(Math.max(0, beforeTax) * .2);
+  return { operatingCost, salaryPaid, beforeTax, profitTax, netProfit: round(beforeTax - profitTax) };
 }
 export function nextDay(s) {
   if (s.phase !== 'closed') throw new Error('La journée doit être terminée.');
   s.day++; s.minute = 450; s.phase = 'preparation'; s.speed = 0;
   s.sold = 0; s.lost = 0; s.sales = 0; s.spending = 0; s.summary = null;
+  s.products.forEach(p => { p.soldToday = 0; p.restockedToday = 0; });
   s.vatCollected = 0; s.vatDeductible = 0; s.taxPaidToday = 0; s.ownerContribution = 0;
   s.arrivalCredit = 0; s.checkoutCredit = 0;
   s.satisfaction = Math.min(100, s.satisfaction + 8);
@@ -366,12 +401,14 @@ function closeStore(s) {
   if (salaryPaid < s.directorSalary) log(s, 'Le salaire du directeur est limité par la trésorerie disponible.', 'warning');
   const vatBalance = round(s.vatCollected - s.vatDeductible - s.vatCredit), vatCharged = Math.max(0, vatBalance);
   s.vatCredit = Math.max(0, -vatBalance); s.vatDue = round(s.vatDue + vatCharged);
-  const taxableProfit = round(Math.max(0, s.sales - s.vatCollected - (s.spending - s.vatDeductible) - operatingCost - salaryPaid));
-  const profitTax = round(taxableProfit * 0.2); s.profitTaxDue = round(s.profitTaxDue + profitTax);
+  const profitability = dailyProfitability(s, salaryPaid), taxableProfit = Math.max(0, profitability.beforeTax);
+  const profitTax = profitability.profitTax; s.profitTaxDue = round(s.profitTaxDue + profitTax);
   if (s.autoPayTaxes) settleTaxes(s);
   s.phase = s.money < -1000 ? 'bankrupt' : 'closed';
-  s.summary = { day: s.day, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
+  s.summary = { day: s.day, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
   s.history.push({ ...s.summary });
+  s.summary.products = s.products.map(p => ({ id: p.id, sold: p.soldToday, restocked: p.restockedToday }));
+  s.history.at(-1).products = s.summary.products;
   log(s, `Fermeture. ${s.sold} clients encaissés. Charges : ${operatingCost} €.`, s.summary.net >= 0 ? 'success' : 'warning');
   if (s.phase === 'closed') {
     const completedDay = s.summary;

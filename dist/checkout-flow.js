@@ -1,5 +1,18 @@
 export const checkoutCount = state => 4 + state.expansions.checkout * 2;
 
+// One minute to unload, a sequential scan, then one minute to pay.
+export function checkoutProgress(customer, minuteFraction = 0) {
+  const count = customer.basket.reduce((sum, item) => sum + item.quantity, 0);
+  const duration = customer.checkoutDuration || 3 + Math.ceil(count / 2);
+  const elapsed = customer.paid ? duration : Math.max(0, Math.min(duration, duration - customer.checkoutRemaining + minuteFraction));
+  const scanDuration = duration - 2;
+  const articles = Array.from({ length: count }, (_, index) => ({
+    loading: Math.max(0, Math.min(1, elapsed * count - index)),
+    scanning: Math.max(0, Math.min(1, (elapsed - 1) / scanDuration * count - index)),
+  }));
+  return { elapsed, articles, scanned: articles.filter(item => item.scanning >= .8).length, phase: elapsed < 1 ? 'loading' : elapsed < duration - 1 ? 'scanning' : 'payment' };
+}
+
 export function activeCheckoutLanes(state) {
   const lanes = Array.from({ length: Math.min(checkoutCount(state), state.staff.checkout) }, (_, index) => index);
   if (state.autoCheckout && state.staff.checkout > 0) lanes.push('auto');
