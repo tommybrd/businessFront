@@ -1,7 +1,7 @@
 import { reserveBackExtension, RESERVE_BACK_EXTENSION } from './store-layout.js';
 import * as THREE from 'three';
 import { stockCarton } from './scene-details.js';
-import { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
+import { deliveryVehicle, palletLocalPosition, DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
 
 export function createDeliveryYard(scene, state, box, material, plaque) {
   const group = new THREE.Group(); group.name = 'delivery-yard'; group.userData.selection = { view: 'fournisseurs' }; scene.add(group);
@@ -42,33 +42,37 @@ export function createDeliveryYard(scene, state, box, material, plaque) {
   function makeTruck(shipment) {
     const truck = new THREE.Group(); truck.name = `truck-${shipment.id}`;
     truck.userData.shipmentId = shipment.id; truck.userData.selection = { view: 'fournisseurs' }; group.add(truck);
-    box(truck, 2.5, .18, 6.5, 0, .39, 0, 0x586d60);
-    box(truck, 2.5, 2.35, .1, 0, 1.62, -3.25, 0xf0f0e4);
-    box(truck, .1, 2.35, 6.5, -1.25, 1.62, 0, 0xe8ede2);
+    const v=deliveryVehicle(shipment),van=shipment.vehicleKind==='van',half=v.width/2,rear=v.length/2+.03,centerY=v.floor+v.height/2,cabZ=-v.length/2-v.cabLength/2-.18;
+    box(truck, v.width, .18, v.length, 0, v.floor-.14, 0, 0x586d60);
+    box(truck, v.width, v.height, .1, 0, centerY, -v.length/2, 0xf0f0e4);
+    box(truck, .1, v.height, v.length, -half, centerY, 0, 0xe8ede2);
     // Cutaway side and roof keep the actual pallets visible to the director.
-    box(truck, .1, 1.2, 6.5, 1.25, 1.05, 0, 0xe8ede2);
-    box(truck, 2.25, 1.9, 1.65, 0, 1.15, -4.25, shipment.mode === 'grouped' ? 0x497b5b : 0x8c9d46);
-    box(truck, 1.94, .65, .05, 0, 1.7, -5.11, 0x9bbaba);
-    box(truck, 1.95, .22, .07, 0, .55, -5.13, 0x4e6255);
-    for (const x of [-.85, .85]) box(truck, .28, .16, .07, x, .83, -5.16, 0xf4e6b4, false);
-    for (const x of [-1.3, 1.3]) for (const z of [-4.2, -.8, 1.6]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.38, .38, .17, 12), material(0x2c3c32));
-      wheel.rotation.z = Math.PI / 2; wheel.position.set(x, .32, z); truck.add(wheel);
+    box(truck, .1, v.height*.5, v.length, half, v.floor+v.height*.25, 0, 0xe8ede2);
+    const cabColor=shipment.vehicleKind==='heavy'||!shipment.vehicleKind?0x497b5b:van?0x608fa3:0xd3a64d;
+    box(truck, v.width*.9, van?1.5:1.9, v.cabLength, 0, van?1.05:1.15, cabZ, cabColor);
+    box(truck, v.width*.78, .65, .05, 0, van?1.48:1.7, cabZ-v.cabLength/2-.04, 0x9bbaba);
+    box(truck, v.width*.78, .22, .07, 0, .55, cabZ-v.cabLength/2-.06, 0x4e6255);
+    if(van)box(truck,v.width*.86,.35,.4,0,.72,cabZ-v.cabLength/2-.12,cabColor);
+    for (const x of [-v.width*.34,v.width*.34])box(truck,.23,.16,.07,x,.83,cabZ-v.cabLength/2-.1,0xf4e6b4,false);
+    const axles=shipment.vehicleKind==='heavy'||!shipment.vehicleKind?[cabZ,-.8,1.6]:[cabZ,v.length/2-.65];
+    for (const x of [-half-.05,half+.05]) for (const z of axles) {
+      const radius=van?.29:.38,wheel=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,.17,12),material(0x2c3c32));
+      wheel.rotation.z=Math.PI/2;wheel.position.set(x,radius,z);truck.add(wheel);
     }
     const rearDoors = [-1, 1].map(side => {
-      const hinge = new THREE.Group(); hinge.position.set(side * 1.22, 0, 3.28); truck.add(hinge);
-      box(hinge, 1.17, 2.35, .09, -side * .6, 1.62, 0, 0xc9d7cb);
-      box(hinge, .055, 1.8, .04, -side * .45, 1.62, .07, 0x627e6b);
+      const hinge = new THREE.Group(); hinge.position.set(side*(half-.03),0,rear);truck.add(hinge);
+      box(hinge,half-.08,v.height,.09,-side*(half-.08)/2,centerY,0,0xc9d7cb);
+      box(hinge,.055,v.height*.75,.04,-side*.4,centerY,.07,0x627e6b);
       return hinge;
     });
-    const reversingLights = [-1, 1].map(side => box(truck, .23, .12, .07, side * .95, .62, 3.3, 0x4c5d50, false));
+    const reversingLights=[-1,1].map(side=>box(truck,.23,.12,.07,side*v.width*.38,.62,rear+.02,0x4c5d50,false));
     const pallets = shipment.pallets.map(ref => {
       const order = state.orders.find(o => o.id === ref.orderId), pallet = order.pallets[ref.palletIndex];
       const model = new THREE.Group(); model.name = `pallet-${order.id}-${pallet.index}`;
-      model.position.set(pallet.truckIndex % 2 ? .58 : -.58, 0, 2.55 - Math.floor(pallet.truckIndex / 2) * 1.15);
-      box(model, 1.04, .13, .95, 0, .53, 0, 0xac8f60);
+      const [px,pz]=palletLocalPosition(shipment,pallet);model.position.set(px,0,pz);
+      box(model, 1.04, .13, .95, 0, v.floor, 0, 0xac8f60);
       const cargo = [];
-      for (let i = 0; i < 20; i++) cargo.push(stockCarton(model, box, i % 2 ? .25 : -.25, .8 + Math.floor(i/4)*.43, i % 4 < 2 ? -.21 : .21, state.products.find(p => p.id === order.productId).color));
+      for(let i=0;i<20;i++){const carton=stockCarton(model,box,i%2?.25:-.25,v.floor+.27+Math.floor(i/4)*(van?.29:.43),i%4<2?-.21:.21,state.products.find(p=>p.id===order.productId).color);if(van)carton.scale.y=.65;cargo.push(carton);}
       truck.add(model); return { model, cargo, ref };
     });
     return { truck, pallets, rearDoors, reversingLights };

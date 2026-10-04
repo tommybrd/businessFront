@@ -13,7 +13,7 @@ export { SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, SHELF_MODULE_CAPACITY, she
 import { newOnlineState, onlineDaily, onlineReserved, onlineHeld, resizeOnlineStaff, onlineInstallationBusy, updateOnline } from './online-orders.js';
 import { checkoutCount, checkoutSpace, activeCheckoutLanes, releaseClosedCheckouts, updateCheckouts } from './checkout-flow.js';
 export { checkoutCount, activeCheckoutLanes } from './checkout-flow.js';
-import { ARTICLES_PER_PALLET, PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
+import { DELIVERY_VEHICLES,deliveryVehicle,deliverySchedule,ARTICLES_PER_PALLET, PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
 export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
 export const ORDER_MAX_QUANTITY = 1000;
 export const GROUPED_DELIVERY_FEE = 10;
@@ -489,16 +489,19 @@ function commitSupplierBatch(s, lines, supplierId, mode) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus commander.');
   if ((s.supplierPayments?.termDays||0)===0&&cost > s.money) throw new Error('Trésorerie insuffisante pour cette commande.');
   accountPurchase(s,quotes,ownedStockQuantities(s));
+  const schedule=deliverySchedule(s,supplier,supplierId);
   const batchId = s.nextId++, orderList = [];
   quotes.forEach((q, index) => {
     const pallets = Array.from({ length: Math.ceil(q.quantity / ARTICLES_PER_PALLET) }, (_, index) => ({ index, quantity: Math.min(ARTICLES_PER_PALLET, q.quantity - index * ARTICLES_PER_PALLET), remaining: Math.min(ARTICLES_PER_PALLET, q.quantity - index * ARTICLES_PER_PALLET), status: 'dock', shipmentId: null, truckIndex: null, outsideSlot: null, outsideOrigin: false }));
     const fee = index === 0 ? deliveryFee : 0;
-    const order = { ...q, id: s.nextId++, batchId, day:s.day, mode, remaining: q.quantity, cost: round(q.goodsCost + fee), deliveryFee: fee, source: 'manual', pallets, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
+    const order = { ...q, id: s.nextId++, batchId, day:s.day, mode, remaining: q.quantity, cost: round(q.goodsCost + fee), deliveryFee: fee, source: 'manual', pallets, supplierId, supplier: supplier.name, ...schedule, status: 'transit' };
     s.orders.push(order); orderList.push(order);
   });
   const refs = orderList.flatMap(o => o.pallets.map(p => ({ orderId: o.id, palletIndex: p.index })));
-  for (let offset = 0; offset < refs.length; offset += PALLETS_PER_TRUCK) {
-    const shipment = { id: s.nextId++, batchId, mode, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, phase: 'enroute', phaseStarted: s.elapsed, bay: null, pallets: refs.slice(offset, offset + PALLETS_PER_TRUCK) };
+  const urgent=s.morningPreparation&&supplierId==='express',capacity=urgent?DELIVERY_VEHICLES.rigid.capacity:PALLETS_PER_TRUCK;
+  for (let offset = 0; offset < refs.length; offset += capacity) {
+    const pallets=refs.slice(offset,offset+capacity),vehicleKind=urgent?(pallets.length<=DELIVERY_VEHICLES.van.capacity?'van':'rigid'):'heavy';
+    const shipment = { id: s.nextId++, batchId, mode, supplierId, supplier: supplier.name, ...schedule, ...(s.morningPreparation?{vehicleKind}:{}), phase: 'enroute', phaseStarted: s.elapsed, bay: null, pallets };
     shipment.pallets.forEach((ref, index) => { const p = s.orders.find(o => o.id === ref.orderId).pallets[ref.palletIndex]; p.shipmentId = shipment.id; p.truckIndex = index; });
     s.shipments.push(shipment);
   }
@@ -708,7 +711,7 @@ function updateReceiving(s) {
           const truck = s.shipments.find(t => t.id === p.shipmentId);
           return truck?.phase === 'docked' && p.status === 'dock' && (p.remaining <= spaceFor(o.productId) || freeOutsideSlot(s) !== null)
             && !s.receivers.some(w => !w.fromOutside && ['approaching', 'loading'].includes(w.phase) && s.orders.find(line => line.id === w.orderId)?.pallets[w.palletIndex]?.shipmentId === truck.id)
-            && !truck.pallets.some(ref => { const prior = s.orders.find(line => line.id === ref.orderId).pallets[ref.palletIndex]; return prior.truckIndex < p.truckIndex && prior.truckIndex % 2 === p.truckIndex % 2 && ['dock', 'reserved'].includes(prior.status) && !prior.outsideOrigin; });
+            && !truck.pallets.some(ref => { const prior = s.orders.find(line => line.id === ref.orderId).pallets[ref.palletIndex],columns=deliveryVehicle(truck).columns; return prior.truckIndex < p.truckIndex && prior.truckIndex % columns === p.truckIndex % columns && ['dock', 'reserved'].includes(prior.status) && !prior.outsideOrigin; });
         };
         order = s.orders.find(o => o.status === 'unloading' && o.pallets.some(p => available(o, p)));
         if (!order) continue;

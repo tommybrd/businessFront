@@ -5,6 +5,27 @@ export const deliveryBayCount = state => state.infrastructure?.bays ?? 3;
 export const outsideCapacity = state => state.infrastructure?.outside ?? OUTSIDE_PALLET_CAPACITY;
 export const PALLETS_PER_TRUCK = 10;
 export const ARTICLES_PER_PALLET = 240;
+export const DELIVERY_VEHICLES = {
+  heavy: { name: 'Gros porteur', capacity: 10, width: 2.5, length: 6.5, height: 2.35, columns: 2, floor: .53, cabLength: 1.65 },
+  rigid: { name: 'Petit porteur', capacity: 4, width: 2.25, length: 3.5, height: 2.35, columns: 2, floor: .53, cabLength: 1.5 },
+  van: { name: 'Camionnette', capacity: 2, width: 1.9, length: 2.8, height: 1.75, columns: 1, floor: .4, cabLength: 1.2 },
+};
+// Existing vehicles finish their journeys with their original geometry.
+export const deliveryVehicle = shipment => DELIVERY_VEHICLES[shipment.vehicleKind || 'heavy'];
+export function deliverySchedule(state, supplier, supplierId) {
+  if(!state.morningPreparation)return {eta:state.elapsed+supplier.lead};
+  if(supplierId==='regular'){
+    const today=state.minute>=300&&state.minute+supplier.lead<=480;
+    const arrivalMinute=today?state.minute+supplier.lead:390;
+    return {eta:state.elapsed+(today?supplier.lead:1200-state.minute+90),arrivalDay:state.day+(today?0:1),arrivalMinute};
+  }
+  const next=state.minute+supplier.lead>=1200;
+  return {eta:state.elapsed+supplier.lead,arrivalDay:state.day+(next?1:0),arrivalMinute:next?300+state.minute+supplier.lead-1200:state.minute+supplier.lead};
+}
+export function palletLocalPosition(shipment, pallet) {
+  const v=deliveryVehicle(shipment),column=pallet.truckIndex%v.columns;
+  return [v.columns===1?0:column ? .58 : -.58,v.length/2-.7-Math.floor(pallet.truckIndex/v.columns)*1.15];
+}
 export const OUTSIDE_PALLET_CAPACITY = 30;
 export function outsidePalletPosition(state, pallet) {
   return [-10.9 + (pallet.outsideSlot % 5) * 1.7, -10.9 - Math.floor(pallet.outsideSlot / 5) * 1.75 - (reserveBackExtension(state))];
@@ -47,7 +68,8 @@ export function truckPose(state, shipment, minuteFraction = 0) {
 }
 export function palletPosition(state, shipment, pallet) {
   const pose = truckPose(state, shipment);
-  return [pose.x + (pallet.truckIndex % 2 ? .58 : -.58), pose.z + 2.55 - Math.floor(pallet.truckIndex / 2) * 1.15];
+  const [x,z]=palletLocalPosition(shipment,pallet);
+  return [pose.x+x,pose.z+z];
 }
 export function updateShipments(state) {
   for (const shipment of state.shipments) {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, setStaff, openStore, advance, quoteOrder, placeOrder, queueEveningOrder, removeEveningOrder, quoteEveningBasket, dailyCosts, inventoryPosition, restockerPosition, truckPose, discardReserve, outsidePallets, outsideSlotsUsed, OUTSIDE_PALLET_CAPACITY, INITIAL_SHELF_STOCK } from '../dist/engine.js';
+import { createStarterGame,startDayOnLoad,createGame, setStaff, openStore, advance, quoteOrder, placeOrder, queueEveningOrder, removeEveningOrder, quoteEveningBasket, dailyCosts, inventoryPosition, restockerPosition, truckPose, discardReserve, outsidePallets, outsideSlotsUsed, OUTSIDE_PALLET_CAPACITY, INITIAL_SHELF_STOCK } from '../dist/engine.js';
 function quiet() {
   const s = createGame(); for (const role of Object.keys(s.staff)) setStaff(s, role, 0);
   s.arrivalCredit = -100000; return s;
@@ -157,4 +157,33 @@ test('truck unloading goes directly to reserve when a full pallet fits, includin
     until(s, () => s.orders[0].status === 'received');
     assert.equal(s.products[0].reserve, 500); assert.equal(outsidePallets(s).length, 0);
   }
+});
+
+
+test('standard orders arrive in a morning heavy vehicle, daytime orders wait until the next morning',()=>{
+ const s=createStarterGame();s.arrivalCredit=-100000;startDayOnLoad(s);const order=placeOrder(s,'produce',240,'regular');assert.equal(order.arrivalDay,1);assert.equal(order.arrivalMinute,390);assert.equal(s.shipments[0].vehicleKind,'heavy');advance(s,89);assert.equal(s.shipments[0].phase,'enroute');advance(s,1);assert.equal(s.shipments[0].phase,'positioning');assert.equal(s.minute,390);assert.equal(s.customers.length,0);
+ openStore(s);const later=placeOrder(s,'bakery',240,'regular'),truck=s.shipments.at(-1);assert.equal(later.arrivalDay,2);assert.equal(later.arrivalMinute,390);advance(s,719);assert.equal(truck.phase,'enroute');advance(s,1);assert.equal(s.day,2);assert.equal(s.minute,300);advance(s,89);assert.equal(truck.phase,'enroute');advance(s,1);assert.equal(s.minute,390);assert.equal(truck.phase,'positioning');
+});
+test('the last morning order slot stays consistent at the opening boundary',()=>{
+ for(const [minute,day,time] of [[390,1,480],[391,2,390],[1190,2,390]]){const s=createStarterGame();s.minute=minute;const o=placeOrder(s,'produce',12,'regular');assert.equal(o.arrivalDay,day);assert.equal(o.arrivalMinute,time);}
+});
+test('urgent deliveries use a van up to two pallets, then limited small vehicles without extra invoices or fees',()=>{
+ for(const [quantity,kinds,loads] of [[12,['van'],[1]],[480,['van'],[2]],[720,['rigid'],[3]],[1000,['rigid','van'],[4,1]]]){
+  const s=createStarterGame();s.money=10000;openStore(s);const cash=s.money,initial=inventoryPosition(s,'produce'),order=placeOrder(s,'produce',quantity,'express');assert.deepEqual(s.shipments.map(t=>t.vehicleKind),kinds);assert.deepEqual(s.shipments.map(t=>t.pallets.length),loads);assert.ok(s.shipments.every(t=>t.eta===s.elapsed+30&&t.arrivalDay===1&&t.arrivalMinute===510));assert.equal(s.supplierPayments.invoices.length,1);assert.equal(s.supplierPayments.invoices[0].total,order.totalCost);assert.equal(s.money,cash);assert.equal(inventoryPosition(s,'produce'),initial+quantity);
+  assert.equal(new Set(s.shipments.flatMap(t=>t.pallets.map(r=>r.orderId+':'+r.palletIndex))).size,order.pallets.length);
+ }
+});
+test('evening groupage reaches the next morning and late emergencies cross the overnight closure',()=>{
+ const s=createStarterGame();s.money=10000;s.arrivalCredit=-100000;openStore(s);queueEveningOrder(s,'produce',240);queueEveningOrder(s,'bakery',240);s.minute=1190;const express=placeOrder(s,'produce',12,'express');assert.equal(express.arrivalDay,2);assert.equal(express.arrivalMinute,320);advance(s,10);const grouped=s.shipments.find(t=>t.mode==='grouped');assert.equal(grouped.vehicleKind,'heavy');assert.equal(grouped.arrivalDay,2);assert.equal(grouped.arrivalMinute,390);assert.equal(grouped.pallets.length,2);assert.equal(s.minute,300);advance(s,20);assert.equal(s.shipments[0].phase,'positioning');
+});
+test('two van pallets are unloaded in physical rear-to-front order and all stock survives a save during unloading',async()=>{
+ const {makeSave,readSave}=await import('../dist/save-format.js');const s=createStarterGame();s.arrivalCredit=-100000;setStaff(s,'shelves',0);setStaff(s,'receiving',3);s.products[0].reserve=0;openStore(s);const order=placeOrder(s,'produce',480,'express'),initial=inventoryPosition(s,'produce');advance(s,37);assert.equal(s.shipments[0].phase,'docked');assert.equal(s.receivers.filter(w=>w.phase!=='idle').length,1);assert.equal(s.receivers.find(w=>w.phase!=='idle').palletIndex,0);
+ s.speed=0;const restored=readSave(makeSave(s)).state;for(let i=0;i<450;i++){s.arrivalCredit=restored.arrivalCredit=-100000;advance(s,1);advance(restored,1);assert.equal(inventoryPosition(s,'produce'),initial);}assert.equal(s.orders[0].status,'received');assert.equal(s.shipments[0].phase,'complete');assert.deepEqual(restored,s);
+ const bad=makeSave(s);bad.state.shipments[0].vehicleKind='rigid-invalid';assert.throws(()=>readSave(bad));const capacity=makeSave(s);capacity.state.shipments[0].vehicleKind='van';capacity.state.shipments[0].pallets.push({...capacity.state.shipments[0].pallets[0]});assert.throws(()=>readSave(capacity));
+});
+test('3D vehicle cargo coordinates match unloading coordinates for every vehicle size',async()=>{
+ const THREE=await import('three'),{createDeliveryYard}=await import('../dist/delivery-scene.js'),{palletLocalPosition,palletPosition,DELIVERY_VEHICLES}=await import('../dist/delivery-logistics.js');
+ const s=createStarterGame();s.money=10000;placeOrder(s,'produce',240,'regular');placeOrder(s,'bakery',720,'express');placeOrder(s,'produce',480,'express');for(const [i,t]of s.shipments.entries()){t.phase='docked';t.bay=i;}
+ const scene=new THREE.Scene(),material=color=>new THREE.MeshStandardMaterial({color});const box=(parent,w,h,d,x,y,z,color)=>{const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material(color));mesh.position.set(x,y,z);parent.add(mesh);return mesh;};const yard=createDeliveryYard(scene,s,box,material,()=>{});yard.update();
+ for(const t of s.shipments){const model=yard.group.getObjectByName('truck-'+t.id),v=DELIVERY_VEHICLES[t.vehicleKind];assert.ok(model);assert.equal(model.children[0].geometry.parameters.depth,v.length);assert.equal(model.children[0].geometry.parameters.width,v.width);for(const ref of t.pallets){const o=s.orders.find(o=>o.id===ref.orderId),p=o.pallets[ref.palletIndex],cargo=model.getObjectByName('pallet-'+o.id+'-'+p.index),[x,z]=palletLocalPosition(t,p),[wx,wz]=palletPosition(s,t,p);assert.equal(cargo.position.x,x);assert.equal(cargo.position.z,z);assert.equal(wx,model.position.x+x);assert.equal(wz,model.position.z+z);assert.equal(cargo.children.filter(c=>c.name==='stock-carton').length,20);}}
 });
