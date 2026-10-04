@@ -7,7 +7,7 @@ import {makeSave,readSave} from '../dist/save-format.js';
 const unchanged=(s,fn)=>{const before=JSON.stringify(s);assert.throws(fn);assert.equal(JSON.stringify(s),before);};
 test('new game is a small shop with two stocked modules, one staffed checkout and three employees',()=>{
  const s=createStarterGame();assert.equal(s.storeSize,'small');assert.equal(s.shelfLayout.filter(Boolean).length,2);assert.equal(s.infrastructure.checkouts,1);assert.deepEqual(s.staff,{checkout:1,shelves:1,receiving:1,online:0});assert.equal(s.products.reduce((n,p)=>n+p.shelf,0),240);assert.equal(s.products.reduce((n,p)=>n+p.reserve,0),96);assert.ok(premisesCosts(s).total<160);assert.equal(premisesCosts(s).rows.length,4);
- startDayOnLoad(s);assert.equal(s.phase,'open');assert.equal(s.speed,1);advance(s,70);assert.ok(s.customers.every(c=>c.items.every(l=>l.index<2)));
+ startDayOnLoad(s);assert.equal(s.phase,'preparation');assert.equal(s.minute,300);assert.equal(s.speed,1);advance(s,250);assert.ok(s.customers.every(c=>c.items.every(l=>l.index<2)));
 });
 test('page load resumes current minute at x1 and leaves a bankrupt game stopped',()=>{
  const s=createGame();openStore(s);advance(s,30);s.speed=0;const snapshot=readSave(makeSave(s));const before=snapshot.state.minute;startDayOnLoad(snapshot.state);assert.equal(snapshot.state.minute,before);assert.equal(snapshot.state.speed,1);s.phase='bankrupt';s.speed=0;startDayOnLoad(s);assert.equal(s.speed,0);

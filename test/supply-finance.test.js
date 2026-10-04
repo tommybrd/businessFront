@@ -72,7 +72,7 @@ test('VAT, profit tax and salary settle once at closing and personal reinvestmen
   const s = quietGame(); const initial = s.money; setDirectorSalary(s, 100); placeOrder(s, 'produce', 12, 'regular');
   const summary = finishDay(s, 1200);
   assert.equal(summary.vatCollected, 200); assert.equal(summary.vatDeductible, 9.43); assert.equal(summary.vatCharged, 190.57);
-  assert.equal(summary.taxableProfit, 415.83); assert.equal(summary.profitTax, 83.17); assert.equal(summary.taxPaid, 273.74);
+  assert.equal(summary.taxableProfit, 433.83); assert.equal(summary.profitTax, 86.77); assert.equal(summary.taxPaid, 277.34);
   assert.equal(summary.salaryPaid, 100); assert.equal(s.personalCash, 100);
   assert.equal(Math.round(s.money * 100), Math.round((initial + summary.net) * 100));
   const cash = s.money; advance(s, 0); assert.equal(s.money, cash); assert.equal(s.personalCash, 100);

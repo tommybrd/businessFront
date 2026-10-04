@@ -218,7 +218,7 @@ export function createStoreScene(canvas, state, onSelect) {
   }
   function restockVehicle(mode) {
     const group = new THREE.Group(), pallet = mode === 'pallet';
-    const w = mode === 'small' ? 0.58 : mode === 'medium' ? 0.82 : 1.05, d = mode === 'small' ? 0.62 : mode === 'medium' ? 0.9 : 1.1;
+    const w = mode === 'small' ? 0.58 : mode === 'medium' ? 0.82 : mode==='hyper'?1.2:1.05, d = mode === 'small' ? 0.62 : mode === 'medium' ? 0.9 : mode==='hyper'?1.4:1.1;
     let palletBase = null;
     group.position.z = mode === 'small' ? 0.67 : 1;
     if (pallet) {
@@ -242,7 +242,7 @@ export function createStoreScene(canvas, state, onSelect) {
       wheel.rotation.z = Math.PI / 2; wheel.position.set(x, 0.22, z); group.add(wheel); wheels.push(wheel);
     }
     const cargo = [];
-    for (let i = 0; i < (pallet?20:8); i++) cargo.push(pallet
+    for (let i = 0; i < (pallet?20:mode==='hyper'?12:8); i++) cargo.push(pallet
       ? stockCarton(group, box, i % 2 ? .25 : -.25, .62 + Math.floor(i/4)*.43, i % 4 < 2 ? -.21 : .21, 0xc8ab77)
       : box(group, w * .38, .23, d * .36, (i % 2 ? 1 : -1) * w * .23, .54 + Math.floor(i / 4) * .24, (i % 4 < 2 ? -1 : 1) * d * .23, 0xc8ab77));
     return { group, cargo, wheels, mode, palletBase };
@@ -349,7 +349,7 @@ export function createStoreScene(canvas, state, onSelect) {
   function update(delta, now, selected, minuteFraction = 0) {
     keyboardCamera.update(delta / 1000);
     controls.update();
-    const seconds = delta / 1000, running = state.phase === 'open' ? state.speed : 0;
+    const seconds = delta / 1000, running = ['preparation','open'].includes(state.phase) ? state.speed : 0;
     const front = storeFrontExtension(state.expansions,state.storeSize), back = reserveBackExtension(state), wide = Math.max(1.6, state.expansions.checkout * 2);
     foundation.scale.set((24 + wide) / 24, 1, (17 + front + back) / 17); foundation.position.z = (front - back) / 2;
     floor.scale.set((22.8 + wide) / 22.8, 1, (15.8 + front + back) / 15.8); floor.position.z = (front - back) / 2;

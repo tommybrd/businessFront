@@ -1,4 +1,4 @@
-# Market Front · v0.10.0
+# Market Front · v0.11.0
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
@@ -18,19 +18,25 @@ Les repères de la scène sont les portillons, barrières, voyants et meubles. A
 
 ## Stocks, clients et livraisons
 
-Un module de rayon contient 200 articles, avec cinq niveaux de 40. Installation 120 €, retrait 30 €, maintenance 1 € par jour. La réserve dispose de racks par produit, avec capacité augmentable. Les jauges affichent stocks et capacité en rayon et en réserve. Les commandes se font directement depuis la réserve : quantités visibles et boutons Express (livraison après 30 minutes, paiement immédiat) ou Ce soir (envoi à 20 h, 10 € mutualisés par fournisseur).
+Un module de rayon contient 200 articles, avec cinq niveaux de 40. Installation 120 €, retrait 30 €, maintenance 1 € par jour. La réserve dispose de racks par produit, avec capacité augmentable. Les jauges affichent stocks et capacité en rayon et en réserve. Les commandes se font directement depuis la réserve : quantités visibles et boutons Express (livraison après 30 minutes, facturation immédiate) ou Ce soir (envoi à 20 h, 10 € mutualisés par fournisseur).
 
-Une palette complète contient **240 articles : vingt cartons de douze empilés sur cinq niveaux**. Camions, palettes extérieures et transpalettes montrent les cartons restant réellement à transporter. Une palette partielle contient uniquement la quantité commandée. Les anciens chargements sauvegardés restent valides. Chaque camion transporte dix palettes au maximum et utilise un quai réel, avec alignement, recul, déchargement et départ. La réserve pleine peut bloquer un produit ou déposer sa palette dans le tampon extérieur. Le chariot moyen de 24 articles est disponible dès le départ ; le petit modèle n’est plus proposé. Un chargement peut réunir trois familles, avec réservations distinctes, collecte successive en réserve et dépôt dans chacun de leurs rayons. Le grand chariot porte 48 articles. Les employés transportent puis rangent les cartons ; les arrêts devant les racks gardent une distance suffisante pour le nez du transpalette.
+Une palette complète contient **240 articles : vingt cartons de douze empilés sur cinq niveaux**. Camions, palettes extérieures et transpalettes montrent les cartons restant réellement à transporter. Une palette partielle contient uniquement la quantité commandée. Les anciens chargements sauvegardés restent valides. Chaque camion transporte dix palettes au maximum et utilise un quai réel, avec alignement, recul, déchargement et départ. La réserve pleine peut bloquer un produit ou déposer sa palette dans le tampon extérieur. Le chariot moyen de 24 articles est disponible dès le départ ; le petit modèle n’est plus proposé. Un chargement peut réunir trois familles, avec réservations distinctes, collecte successive en réserve et dépôt dans chacun de leurs rayons. Le grand chariot porte 48 articles et l’hyper chariot 96 articles, après déblocage du grand modèle pour 7 200 €. Les employés transportent puis rangent les cartons ; les arrêts devant les racks gardent une distance suffisante pour le nez du transpalette.
 
 Les clients viennent avec un sac (jusqu’à six articles prévus), un mini-chariot (jusqu’à quinze) ou un caddie. Le contenu visible suit les produits pris en rayon. Les caisses attendent l’arrivée du client avant déchargement, scan, récupération et paiement. La caisse automatique accepte **dix articles maximum**, avec supervision par un employé des caisses.
 
 Les alertes de stock restent visibles dans la vue principale : rayons vides, seuil bas à 15 % (ou douze articles), réserves épuisées ou réduites à douze articles. Une nouvelle rupture déclenche un avertissement et chaque alerte mène au produit ou à sa commande. Les familles sans rayon installé ne génèrent aucune fausse alerte.
 
-Satisfaction détaille articles demandés/trouvés, ruptures par famille, attente moyenne et maximale, file actuelle, départs sans achat et effets sur le score. Chaque chiffre provient de la simulation. La mesure d’une ancienne partie commence à la mise à jour, sans inventer son historique.
+Satisfaction présente les grands indicateurs : disponibilité globale, attente aux caisses et départs sans achat, avec leurs effets sur le score. Aucun détail par famille ni bouton de gestion des rayons. Chaque chiffre provient de la simulation. La mesure d’une ancienne partie commence à la mise à jour, sans inventer son historique.
 
 Le vol affecte le paiement des articles réellement sortis du stock : 1 % par article aux caisses classiques, 4 % à la caisse automatique en surveillance simple. Les caméras divisent ces taux par deux (600 € à installer, 25 €/jour) ; caméras et contrôle les divisent par cinq (1 400 €, 60 €/jour). Finances suit articles volés, ventes perdues et valeur d’achat, sans déduire deux fois la perte. Le tirage aléatoire et les compteurs sont sauvegardés.
 
 Drive et e-commerce partagent le stock du magasin. Les paniers sont réservés puis prélevés par des préparateurs, emballés et remis au client drive ou au transporteur. L’encaissement attend la remise ou l’expédition. Stocks, commandes, équipes, TVA, impôt, salaire du directeur et réinvestissement personnel se poursuivent d’un jour à l’autre.
+
+Le magasin se prépare dès 5 h : réception des livraisons et remplissage des rayons sans clients, puis ouverture automatique à 8 h. La fermeture à 20 h enchaîne sur la préparation du lendemain ; les commandes groupées sont reçues le matin suivant. Les anciennes journées clôturées sont conservées.
+
+Le résultat utilise le coût moyen d’achat HT des articles vendus ou perdus. Les marchandises invendues restent valorisées, en rayon, réserve, chargement, panier non payé, commandes clients préparées et livraisons facturées. Les remises modifient ce coût moyen. Le stock initial est valorisé au prix de référence ; le passage d’une ancienne sauvegarde utilise les stocks, ventes et commandes disponibles sans refaire ses anciens bilans.
+
+Les factures fournisseurs sont enregistrées à la commande, avec paiement comptant, à J+7 (défaut du jeu) ou J+30. Le délai choisi concerne les prochaines factures. Les factures échues sont réglées à la clôture dans la limite de la trésorerie ; un paiement partiel conserve le solde dû. Un règlement anticipé est possible dans Finances. La TVA du jeu reste comptabilisée à la facturation ; les factures anciennes déjà payées ne sont pas recréées. Résultat, variation de trésorerie et dette fournisseur sont séparés.
 
 ## Développement et publication
 

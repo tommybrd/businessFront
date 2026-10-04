@@ -124,7 +124,7 @@ function complete(s,o,hooks) {
 function random(online) { online.seed=(Math.imul(1664525,online.seed)+1013904223)>>>0; return online.seed/4294967296; }
 export function updateOnline(s,hooks) {
   const online=s.online;
-  for (const channel of Object.keys(ONLINE_CHANNELS)) if (online.enabled[channel] && s.minute>=480 && s.minute<1080) {
+  for (const channel of Object.keys(ONLINE_CHANNELS)) if (s.phase==='open' && online.enabled[channel] && s.minute>=480 && s.minute<1080) {
     online.credit[channel]+=(channel==='drive'?.012:.008)*hooks.demand(s);
     if (online.credit[channel]>=1 && online.orders.filter(activeOnlineOrder).length<40) {
       const count=2+Math.floor(random(online)*3), start=Math.floor(random(online)*s.products.length);

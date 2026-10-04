@@ -1,3 +1,6 @@
+import {ensureInventoryAccounting,accountPurchase,accountSale,accountDiscard,inventoryReport,startInventoryDay} from './inventory-accounting.js';
+import {newSupplierPayments,ensureSupplierPayments,invoiceSupplier,paySupplierInvoices,supplierPaymentReport,cashPurchases,startSupplierDay} from './supplier-payments.js';
+export {setSupplierPaymentTerm,paySupplierInvoices,supplierPaymentReport} from './supplier-payments.js';
 import {restockLoad,restockReserved,workerHasProduct} from './restock-load.js';
 export {restockLoad,restockReserved,workerHasProduct} from './restock-load.js';
 import {newTheftState,settleTheft,securityDailyCost} from './theft.js';
@@ -143,6 +146,7 @@ export const RESTOCK_EQUIPMENT = {
   small: { name: 'Petit chariot', capacity: 8, cost: 0, loading: 2, stockRate: 2, travelSpeed: 2.4, requires: null },
   medium: { name: 'Chariot moyen', capacity: 24, cost: 1200, loading: 3, stockRate: 4, travelSpeed: 2.3, requires: 'small' },
   large: { name: 'Grand chariot', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 2.1, requires: 'medium' },
+  hyper: { name: 'Hyper chariot', capacity: 96, cost: 7200, loading: 7, stockRate: 6, travelSpeed: 2, requires: 'large' },
 };
 export const RESTOCK_PICKUP = [-2.4, -4.65];
 export function deliveryPalletPosition(s, order, pallet) {
@@ -167,7 +171,7 @@ export function createGame(seed = 73471) {
     satisfaction: 100, satisfactionDetails: newSatisfactionMetrics(), autoCheckout: false, checkoutCredit: 0,
     directorSalary: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
     vatCollected: 0, vatDeductible: 0, vatCredit: 0, vatDue: 0, profitTaxDue: 0, taxPaidToday: 0, autoPayTaxes: true,
-    restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false }, restockRequests: [],
+    restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false, hyper: false }, restockRequests: [],
     restockers: Array.from({ length: 5 }, (_, id) => newRestocker(id)),
     expansions: { checkout: 0, shelves: 0, reserve: 0 }, discarded: 0,
     shelfLayout: PRODUCTS.flatMap(p => [p.id,p.id,p.id]), infrastructure: { checkouts: 4, bays: 3, outside: 30, drive: 0, web: 0 },
@@ -177,7 +181,7 @@ export function createGame(seed = 73471) {
   };
 }
 export function createStarterGame(seed=73471) {
-  const s=createGame(seed);s.mixedRestock=true;s.restockMode='medium';s.restockUnlocked.medium=true;s.theft=newTheftState(seed);s.storeSize='small';s.shelfLayout=[null,'produce',null,null,'bakery',null];
+  const s=createGame(seed);s.morningPreparation=true;s.minute=300;s.supplierPayments=newSupplierPayments();s.mixedRestock=true;s.restockMode='medium';s.restockUnlocked.medium=true;s.theft=newTheftState(seed);s.storeSize='small';s.shelfLayout=[null,'produce',null,null,'bakery',null];
   s.products.forEach((p,i)=>{p.shelf=i<2?120:0;p.reserve=i<2?48:0;p.capacity=i<2?200:0;p.reserveRacks=i<2?1:0;p.reserveCapacity=i<2?500:0;});
   s.infrastructure.checkouts=1;s.infrastructure.bays=1;s.infrastructure.outside=5;
   setStaff(s,'checkout',1);setStaff(s,'shelves',1);setStaff(s,'receiving',1);
@@ -185,7 +189,8 @@ export function createStarterGame(seed=73471) {
 }
 export function startDayOnLoad(s) {
   if(s.phase==='closed')nextDay(s);
-  if(s.phase==='preparation')openStore(s);
+  if(s.phase==='preparation'&&!s.morningPreparation)openStore(s);
+  if(s.phase==='preparation'&&s.morningPreparation)s.speed=1;
   if(s.phase==='open')s.speed=1;
   return s;
 }
@@ -300,6 +305,7 @@ export function discardReserve(s, productId, quantity) {
   if (!product || !Number.isInteger(quantity) || quantity <= 0) throw new Error('Quantité invalide.');
   const reserved = s.restockers.filter(w => workerHasProduct(w,productId)).reduce((sum, w) => sum + restockReserved(w,productId), 0);
   if (quantity > product.reserve - reserved - onlineReserved(s,productId,'reserve')) throw new Error('Ces produits sont déjà réservés à un chargement ou indisponibles.');
+  ensureInventoryAccounting(s,ownedStockQuantities(s));accountDiscard(s,s.products.indexOf(product),quantity);
   product.reserve -= quantity; s.discarded += quantity;
   log(s, `${quantity} unités de ${product.short.toLowerCase()} jetées pour libérer leur emplacement.`, 'warning');
   return { productId, quantity, remaining: product.reserve };
@@ -309,7 +315,7 @@ export function selectRestockEquipment(s, mode) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Préparez la prochaine journée pour équiper l’équipe.');
   const equipment = RESTOCK_EQUIPMENT[mode];
   if (!s.restockUnlocked[mode]) {
-    if (equipment.requires && !s.restockUnlocked[equipment.requires]) throw new Error('Débloquez d’abord le chariot moyen.');
+    if (equipment.requires && !s.restockUnlocked[equipment.requires]) throw new Error(`Débloquez d’abord : ${RESTOCK_EQUIPMENT[equipment.requires].name}.`);
     if (s.money < equipment.cost) throw new Error('Trésorerie insuffisante pour équiper l’équipe.');
     s.money = round(s.money - equipment.cost); s.spending = round(s.spending + equipment.cost);
     s.vatDeductible = round(s.vatDeductible + equipment.cost / 6);
@@ -481,12 +487,13 @@ function commitSupplierBatch(s, lines, supplierId, mode) {
   const deliveryFee = mode === 'grouped' ? GROUPED_DELIVERY_FEE : supplier.deliveryFee;
   const cost = round(quotes.reduce((sum, q) => sum + q.goodsCost, 0) + deliveryFee);
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus commander.');
-  if (cost > s.money) throw new Error('Trésorerie insuffisante pour cette commande.');
+  if ((s.supplierPayments?.termDays||0)===0&&cost > s.money) throw new Error('Trésorerie insuffisante pour cette commande.');
+  accountPurchase(s,quotes,ownedStockQuantities(s));
   const batchId = s.nextId++, orderList = [];
   quotes.forEach((q, index) => {
     const pallets = Array.from({ length: Math.ceil(q.quantity / ARTICLES_PER_PALLET) }, (_, index) => ({ index, quantity: Math.min(ARTICLES_PER_PALLET, q.quantity - index * ARTICLES_PER_PALLET), remaining: Math.min(ARTICLES_PER_PALLET, q.quantity - index * ARTICLES_PER_PALLET), status: 'dock', shipmentId: null, truckIndex: null, outsideSlot: null, outsideOrigin: false }));
     const fee = index === 0 ? deliveryFee : 0;
-    const order = { ...q, id: s.nextId++, batchId, mode, remaining: q.quantity, cost: round(q.goodsCost + fee), deliveryFee: fee, source: 'manual', pallets, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
+    const order = { ...q, id: s.nextId++, batchId, day:s.day, mode, remaining: q.quantity, cost: round(q.goodsCost + fee), deliveryFee: fee, source: 'manual', pallets, supplierId, supplier: supplier.name, eta: s.elapsed + supplier.lead, status: 'transit' };
     s.orders.push(order); orderList.push(order);
   });
   const refs = orderList.flatMap(o => o.pallets.map(p => ({ orderId: o.id, palletIndex: p.index })));
@@ -495,7 +502,7 @@ function commitSupplierBatch(s, lines, supplierId, mode) {
     shipment.pallets.forEach((ref, index) => { const p = s.orders.find(o => o.id === ref.orderId).pallets[ref.palletIndex]; p.shipmentId = shipment.id; p.truckIndex = index; });
     s.shipments.push(shipment);
   }
-  s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.vatDeductible = round(s.vatDeductible + cost / 6);
+  invoiceSupplier(s,{batchId,supplierId,total:cost});s.spending = round(s.spending + cost); s.vatDeductible = round(s.vatDeductible + cost / 6);
   log(s, `${mode === 'grouped' ? 'Groupage du soir' : 'Livraison spécifique'} : ${quotes.reduce((sum, q) => sum + q.quantity, 0)} unités chez ${supplier.name}. Livraison : ${deliveryFee} €.`, 'success');
   return { batchId, cost, orders: orderList, cash: s.money };
 }
@@ -527,7 +534,7 @@ export function quoteEveningBasket(s) {
 function dispatchEveningBasket(s) {
   if (!s.eveningBasket.length) return;
   const quote = quoteEveningBasket(s);
-  if (quote.totalCost > s.money) { s.eveningError = 'Trésorerie insuffisante à 20 h. Le panier est conservé pour le prochain soir.'; log(s, s.eveningError, 'warning'); return; }
+  if (!(s.supplierPayments?.termDays)&&quote.totalCost > s.money) { s.eveningError = 'Trésorerie insuffisante à 20 h. Le panier est conservé pour le prochain soir.'; log(s, s.eveningError, 'warning'); return; }
   for (const group of quote.groups) commitSupplierBatch(s, group.lines, group.supplierId, 'grouped');
   s.eveningBasket = []; s.eveningError = null;
 }
@@ -537,6 +544,7 @@ export function buyAutoCheckout(s) {
 }
 export function openStore(s) {
   if (s.phase !== 'preparation') throw new Error('Le magasin ne peut pas ouvrir maintenant.');
+  ensureInventoryAccounting(s,ownedStockQuantities(s));
   s.phase = 'open'; s.minute = 480; s.speed = 1;
   log(s, `Ouverture du magasin : ${currentEvent(s).name.toLowerCase()}.`, 'success');
 }
@@ -570,20 +578,27 @@ export function payTaxes(s) {
   const result = settleTaxes(s); log(s, `Taxes payées : ${result.paid} €.`, 'success'); return result;
 }
 function recordSale(s, customer, channel = null) {
-  customer.paid = true;if(!channel)settleTheft(s,customer);
+  ensureInventoryAccounting(s,ownedStockQuantities(s));
+  customer.paid = true;if(!channel)settleTheft(s,customer);accountSale(s,customer.basket);
   for (const item of customer.basket) s.products[item.index].soldToday += item.quantity-(item.stolen||0);
   s.money = round(s.money + customer.value); s.sales = round(s.sales + customer.value); if (!channel) s.sold++;
   s.vatCollected = round(s.vatCollected + customer.value / 6);
 }
+function ownedStockQuantities(s) {
+ return s.products.map((p,i)=>inventoryPosition(s,p.id)+s.customers.filter(c=>!c.paid).reduce((n,c)=>n+c.basket.filter(l=>l.index===i).reduce((sum,l)=>sum+l.quantity,0),0));
+}
+export function stockValuation(s){return inventoryReport(s,ownedStockQuantities(s));}
 export function dailyProfitability(s, salaryPaid = round(Math.min(s.directorSalary, Math.max(0, s.money - dailyCosts(s))))) {
-  const operatingCost = dailyCosts(s);
-  const beforeTax = round(s.sales - s.vatCollected - (s.spending - s.vatDeductible) - operatingCost - salaryPaid);
-  const profitTax = round(Math.max(0, beforeTax) * .2);
-  return { operatingCost, salaryPaid, beforeTax, profitTax, netProfit: round(beforeTax - profitTax) };
+  const operatingCost=dailyCosts(s),stock=stockValuation(s),a=s.inventoryAccounting;
+  const otherExpensesHT=round(s.spending-s.vatDeductible-a.purchasesHT);
+  const beforeTax=round(s.sales-s.vatCollected-otherExpensesHT-a.costOfSalesHT-a.lossesHT-operatingCost-salaryPaid);
+  const profitTax=round(Math.max(0,beforeTax)*.2);
+  return {operatingCost,salaryPaid,otherExpensesHT,stock,beforeTax,profitTax,netProfit:round(beforeTax-profitTax)};
 }
 export function nextDay(s) {
   if (s.phase !== 'closed') throw new Error('La journée doit être terminée.');
-  s.day++; s.minute = 450; s.phase = 'preparation'; s.speed = 0;
+  startInventoryDay(s,ownedStockQuantities(s));startSupplierDay(s);
+  s.day++; s.minute = s.morningPreparation?300:450; s.phase = 'preparation'; s.speed = 0;
   s.online.daily = onlineDaily();if(s.theft)s.theft.daily=newTheftState(s.theft.seed).daily;
   s.sold = 0; s.lost = 0; s.sales = 0; s.spending = 0; s.summary = null;
   s.products.forEach(p => { p.soldToday = 0; p.restockedToday = 0; });
@@ -611,16 +626,17 @@ function closeStore(s) {
   s.vatCredit = Math.max(0, -vatBalance); s.vatDue = round(s.vatDue + vatCharged);
   const profitability = dailyProfitability(s, salaryPaid), taxableProfit = Math.max(0, profitability.beforeTax);
   const profitTax = profitability.profitTax; s.profitTaxDue = round(s.profitTaxDue + profitTax);
+  paySupplierInvoices(s,null,true);
   if (s.autoPayTaxes) settleTaxes(s);
   s.phase = s.money < -1000 ? 'bankrupt' : 'closed';
-  s.summary = { day: s.day, theft:s.theft?structuredClone(s.theft.daily):null, satisfactionDetails: structuredClone(satisfactionMetrics(s)), satisfaction:s.satisfaction, premises: premisesCosts(s), online: { ...s.online.daily }, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
+  s.summary = { day: s.day, stock:profitability.stock,otherExpensesHT:profitability.otherExpensesHT,suppliers:supplierPaymentReport(s),cashSpending:cashPurchases(s), theft:s.theft?structuredClone(s.theft.daily):null, satisfactionDetails: structuredClone(satisfactionMetrics(s)), satisfaction:s.satisfaction, premises: premisesCosts(s), online: { ...s.online.daily }, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - cashPurchases(s) - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
   s.history.push({ ...s.summary });
   s.summary.products = s.products.map(p => ({ id: p.id, sold: p.soldToday, restocked: p.restockedToday }));
   s.history.at(-1).products = s.summary.products;
   log(s, `Fermeture. ${s.sold} clients encaissés. Charges : ${operatingCost} €.`, s.summary.net >= 0 ? 'success' : 'warning');
   if (s.phase === 'closed') {
     const completedDay = s.summary;
-    nextDay(s); openStore(s); s.speed = runningSpeed; s.summary = completedDay;
+    nextDay(s); if(!s.morningPreparation)openStore(s);s.speed = runningSpeed; s.summary = completedDay;
   }
 }
 function returnBasket(s, customer) {
@@ -795,6 +811,12 @@ function minuteStep(s) {
 }
 export function advance(s, minutes) {
   if (!Number.isFinite(minutes) || minutes < 0 || minutes > 1440) throw new Error('Durée invalide.');
-  if (s.phase !== 'open') return;
-  for (let i = 0; i < Math.floor(minutes) && s.phase === 'open'; i++) minuteStep(s);
+  const active=()=>s.phase==='open'||s.morningPreparation&&s.phase==='preparation';
+  for(let i=0;i<Math.floor(minutes)&&active();i++) {
+    if(s.phase==='preparation'){
+      s.minute++;s.elapsed++;updateShipments(s);updateReceiving(s);finishShipments(s);updateRestocking(s);
+      updateOnline(s,{reservePoint:(index,rack)=>reserveAccessPoint(s,index,rack),shelfPoint:shelfAccessPoint,sale:recordSale,demand:state=>currentEvent(state).factor});
+      if(s.minute>=480){const runningSpeed=s.speed;openStore(s);s.speed=runningSpeed;}
+    }else minuteStep(s);
+  }
 }
