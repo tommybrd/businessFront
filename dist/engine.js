@@ -47,11 +47,22 @@ export const RESTOCK_EQUIPMENT = {
   large: { name: 'Grand chariot', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 2.1, requires: 'medium' },
 };
 export const RESTOCK_PICKUP = [-2.4, -4.65];
-export const RESTOCK_SHELVES = [[-6.4, -1.2], [0, -1.2], [6.4, -1.2], [-6.4, 2.6], [0, 2.6], [6.4, 2.6]];
-export const shelfPosition = slot => [-6.4 + (slot % 3) * 6.4, -1.2 + Math.floor(slot / 3) * 3.8];
-export function productShelfPosition(s, index, ordinal = 0) {
+// Six product faces on four fixtures: two standalone, two double-sided gondolas.
+export const RESTOCK_SHELVES = [[-4.5, -2], [4.5, -2], [-4.5, 1.26], [-4.5, 2.74], [4.5, 1.26], [4.5, 2.74]];
+export const shelfPosition = slot => slot < 6 ? [...RESTOCK_SHELVES[slot]] : [-6.4 + ((slot - 6) % 3) * 6.4, 6.4 + Math.floor((slot - 6) / 3) * 3.8];
+export const shelfRotation = slot => slot === 2 || slot === 4 ? Math.PI : 0;
+export const shelfFixtureId = slot => slot < 2 ? slot : slot < 6 ? 2 + Math.floor((slot - 2) / 2) : slot - 2;
+export const shelfFixtureCount = s => new Set(s.shelfLayout.map((_, slot) => shelfFixtureId(slot))).size;
+function productShelfSlot(s, index, ordinal) {
   const slots = s.shelfLayout.map((id, slot) => id === s.products[index].id ? slot : -1).filter(slot => slot >= 0);
-  return shelfPosition(slots[ordinal % slots.length] ?? index);
+  return slots[ordinal % slots.length] ?? index;
+}
+export function productShelfPosition(s, index, ordinal = 0) {
+  return shelfPosition(productShelfSlot(s, index, ordinal));
+}
+export function productShelfAccess(s, index, ordinal = 0) {
+  const slot = productShelfSlot(s, index, ordinal), [x, z] = shelfPosition(slot);
+  return [x, z, shelfRotation(slot) ? -1 : 1];
 }
 export const storeFrontExtension = expansions => 2.2 + expansions.checkout * 3 + expansions.shelves * 7.6;
 export const reserveProductPosition = index => [-9.2 + (index % 3) * 3.5, -6.9 + Math.floor(index / 3) * 1.75];
@@ -227,7 +238,7 @@ function updateRestocking(s) {
       const target = candidates[0]; if (!target) continue;
       worker.mode = s.restockMode; worker.productId = target.p.id;
       worker.reserved = Math.min(RESTOCK_EQUIPMENT[worker.mode].capacity, target.available, target.need);
-      const [x, z] = productShelfPosition(s, target.index, worker.completed); worker.destination = [x + 1.8, z + 1.45];
+      const [x, z, side] = productShelfAccess(s, target.index, worker.completed); worker.destination = [x + 1.8, z + side * 1.45];
       const [rx, rz] = reserveProductPosition(target.index); worker.pickup = [rx + 1.75, rz];
       beginRestockPhase(worker, 'loading', RESTOCK_EQUIPMENT[worker.mode].loading);
       continue;

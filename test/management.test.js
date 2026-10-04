@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, setStaff, openStore, advance, expandStore, setShelfCount, productShelfPosition, dailyProfitability, placeOrder, queueEveningOrder, quoteEveningBasket, outsidePallets, inventoryPosition, payTaxes, setAutomaticTaxPayment } from '../dist/engine.js';
+import { createGame, setStaff, openStore, advance, expandStore, setShelfCount, productShelfPosition, productShelfAccess, shelfFixtureCount, dailyProfitability, placeOrder, queueEveningOrder, quoteEveningBasket, outsidePallets, inventoryPosition, payTaxes, setAutomaticTaxPayment } from '../dist/engine.js';
 import { checkoutProgress } from '../dist/checkout-flow.js';
 
 function quiet() {
@@ -75,4 +75,18 @@ test('articles leave the cart one by one, scan sequentially, and payment starts 
   assert.equal(p.phase, 'scanning'); assert.equal(p.scanned, 2); assert.equal(p.articles[2].scanning, 0);
   customer.checkoutRemaining = 1; p = checkoutProgress(customer); assert.equal(p.phase, 'payment');
   assert.equal(p.scanned, 4); assert.ok(p.articles.every(a=>a.scanning===1));
+});
+
+// The reduced floor layout must keep every family reachable on its own face.
+test('four fixtures retain six dense product faces with access on opposite sides of each gondola', () => {
+  const s = quiet(); assert.equal(shelfFixtureCount(s), 4);
+  assert.ok(s.products.every(p => p.capacity === 600 && p.shelf === 480));
+  for (const [a, b] of [[2, 3], [4, 5]]) {
+    const north = productShelfAccess(s, a), south = productShelfAccess(s, b);
+    assert.equal(north[0], south[0]); assert.equal(north[2], -1); assert.equal(south[2], 1);
+    assert.ok(north[1] - 1.45 < north[1] && south[1] + 1.45 > south[1]);
+  }
+  expandStore(s, 'shelves'); assert.equal(shelfFixtureCount(s), 10);
+  setShelfCount(s, 'produce', 2); assert.equal(s.products[0].capacity, 1200);
+  assert.notDeepEqual(productShelfPosition(s, 0, 0), productShelfPosition(s, 0, 1));
 });

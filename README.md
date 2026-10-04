@@ -23,6 +23,10 @@ Les rayons commencent avec 480 articles chacun ; chaque article visible correspo
 
 Cette version constitue une boucle jouable. Le placement libre des rayons, la gestion RH, les produits périssables et les contrats fournisseurs restent à développer. Les caddies des clients ayant abandonné leurs achats redeviennent vides quand les produits sont remis en stock. Les parties ne sont pas encore sauvegardées entre deux rechargements.
 
+## Disposition v0.6.2
+
+Le magasin commence avec quatre meubles au lieu de six : un étal fruits et légumes, un meuble boulangerie et deux gondoles à double face. Produits frais / épicerie et boissons / maison partagent des faces opposées. Les six familles gardent chacune leurs 600 places, leurs 480 articles initiaux et la même densité de présentation (cinq niveaux, 24 articles en façade, cinq en profondeur). Les clients et employés rejoignent la face correspondant au produit. Les boutons d’affectation comptent les faces ; les agrandissements ajoutent six meubles simples.
+
 ## Équilibrage v0.6.1
 
 Les capacités restent de 600 articles par meuble et 500 en réserve par famille (750 puis 1 000 après agrandissement). Les clients font maintenant des courses plus importantes : 20 % de petites visites de 2–3 lignes de 1–2 articles, et 80 % de paniers de 4–6 lignes de 3–6 articles. Une ligne représente une famille, qui peut apparaître plusieurs fois. Les pics horaires et événements multiplient la fréquentation existante.
