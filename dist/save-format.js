@@ -1,4 +1,5 @@
 import {validStoreHours} from './store-hours.js';
+import {RESTOCK_ROBOT,robotWorkers,humanRestockers} from './restock-robots.js';
 import {isAutoCheckoutLane} from './store-layout.js';
 export const SAVE_VERSION = 1;
 export const MAX_SAVE_BYTES = 1000000;
@@ -19,7 +20,13 @@ export function validateSave(snapshot) {
   for(const key of ['orders','shipments','eveningBasket','customers','restockers','receivers','restockRequests','history','log','personalTransactions','shelfLayout'])saveAssert(Array.isArray(s[key]));
   saveAssert(s.staff&&s.expansions&&s.infrastructure&&s.restockUnlocked&&typeof s.autoCheckout==='boolean');
   for(const role of ['checkout','shelves','receiving','online'])saveAssert(Number.isSafeInteger(s.staff[role])&&s.staff[role]>=0);
-  saveAssert(s.restockers.length===s.staff.shelves && s.receivers.length===s.staff.receiving && s.online?.workers?.length===s.staff.online);
+  saveAssert(humanRestockers(s).length===s.staff.shelves && s.receivers.length===s.staff.receiving && s.online?.workers?.length===s.staff.online);
+  const robots=robotWorkers(s);saveAssert(robots.length<=RESTOCK_ROBOT.limit&&new Set(robots.map(w=>w.id)).size===robots.length);
+  for(const w of s.restockers){
+    if(w.robot!==undefined)saveAssert(typeof w.robot==='boolean');
+    if(w.robot)saveAssert(Number.isInteger(w.id)&&w.id>=1000&&w.id<1000+RESTOCK_ROBOT.limit&&w.mode==='robot'&&['idle','collecting','loading','outbound','stocking','returning'].includes(w.phase)&&w.load+w.reserved<=RESTOCK_ROBOT.capacity&&(w.phase==='idle'||w.cargo));
+    else saveAssert(['small','medium','large','hyper'].includes(w.mode));
+  }
   for(const zone of ['checkout','shelves','reserve'])saveAssert(Number.isSafeInteger(s.expansions[zone])&&s.expansions[zone]>=0&&s.expansions[zone]<=2);
   saveAssert(Array.isArray(s.products)&&s.products.length===6&&s.products.every((p,i)=>p.id===saveProductIds[i]&&[p.shelf,p.reserve,p.capacity,p.reserveCapacity,p.reserveRacks].every(n=>Number.isSafeInteger(n)&&n>=0)));
   saveAssert(s.shelfLayout.every(id=>id===null||saveProductIds.includes(id)));

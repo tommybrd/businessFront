@@ -1,4 +1,4 @@
-# Market Front · v0.11.8
+# Market Front · v0.12.0
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
@@ -27,6 +27,8 @@ Les clients viennent avec un sac (jusqu’à six articles prévus), un mini-char
 L’affluence suit la capacité des rayons installés, avec une croissance progressive : le magasin initial à deux rayons reçoit un tiers des visites du magasin de référence à dix-huit modules. Acheter un grand local vide ne crée pas d’affluence supplémentaire ; un rayon épuisé continue d’attirer la même demande. Un panier ne répète pas une famille de produits et s’adapte à l’assortiment proposé. Le drive et l’e-commerce utilisent le même facteur de capacité.
 
 Le réapprovisionnement automatique démarre à 75 % de remplissage, sans attendre un chargement complet, et tient compte des articles déjà réservés ou transportés vers le rayon. Cela évite les départs redondants et les gros chariots qui attendent un rayon presque vide. Une demande manuelle reste prioritaire. Les stocks ne sont jamais recréés : commandes, transport, ventes et vols conservent les quantités réelles.
+
+Équipes permet d’acheter jusqu’à huit robots autonomes de mise en rayon, indépendants des effectifs et des chariots humains. Chaque robot coûte 30 000 € TTC, transporte 320 articles de plusieurs familles, prépare le magasin dès 5 h et remplit les rayons avec les mêmes réservations et priorités que les employés. Maintenance : 180 € par jour et par robot ; électricité : 20 € par jour et par robot, facturées une fois à la fermeture. Le retrait coûte 1 000 € et restitue tout le chargement en réserve, même pendant un trajet. La scène montre un petit porteur orange à capteurs, roues et plateau élévateur, sans employé accompagnateur ; les cartons visibles suivent la charge réelle. Flotte, chargements, trajets et frais sont sauvegardés ; les anciennes parties restent sans robot jusqu’à un achat explicite.
 
 Les alertes de stock restent visibles dans la vue principale : rayons vides, seuil bas à 15 % (ou douze articles), réserves épuisées ou réduites à douze articles. Une nouvelle rupture déclenche un avertissement et chaque alerte mène au produit ou à sa commande. Les familles sans rayon installé ne génèrent aucune fausse alerte.
 

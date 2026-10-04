@@ -1,4 +1,6 @@
 import {createShelfFurniture} from './shelf-furniture.js';
+import {createRobotFleet} from './robot-scene.js';
+import {humanRestockers} from './restock-robots.js';
 import {checkoutStatus} from './checkout-flow.js';
 import {walkingPath} from './walking-route.js';
 import {autoCheckoutCount,autoCheckoutLane,autoCheckoutIndex,isAutoCheckoutLane} from './store-layout.js';
@@ -66,6 +68,7 @@ export function createStoreScene(canvas, state, onSelect) {
   }
   const checkoutVisuals = createCheckoutVisuals(scene, state, { box, material, textSprite });
   const onlineScene = createOnlineScene(scene,state,{box,material,textSprite});
+  const robotFleet = createRobotFleet(scene,{box,material});
   const surroundings = createSurroundings(scene, box, material, textSprite);
   const store = new THREE.Group(); scene.add(store);
   const foundation = box(store, 24, 0.45, 17, 0, -0.26, 0, 0xb2c1ac);
@@ -474,6 +477,7 @@ export function createStoreScene(canvas, state, onSelect) {
       checkoutVisuals.updateStation(station.effects,customer,customers.get(customer?.id),minuteFraction,seconds,running);
     });
     const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving'), ...Array(state.staff.online).fill('online')];
+    const shelfWorkers=humanRestockers(state);
     while (employees.length < roles.length) addEmployee();
     let checkoutIndex = 0, shelfIndex = 0, receivingIndex = 0, onlineIndex = 0;
     employees.forEach((actor, i) => {
@@ -490,7 +494,7 @@ export function createStoreScene(canvas, state, onSelect) {
       if (role === 'checkout') {
         const lane=checkoutIndex++,point=cashierPoint(state,lane);setDestination(actor,point[0],point[1],`cashier-${lane}-${point.join()}`);
       } else if (role === 'shelves') {
-        const worker = state.restockers[shelfIndex++];
+        const worker = shelfWorkers[shelfIndex++];
         displayRestocker(actor, worker, running, seconds, minuteFraction);
         return;
       } else if (role === 'online') {
@@ -505,13 +509,14 @@ export function createStoreScene(canvas, state, onSelect) {
         actor.arms.forEach((arm, index) => { arm.rotation.x = station.key ? -.6 - (running ? Math.sin(now / 140 + index) * .22 : 0) : 0; });
       }
     });
+    robotFleet.update(state,running,seconds,minuteFraction);
     renderer.render(scene, camera);
   }
   const raycaster = new THREE.Raycaster(), pointer = new THREE.Vector2(); let pointerStart;
   function selectAt(event) {
     const bounds = canvas.getBoundingClientRect(); pointer.set((event.clientX - bounds.left) / bounds.width * 2 - 1, -(event.clientY - bounds.top) / bounds.height * 2 + 1);
     raycaster.setFromCamera(pointer, camera);
-    for (const hit of raycaster.intersectObjects([store, deliveryYard.group, onlineScene.group, ...employees.map(a => a.group)], true)) {
+    for (const hit of raycaster.intersectObjects([store, deliveryYard.group, onlineScene.group, ...employees.map(a => a.group),...robotFleet.groups()], true)) {
       let object = hit.object, selection = null, visible = true;
       while (object) { if (!object.visible) visible = false; if (!selection && object.userData.selection) selection = object.userData.selection; object = object.parent; }
       if (visible && selection) return selection;
@@ -541,7 +546,7 @@ export function createStoreScene(canvas, state, onSelect) {
   }, { once: true });
   function resetSimulation() {
     for(const actor of customers.values()) {actor.group.removeFromParent();actor.group.traverse(o=>{o.geometry?.dispose();if(o.material?.map){o.material.map.dispose();o.material.dispose();}});}
-    customers.clear();surroundings.reset();checkoutVisuals.reset();
+    customers.clear();surroundings.reset();checkoutVisuals.reset();robotFleet.reset();
   }
   return { update, resetSimulation, setCheckoutSound: checkoutVisuals.setSound, focusDocks: () => { keyboardCamera.reset(); controls.target.set(5, 0, -10 - reserveBackExtension(state)); camera.position.set(23, 26, -33 - reserveBackExtension(state)); camera.zoom = 1.15; camera.updateProjectionMatrix(); controls.update(); }, resetCamera: () => { keyboardCamera.reset(); controls.reset(); } };
 }

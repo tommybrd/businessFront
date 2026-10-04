@@ -1,4 +1,6 @@
 import {storeHours,nextStoreHours,validStoreHours} from './store-hours.js';
+import {RESTOCK_ROBOT,robotWorkers,humanRestockers,robotCount,robotHome} from './restock-robots.js';
+export {RESTOCK_ROBOT,robotWorkers,humanRestockers,robotCount} from './restock-robots.js';
 export {storeHours,nextStoreHours} from './store-hours.js';
 import {ensureInventoryAccounting,accountPurchase,accountSale,accountDiscard,inventoryReport,startInventoryDay} from './inventory-accounting.js';
 import {newSupplierPayments,ensureSupplierPayments,invoiceSupplier,paySupplierInvoices,supplierPaymentReport,cashPurchases,startSupplierDay} from './supplier-payments.js';
@@ -70,6 +72,7 @@ export function maintenanceCosts(s) {
   const counts = { drive: s.infrastructure.drive, web: s.infrastructure.web, checkouts: checkoutCount(s), auto: autoCheckoutCount(s), shelves: s.shelfLayout.filter(Boolean).length,
     reserve: s.products.reduce((sum, p) => sum + p.reserveRacks, 0), bays: deliveryBayCount(s), outside: outsideCapacity(s) };
   const rows = Object.entries(INSTALLATIONS).map(([kind, definition]) => ({ kind, name: definition.name, count: counts[kind], unitCost: definition.maintenance, cost: round(counts[kind] * definition.maintenance) }));
+  if(robotCount(s))rows.push({kind:'robots',name:'Robots de mise en rayon',count:robotCount(s),unitCost:RESTOCK_ROBOT.maintenance,cost:robotCount(s)*RESTOCK_ROBOT.maintenance});
   return { rows, total: round(rows.reduce((sum, row) => sum + row.cost, 0)) };
 }
 export function installationCount(s, kind, productId) {
@@ -185,6 +188,7 @@ export const RESTOCK_EQUIPMENT = {
   hyper: { name: 'Hyper chariot', capacity: 500, cost: 7200, loading: 10, stockRate: 24, travelSpeed: 2, requires: 'large' },
 };
 export const RESTOCK_PICKUP = [-2.4, -4.65];
+export const restockEquipment = worker => worker.robot ? RESTOCK_ROBOT : RESTOCK_EQUIPMENT[worker.mode];
 export function deliveryPalletPosition(s, order, pallet) {
   if (pallet.status === 'outside' || pallet.outsideOrigin) return outsidePalletPosition(s, pallet);
   return palletPosition(s, s.shipments.find(shipment => shipment.id === pallet.shipmentId), pallet);
@@ -237,7 +241,7 @@ export function startDayOnLoad(s) {
 }
 export function premisesCosts(s) {
   const area=shopArea(s),ratio=area/1000;
-  const electricity=round(20*ratio+2*checkoutCount(s)+.5*s.shelfLayout.filter(Boolean).length+.5*s.products.reduce((n,p)=>n+p.reserveRacks,0)+3*autoCheckoutCount(s)+5*s.infrastructure.drive+5*s.infrastructure.web);
+  const electricity=round(20*ratio+2*checkoutCount(s)+.5*s.shelfLayout.filter(Boolean).length+.5*s.products.reduce((n,p)=>n+p.reserveRacks,0)+3*autoCheckoutCount(s)+5*s.infrastructure.drive+5*s.infrastructure.web+robotCount(s)*RESTOCK_ROBOT.electricity);
   const rows=[{name:'Loyer',cost:round(90*ratio)},{name:'Électricité',cost:electricity},{name:'Assurance',cost:round(10*ratio)},{name:'Entretien des locaux',cost:round(20*ratio)}];
   if(securityDailyCost(s))rows.push({name:'Surveillance',cost:securityDailyCost(s)});
   return {area,rows,total:round(rows.reduce((n,r)=>n+r.cost,0))};
@@ -283,9 +287,9 @@ export function moveFixture(s,id,x,z,rotation=0) {
   for(const w of s.restockers.filter(w=>w.phase!=='idle')){
     const i=s.products.findIndex(p=>p.id===w.productId),pickup=reserveAccessPoint(candidate,i,w.reserveRack||0,w.cargo||w.mode!=='small'?2.7:2);
     const shelf=shelfAccessPoint(candidate,i,w.completed),collecting=['collecting','loading'].includes(w.phase);
-    const destination=w.cargo?(collecting?pickup:w.phase==='returning'?RESTOCK_PICKUP:shelf):shelf;
+    const destination=w.cargo?(collecting?pickup:w.phase==='returning'?(w.robot?robotHome(w):RESTOCK_PICKUP):shelf):shelf;
     const patch={destination:[...destination],...(w.phase==='loading'||!w.cargo?{pickup:[...pickup]}:{})};
-    if(['collecting','outbound','returning'].includes(w.phase))reroute(w,patch,w.phase==='returning'&&!w.cargo?pickup:destination,RESTOCK_EQUIPMENT[w.mode].travelSpeed,restockerPosition(w));
+    if(['collecting','outbound','returning'].includes(w.phase))reroute(w,patch,w.phase==='returning'&&!w.cargo?pickup:destination,restockEquipment(w).travelSpeed,restockerPosition(w));
     else changes.push({w,patch});
   }
   for(const w of s.receivers.filter(w=>w.phase!=='idle')){
@@ -318,11 +322,13 @@ export function setStaff(s, role, amount) {
   if (!Object.hasOwn(s.staff, role) || !Number.isSafeInteger(amount) || amount < 0) throw new Error('Effectif invalide.');
   if (role === 'online') resizeOnlineStaff(s, amount);
   s.staff[role] = amount;
-  const workers = role === 'shelves' ? s.restockers : role === 'receiving' ? s.receivers : null;
+  const robots = role === 'shelves' ? robotWorkers(s) : null;
+  const workers = role === 'shelves' ? humanRestockers(s) : role === 'receiving' ? s.receivers : null;
   if (workers) {
     for (const worker of workers.slice(amount)) (role === 'shelves' ? resetRestocker : resetReceiver)(s, worker);
     workers.length = Math.min(workers.length, amount);
     while (workers.length < amount) workers.push((role === 'shelves' ? newRestocker : newReceiver)(workers.length));
+    if(role==='shelves')s.restockers=[...workers,...robots];
     if(role==='receiving')workers.filter(w=>w.phase==='idle').forEach(w=>{w.pickup=receiverHome(s,w);w.destination=[...w.pickup];});
   }
   if (role === 'checkout') releaseClosedCheckouts(s);
@@ -404,12 +410,31 @@ export function requestRestock(s, productId) {
     s.restockRequests.push(productId);
     log(s, `Remplissage prioritaire demandé : ${product.name}.`);
   }
-  return { productId, waitingForStaff: !s.staff.shelves };
+  return { productId, waitingForStaff: !s.staff.shelves && !robotCount(s) };
+}
+export function setRobotCount(s, amount) {
+  if(!['preparation','open'].includes(s.phase))throw new Error('Préparez la prochaine journée pour modifier la flotte.');
+  if(!Number.isSafeInteger(amount)||amount<0||amount>RESTOCK_ROBOT.limit)throw new Error(`Choisissez entre 0 et ${RESTOCK_ROBOT.limit} robots.`);
+  const robots=robotWorkers(s),delta=amount-robots.length,cost=Math.abs(delta)*(delta>0?RESTOCK_ROBOT.cost:RESTOCK_ROBOT.removal);
+  if(cost>s.money)throw new Error('Trésorerie insuffisante pour modifier la flotte de robots.');
+  if(!delta)return {count:amount,cost:0,cash:s.money};
+  if(delta<0){
+    const removed=new Set(robots.slice(amount));
+    for(const worker of removed)resetRestocker(s,worker);
+    s.restockers=s.restockers.filter(w=>!removed.has(w));
+  }else for(let n=0;n<delta;n++){
+    let id=1000;while(s.restockers.some(w=>w.robot&&w.id===id))id++;
+    const worker={...newRestocker(0),id,robot:true,mode:'robot'};
+    worker.pickup=robotHome(worker);worker.destination=[...worker.pickup];s.restockers.push(worker);
+  }
+  s.money=round(s.money-cost);s.spending=round(s.spending+cost);s.vatDeductible=round(s.vatDeductible+cost/6);
+  log(s,`Flotte de mise en rayon : ${amount} robot(s).`,delta>0?'success':'info');
+  return {count:amount,cost,cash:s.money};
 }
 function resetRestocker(s, worker) {
   if(worker.cargo){for(const line of worker.cargo)s.products.find(p=>p.id===line.productId).reserve+=line.quantity;delete worker.cargo;delete worker.cargoIndex;}
   else if (worker.load > 0) s.products.find(p => p.id === worker.productId).reserve += worker.load;
-  Object.assign(worker, { phase: 'idle', productId: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], destination: [...RESTOCK_PICKUP] });
+  Object.assign(worker, { phase: 'idle', productId: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], destination: [...(worker.robot?robotHome(worker):RESTOCK_PICKUP)],...(worker.robot?{pickup:robotHome(worker)}:{}) });
 }
 function beginRestockPhase(worker, phase, duration) {
   worker.phase = phase; worker.remaining = duration; worker.total = duration;
@@ -437,7 +462,7 @@ function restockTravel(s, worker, returning = false) {
   const path = [restockPickup(worker), [11.65, worker.pickup[1]], [11.65, RESTOCK_PICKUP[1]], [0, RESTOCK_PICKUP[1]], [0, -3.75], [10.4, -3.75], [10.4, z], [x, z]];
   worker.path = routeWaypoints(s,returning ? path.reverse() : path,.45);
   const distance = worker.path.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - worker.path[i][0], p[1] - worker.path[i][1]), 0);
-  beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.ceil(distance / RESTOCK_EQUIPMENT[worker.mode].travelSpeed));
+  beginRestockPhase(worker, returning ? 'returning' : 'outbound', Math.ceil(distance / restockEquipment(worker).travelSpeed));
 }
 function mixedTravel(s,w,destination,phase) {
  const start=restockerPosition(w),path=[start],fromReserve=start[1]<-4,toReserve=destination[1]<-4;
@@ -445,8 +470,8 @@ function mixedTravel(s,w,destination,phase) {
  else path.push([10.4,start[1]]);
  if(fromReserve!==toReserve)path.push([fromReserve?11.65:10.4,-3.65]);
  path.push([toReserve?11.65:10.4,destination[1]],destination);
- w.path=routeWaypoints(s,path,.45);const distance=w.path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-w.path[i][0],p[1]-w.path[i][1]),0);
- w.destination=[...destination];beginRestockPhase(w,phase,Math.max(1,Math.ceil(distance/RESTOCK_EQUIPMENT[w.mode].travelSpeed)));
+ w.path=(w.robot?walkingPath(s,start,destination,.45):null)||routeWaypoints(s,path,.45);const distance=w.path.slice(1).reduce((n,p,i)=>n+Math.hypot(p[0]-w.path[i][0],p[1]-w.path[i][1]),0);
+ w.destination=[...destination];beginRestockPhase(w,phase,Math.max(1,Math.ceil(distance/restockEquipment(w).travelSpeed)));
 }
 function mixedTarget(s,w,index,source) {
  const line=w.cargo[index],p=s.products.find(p=>p.id===line.productId),productIndex=s.products.indexOf(p);
@@ -461,25 +486,25 @@ function updateMixedRestocker(s,w) {
     return {p,index,projected:p.shelf+incoming,available:p.reserve-onlineReserved(s,p.id,'reserve')-s.restockers.reduce((n,o)=>n+restockReserved(o,p.id),0),need:p.capacity-p.shelf-onlineHeld(s,p.id,'shelf')-incoming};
   }).filter(c=>c.available>0&&c.need>0&&(s.restockRequests.includes(c.p.id)||c.projected<=c.p.capacity*RESTOCK_TRIGGER_RATIO)).sort((a,b)=>{const priority=p=>{const i=s.restockRequests.indexOf(p.id);return i<0?999:i;};return priority(a.p)-priority(b.p)||a.projected/a.p.capacity-b.projected/b.p.capacity;}).slice(0,3);
   if(!candidates.length)return;
-  w.mode=s.restockMode;
+  w.mode=w.robot?'robot':s.restockMode;
   const cargo=candidates.map(c=>({productId:c.p.id,quantity:0,reserved:0,reserveRack:Math.max(0,Math.min(c.p.reserveRacks-1,Math.ceil(c.available/(RESERVE_PRODUCT_CAPACITY+s.expansions.reserve*RESERVE_EXPANSION_CAPACITY))-1))}));
-  let capacity=RESTOCK_EQUIPMENT[w.mode].capacity,added=true;
+  let capacity=restockEquipment(w).capacity,added=true;
   while(capacity&&added){added=false;for(let i=0;i<candidates.length&&capacity;i++)if(cargo[i].reserved<Math.min(candidates[i].available,candidates[i].need)){cargo[i].reserved++;capacity--;added=true;}}
   w.cargo=cargo.filter(l=>l.reserved);w.load=0;w.reserved=w.cargo.reduce((n,l)=>n+l.reserved,0);mixedTarget(s,w,0,'reserve');return;
  }
  const line=w.cargo[w.cargoIndex];
  if(w.phase==='stocking') {
-  const p=s.products.find(p=>p.id===line.productId),quantity=Math.min(line.quantity,p.capacity-p.shelf-onlineHeld(s,p.id,'shelf'),RESTOCK_EQUIPMENT[w.mode].stockRate);
+  const p=s.products.find(p=>p.id===line.productId),quantity=Math.min(line.quantity,p.capacity-p.shelf-onlineHeld(s,p.id,'shelf'),restockEquipment(w).stockRate);
   p.shelf+=quantity;p.restockedToday+=quantity;line.quantity-=quantity;w.load-=quantity;
   if(!line.quantity||p.shelf>=p.capacity){
    if(line.quantity){p.reserve+=line.quantity;w.load-=line.quantity;line.quantity=0;}
    const next=w.cargo.findIndex(l=>l.quantity>0);
-   if(next>=0)mixedTarget(s,w,next,'shelf');else mixedTravel(s,w,RESTOCK_PICKUP,'returning');
+   if(next>=0)mixedTarget(s,w,next,'shelf');else mixedTravel(s,w,w.robot?robotHome(w):RESTOCK_PICKUP,'returning');
   }
   return;
  }
  w.remaining--;if(w.remaining>0)return;
- if(w.phase==='collecting'){w.pickup=[...w.destination];beginRestockPhase(w,'loading',RESTOCK_EQUIPMENT[w.mode].loading);}
+ if(w.phase==='collecting'){w.pickup=[...w.destination];beginRestockPhase(w,'loading',restockEquipment(w).loading);}
  else if(w.phase==='loading') {
   const p=s.products.find(p=>p.id===line.productId);p.reserve-=line.reserved;line.quantity+=line.reserved;w.load+=line.reserved;w.reserved-=line.reserved;line.reserved=0;
   const next=w.cargo.findIndex(l=>l.reserved>0);if(next>=0)mixedTarget(s,w,next,'reserve');else mixedTarget(s,w,w.cargo.findIndex(l=>l.quantity>0),'shelf');
@@ -493,8 +518,8 @@ function updateRestocking(s) {
     const jobs = s.restockers.filter(w => workerHasProduct(w,id) && w.phase !== 'returning');
     return p.reserve - onlineReserved(s,id,'reserve') - jobs.reduce((sum,w)=>sum+restockReserved(w,id),0) > 0 && p.capacity - p.shelf - onlineHeld(s,id,'shelf') - jobs.reduce((sum,w)=>sum+restockLoad(w,id)+restockReserved(w,id),0) > 0;
   });
-  for (const worker of s.restockers.slice(0, s.staff.shelves)) {
-    if(s.mixedRestock&&(worker.cargo||worker.phase==='idle')){updateMixedRestocker(s,worker);continue;}
+  for (const worker of s.restockers) {
+    if((s.mixedRestock||worker.robot)&&(worker.cargo||worker.phase==='idle')){updateMixedRestocker(s,worker);continue;}
     if (worker.phase === 'idle') {
       const candidates = s.products.map((p, index) => {
         const jobs = s.restockers.filter(w => workerHasProduct(w,p.id) && w.phase !== 'returning');
