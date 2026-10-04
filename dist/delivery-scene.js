@@ -1,17 +1,20 @@
 import * as THREE from 'three';
 import { stockCarton } from './scene-details.js';
-import { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets } from './delivery-logistics.js';
+import { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
 
 export function createDeliveryYard(scene, state, box, material, plaque) {
   const group = new THREE.Group(); group.name = 'delivery-yard'; group.userData.selection = { view: 'fournisseurs' }; scene.add(group);
   const infrastructure = new THREE.Group(); group.add(infrastructure);
-  box(infrastructure, 14, .12, 13.5, 5, -.16, -14.6, 0x79847a);
+  const yardFloor = box(infrastructure, 14, .12, 13.5, 5, -.16, -14.6, 0x79847a);
+  const annex = box(infrastructure, 6.8, .1, 3.6, 14.8, .07, -5.9, 0xc7d5c1);
   const outsideArea = new THREE.Group(); outsideArea.name = 'outside-pallet-area'; infrastructure.add(outsideArea);
-  box(outsideArea, 9.2, .07, 11.4, -7.5, -.075, -15.2, 0x87917c);
-  for (let slot = 0; slot < OUTSIDE_PALLET_CAPACITY; slot++) {
+  const outsideFloor = box(outsideArea, 9.2, .07, 11.4, -7.5, -.075, -15.2, 0x87917c);
+  const outsideMarks = [];
+  for (let slot = 0; slot < 60; slot++) {
+    const marks = new THREE.Group(); marks.name = `outside-slot-${slot}`; outsideArea.add(marks); outsideMarks.push(marks);
     const [x, z] = outsidePalletPosition({ expansions: { reserve: 0 } }, { outsideSlot: slot });
-    for (const side of [-1, 1]) box(outsideArea, .035, .015, 1.15, x + side * .65, -.025, z, 0xe4c566, false);
-    box(outsideArea, 1.33, .015, .035, x, -.025, z - .59, 0xe4c566, false);
+    for (const side of [-1, 1]) box(marks, .035, .015, 1.15, x + side * .65, -.025, z, 0xe4c566, false);
+    box(marks, 1.33, .015, .035, x, -.025, z - .59, 0xe4c566, false);
   }
   // Separate staff access keeps the buffer reachable when all three trucks are docked.
   for (const x of [-.65, .65]) box(infrastructure, .1, 2.1, .15, x, 1.05, -7.9, 0x708d77);
@@ -72,7 +75,14 @@ export function createDeliveryYard(scene, state, box, material, plaque) {
   }
   function update(minuteFraction = 0) {
     infrastructure.position.z = -state.expansions.reserve * 3;
-    bays.forEach(({ door, light }, index) => {
+    const extraWidth = Math.max(0, deliveryBayCount(state) - 3) * 3.4;
+    yardFloor.scale.x = (14 + extraWidth) / 14; yardFloor.position.x = 5 + extraWidth / 2;
+    annex.visible = extraWidth > 0; annex.scale.x = extraWidth / 6.8; annex.position.x = 11.4 + extraWidth / 2;
+    const capacity = outsideCapacity(state), depth = Math.max(1, Math.ceil(capacity / 5)) * 1.75 + .9;
+    outsideArea.visible = capacity > 0; outsideFloor.scale.z = depth / 11.4; outsideFloor.position.z = -10.1 - depth / 2;
+    outsideMarks.forEach((marks, index) => { marks.visible = index < capacity; });
+    bays.forEach(({ bay, door, light }, index) => {
+      bay.visible = index < deliveryBayCount(state);
       const truck = state.shipments.find(t => t.bay === index && t.phase !== 'complete');
       const open = truck && ['docked', 'departing'].includes(truck.phase);
       door.scale.y = open ? .05 : 1; door.position.y = open ? 2.95 : 1.45;

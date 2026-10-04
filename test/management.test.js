@@ -37,12 +37,12 @@ test('floor expansion adds empty furniture; theme choices occupy distinct slots 
 test('profit excludes VAT, owner cash and prior tax repayments, preserving signed daily losses', () => {
   const s = quiet(); setStaff(s, 'checkout', 1); setAutomaticTaxPayment(s, false); openStore(s);
   s.sales = 1200; s.money += 1200; s.vatCollected = 200; s.ownerContribution = 300; s.money += 300;
-  const estimate = dailyProfitability(s); assert.equal(estimate.beforeTax, 735); assert.equal(estimate.netProfit, 588);
+  const estimate = dailyProfitability(s); assert.equal(estimate.beforeTax, 648); assert.equal(estimate.netProfit, 518.4);
   s.minute = 1199; advance(s, 1); const first = s.history[0];
-  assert.equal(first.netProfit, estimate.netProfit); assert.equal(first.net, 1235);
-  payTaxes(s); const secondEstimate = dailyProfitability(s); assert.equal(secondEstimate.netProfit, -265);
+  assert.equal(first.netProfit, estimate.netProfit); assert.equal(first.net, 1148);
+  payTaxes(s); const secondEstimate = dailyProfitability(s); assert.equal(secondEstimate.netProfit, -352);
   s.minute = 1199; advance(s, 1); const second = s.history[1];
-  assert.equal(second.netProfit, -265); assert.equal(second.taxPaid, 347); assert.equal(second.net, -612);
+  assert.equal(second.netProfit, -352); assert.equal(second.taxPaid, 329.6); assert.equal(second.net, -681.6);
 });
 
 test('last-day product activity records only goods placed in shelves and actual paid baskets', () => {
@@ -63,7 +63,7 @@ test('groupage costs 10 per provider once, including Express, while a flash Expr
   const quote = quoteEveningBasket(s); assert.equal(quote.groups[0].deliveryFee, 10);
   const cash = s.money; openStore(s); s.minute = 1199; advance(s, 1);
   assert.equal(s.orders.reduce((sum,o) => sum + o.deliveryFee, 0), 10); assert.equal(s.history[0].spending, quote.totalCost);
-  assert.equal(Math.round(s.money * 100), Math.round((cash - quote.totalCost - 180) * 100));
+  assert.equal(Math.round(s.money * 100), Math.round((cash - quote.totalCost - 267) * 100));
   const order = placeOrder(s, 'home', 48, 'express'); assert.equal(order.deliveryFee, 150);
 });
 
@@ -86,7 +86,7 @@ test('four fixtures retain six dense product faces with access on opposite sides
     assert.equal(north[0], south[0]); assert.equal(north[2], -1); assert.equal(south[2], 1);
     assert.ok(north[1] - 1.45 < north[1] && south[1] + 1.45 > south[1]);
   }
-  expandStore(s, 'shelves'); assert.equal(shelfFixtureCount(s), 10);
+  expandStore(s, 'shelves'); assert.equal(shelfFixtureCount(s), 4);
   setShelfCount(s, 'produce', 2); assert.equal(s.products[0].capacity, 1200);
   assert.notDeepEqual(productShelfPosition(s, 0, 0), productShelfPosition(s, 0, 1));
 });

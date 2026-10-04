@@ -18,7 +18,7 @@ test('staff can exceed eight without taking workers from another team and payrol
   const s = createGame();
   setStaff(s, 'checkout', 12); setStaff(s, 'shelves', 24); setStaff(s, 'receiving', 10);
   assert.equal(staffCount(s), 46); assert.equal(s.restockers.length, 24); assert.equal(s.receivers.length, 10);
-  assert.equal(dailyCosts(s), 46 * 85 + 4 * 5 + 160);
+  assert.equal(dailyCosts(s), 46 * 85 + 107 + 160);
   const before = JSON.stringify(s);
   for (const [role, amount] of [['shelves', -1], ['shelves', 1.5], ['reserve', 1], ['unknown', 1]]) assert.throws(() => setStaff(s, role, amount));
   assert.equal(JSON.stringify(s), before);

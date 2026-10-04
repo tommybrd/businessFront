@@ -179,3 +179,7 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 @media(max-width:480px){.hud-metrics{flex-wrap:wrap}.hud-metric{flex:1 1 32%;min-height:44px}.hud-metric:nth-child(4){border-left:0}.management,.journal{top:210px}.delivery-status{top:210px}.hud-metric>span{margin-bottom:2px}}
 
 .shelf-allocation{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0;font-size:13px;color:#c6d4be}.shelf-title{flex-wrap:wrap}.stock-level{font-size:12px}
+
+.installation-control{padding:12px;margin:10px 0;border:1px solid #496247;border-radius:5px;background:#284236}.installation-title,.installation-actions{display:flex;justify-content:space-between;align-items:center;gap:10px}.installation-title span{font-weight:700}.installation-control p{font-size:14px;line-height:1.5;margin:8px 0}.installation-actions button{flex:1;min-height:40px}.installation-control small{display:block;font-size:13px;line-height:1.5;color:#b7c9bd;margin-top:8px}.maintenance-details .finance-row small{display:block;color:#b7c9bd;font-size:13px;margin-top:3px}
+
+.warehouse-product>.installation-control{grid-column:1/-1}

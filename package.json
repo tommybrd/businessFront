@@ -1,6 +1,6 @@
 {
   "name": "market-front",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "Jeu de gestion de supermarch\u00e9 en vue d'ensemble",
@@ -8,7 +8,7 @@
     "dev": "node scripts/serve.mjs",
     "start": "node scripts/serve.mjs",
     "check": "node --check dist/engine.js && node --check dist/game.js && node --check dist/scene.js && node --check dist/camera-controls.js && node --check dist/scene-details.js && node --check dist/delivery-logistics.js && node --check dist/delivery-scene.js && node --check dist/checkout-flow.js && node --check dist/checkout-visuals.js",
-    "test": "node test/engine.test.js && node test/camera.test.js && node test/supply-finance.test.js && node test/delivery.test.js && node test/checkout.test.js && node test/management.test.js && node test/balance.test.js",
+    "test": "node test/engine.test.js && node test/camera.test.js && node test/supply-finance.test.js && node test/delivery.test.js && node test/checkout.test.js && node test/management.test.js && node test/balance.test.js && node test/installations.test.js",
     "build": "node scripts/build.mjs",
     "balance": "node scripts/balance.mjs"
   },

@@ -1,7 +1,7 @@
-import { checkoutCount, activeCheckoutLanes, releaseClosedCheckouts, updateCheckouts } from './checkout-flow.js';
+import { checkoutCount, checkoutSpace, activeCheckoutLanes, releaseClosedCheckouts, updateCheckouts } from './checkout-flow.js';
 export { checkoutCount, activeCheckoutLanes } from './checkout-flow.js';
-import { PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
-export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed } from './delivery-logistics.js';
+import { PALLETS_PER_TRUCK, DELIVERY_BAYS, palletPosition, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount, freeOutsideSlot, updateShipments, finishShipments } from './delivery-logistics.js';
+export { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideSlotsUsed, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
 export const ORDER_MAX_QUANTITY = 1000;
 export const GROUPED_DELIVERY_FEE = 10;
 export const ORDER_QUANTITIES = [12, 24, 48, 120, 240, 480, 720, 1000];
@@ -33,13 +33,84 @@ export const RESERVE_EXPANSION_CAPACITY = 250;
 export const RESERVE_CAPACITY = RESERVE_PRODUCT_CAPACITY * PRODUCTS.length;
 export const STAFF_DAILY_WAGE = 85;
 export const staffCount = s => Object.values(s.staff).reduce((sum, n) => sum + n, 0);
-export const dailyCosts = s => staffCount(s) * STAFF_DAILY_WAGE + checkoutDailyCosts(s) + 160;
+export const dailyCosts = s => staffCount(s) * STAFF_DAILY_WAGE + maintenanceCosts(s).total + 160;
 export const STORE_EXPANSIONS = {
   checkout: { name: 'Zone de paiement', costs: [2000, 3500] },
   shelves: { name: 'Rayons', costs: [3000, 5000] },
   reserve: { name: 'Réserve', costs: [2500, 4500] },
 };
 export const checkoutDailyCosts = s => checkoutCount(s) * 5 + (s.autoCheckout ? 8 : 0);
+export const INSTALLATIONS = {
+  checkouts: { name: 'Caisses', install: 900, remove: 120, maintenance: 5 },
+  auto: { name: 'Caisse automatique', install: 3500, remove: 400, maintenance: 8 },
+  shelves: { name: 'Faces de rayon', install: 350, remove: 80, maintenance: 3 },
+  reserve: { name: 'Racks de réserve', install: 700, remove: 150, maintenance: 4 },
+  bays: { name: 'Quais de déchargement', install: 1800, remove: 300, maintenance: 10 },
+  outside: { name: 'Places de palettes dehors', install: 40, remove: 10, maintenance: .5 },
+};
+export function maintenanceCosts(s) {
+  const counts = { checkouts: checkoutCount(s), auto: Number(s.autoCheckout), shelves: s.shelfLayout.filter(Boolean).length,
+    reserve: s.products.reduce((sum, p) => sum + p.reserveRacks, 0), bays: deliveryBayCount(s), outside: outsideCapacity(s) };
+  const rows = Object.entries(INSTALLATIONS).map(([kind, definition]) => ({ kind, name: definition.name, count: counts[kind], unitCost: definition.maintenance, cost: round(counts[kind] * definition.maintenance) }));
+  return { rows, total: round(rows.reduce((sum, row) => sum + row.cost, 0)) };
+}
+export function installationCount(s, kind, productId) {
+  if (!Object.hasOwn(INSTALLATIONS, kind)) throw new Error('Installation inconnue.');
+  if (kind === 'shelves' || kind === 'reserve') {
+    const p = s.products.find(p => p.id === productId); if (!p) throw new Error('Produit inconnu.');
+    return kind === 'shelves' ? s.shelfLayout.filter(id => id === productId).length : p.reserveRacks;
+  }
+  return kind === 'auto' ? Number(s.autoCheckout) : s.infrastructure[kind];
+}
+export function installationLimit(s, kind, productId) {
+  if (kind === 'checkouts') return checkoutSpace(s);
+  if (kind === 'auto') return 1;
+  if (kind === 'reserve') return 1 + s.expansions.reserve;
+  if (kind === 'bays') return 3 + s.expansions.reserve;
+  if (kind === 'outside') return 30 + s.expansions.reserve * 15;
+  if (kind === 'shelves') return installationCount(s, kind, productId) + s.shelfLayout.filter(id => id === null).length;
+  throw new Error('Installation inconnue.');
+}
+export function quoteInstallation(s, kind, amount, productId) {
+  const current = installationCount(s, kind, productId), limit = installationLimit(s, kind, productId);
+  if (!Number.isSafeInteger(amount) || amount < 0 || amount > limit) throw new Error(`Choisissez un nombre entre 0 et ${limit}. Agrandissez la zone pour obtenir plus de place.`);
+  const definition = INSTALLATIONS[kind], delta = amount - current;
+  return { kind, productId, current, amount, limit, delta, totalCost: round(Math.abs(delta) * (delta >= 0 ? definition.install : definition.remove)), dailyMaintenance: round(amount * definition.maintenance) };
+}
+function payInstallation(s, quote) {
+  if (!quote.delta) return;
+  s.money = round(s.money - quote.totalCost); s.spending = round(s.spending + quote.totalCost);
+  s.vatDeductible = round(s.vatDeductible + quote.totalCost / 6);
+  log(s, `${INSTALLATIONS[quote.kind].name} : ${Math.abs(quote.delta)} ${quote.delta > 0 ? 'installé(s)' : 'retiré(s)'} · ${quote.totalCost} €.`, 'success');
+}
+export function setInstallation(s, kind, amount, productId) {
+  if (!['preparation', 'open'].includes(s.phase)) throw new Error('Les travaux ne sont pas disponibles.');
+  if (kind === 'shelves') return setShelfCount(s, productId, amount);
+  const quote = quoteInstallation(s, kind, amount, productId);
+  if (!quote.delta) return { ...quote, cash: s.money };
+  if (quote.totalCost > s.money) throw new Error('Trésorerie insuffisante pour ces travaux.');
+  if (quote.delta < 0) {
+    if (kind === 'checkouts' && s.customers.some(c => c.stage === 'checkout' && Number.isInteger(c.checkoutLane) && c.checkoutLane >= amount)) throw new Error('Cette caisse sert un client. Attendez la fin du paiement.');
+    if (kind === 'auto' && s.customers.some(c => c.stage === 'checkout' && c.checkoutLane === 'auto')) throw new Error('La caisse automatique sert un client.');
+    if (kind === 'bays' && s.shipments.some(t => t.bay >= amount && ['positioning', 'reversing', 'docked', 'departing'].includes(t.phase))) throw new Error('Un camion utilise ce quai. Attendez son départ.');
+    if (kind === 'outside' && s.orders.some(o => o.pallets.some(p => p.outsideSlot !== null && p.outsideSlot !== undefined && p.outsideSlot >= amount))) throw new Error('Les dernières places sont occupées ou réservées à un transpalette. Libérez-les avant le retrait.');
+    if (kind === 'reserve') {
+      const p = s.products.find(p => p.id === productId), index = s.products.indexOf(p);
+      const capacity = amount * (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY);
+      const held = s.customers.reduce((sum, c) => sum + c.basket.filter(item => item.index === index).reduce((n, item) => n + item.quantity, 0), 0);
+      const carried = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load, 0);
+      const committed = s.receivers.filter(w => w.productId === productId && !w.toOutside).reduce((sum, w) => sum + w.load + w.reserved, 0);
+      const busy = [...s.restockers, ...s.receivers].some(w => w.productId === productId && w.reserveRack >= amount && !['idle', 'returning'].includes(w.phase));
+      if (p.reserve + held + carried + committed > capacity || busy) throw new Error('Ce rack contient du stock ou sert à un transport en cours. Videz-le avant de le retirer.');
+    }
+  }
+  payInstallation(s, quote);
+  if (kind === 'reserve') { const p = s.products.find(p => p.id === productId); p.reserveRacks = amount; p.reserveCapacity = amount * (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY); }
+  else if (kind === 'auto') s.autoCheckout = Boolean(amount);
+  else s.infrastructure[kind] = amount;
+  if (kind === 'checkouts' || kind === 'auto') releaseClosedCheckouts(s);
+  return { ...quote, cash: s.money };
+}
 export const receivingInTransit = s => s.receivers.reduce((sum, worker) => sum + worker.load, 0);
 export const RESTOCK_EQUIPMENT = {
   small: { name: 'Petit chariot', capacity: 8, cost: 0, loading: 2, stockRate: 2, travelSpeed: 2.4, requires: null },
@@ -52,7 +123,7 @@ export const RESTOCK_SHELVES = [[-4.5, -2], [4.5, -2], [-4.5, 1.26], [-4.5, 2.74
 export const shelfPosition = slot => slot < 6 ? [...RESTOCK_SHELVES[slot]] : [-6.4 + ((slot - 6) % 3) * 6.4, 6.4 + Math.floor((slot - 6) / 3) * 3.8];
 export const shelfRotation = slot => slot === 2 || slot === 4 ? Math.PI : 0;
 export const shelfFixtureId = slot => slot < 2 ? slot : slot < 6 ? 2 + Math.floor((slot - 2) / 2) : slot - 2;
-export const shelfFixtureCount = s => new Set(s.shelfLayout.map((_, slot) => shelfFixtureId(slot))).size;
+export const shelfFixtureCount = s => new Set(s.shelfLayout.flatMap((id, slot) => id ? [shelfFixtureId(slot)] : [])).size;
 function productShelfSlot(s, index, ordinal) {
   const slots = s.shelfLayout.map((id, slot) => id === s.products[index].id ? slot : -1).filter(slot => slot >= 0);
   return slots[ordinal % slots.length] ?? index;
@@ -65,7 +136,7 @@ export function productShelfAccess(s, index, ordinal = 0) {
   return [x, z, shelfRotation(slot) ? -1 : 1];
 }
 export const storeFrontExtension = expansions => 2.2 + expansions.checkout * 3 + expansions.shelves * 7.6;
-export const reserveProductPosition = index => [-9.2 + (index % 3) * 3.5, -6.9 + Math.floor(index / 3) * 1.75];
+export const reserveProductPosition = (index, rack = 0) => [-9.2 + (index % 3) * 3.5, -5.35 - Math.floor(index / 3) * 1.6 - rack * 3];
 export function deliveryPalletPosition(s, order, pallet) {
   if (pallet.status === 'outside' || pallet.outsideOrigin) return outsidePalletPosition(s, pallet);
   return palletPosition(s, s.shipments.find(shipment => shipment.id === pallet.shipmentId), pallet);
@@ -82,7 +153,7 @@ export function createGame(seed = 73471) {
   return {
     day: 1, minute: 450, money: 8500, phase: 'preparation', speed: 0,
     seed, nextId: 1, staff: { checkout: 2, shelves: 5, receiving: 1 },
-    products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: RESERVE_PRODUCT_CAPACITY, soldToday: 0, restockedToday: 0 })),
+    products: PRODUCTS.map(p => ({ ...p, shelf: INITIAL_SHELF_STOCK, reserve: 30, reserveCapacity: RESERVE_PRODUCT_CAPACITY, reserveRacks: 1, soldToday: 0, restockedToday: 0 })),
     orders: [], shipments: [], eveningBasket: [], eveningError: null, customers: [], sold: 0, lost: 0, sales: 0, spending: 0,
     satisfaction: 100, autoCheckout: false, checkoutCredit: 0,
     directorSalary: 0, personalCash: 0, personalTransactions: [], ownerContribution: 0,
@@ -90,7 +161,7 @@ export function createGame(seed = 73471) {
     restockMode: 'small', restockUnlocked: { small: true, medium: false, large: false }, restockRequests: [],
     restockers: Array.from({ length: 5 }, (_, id) => newRestocker(id)),
     expansions: { checkout: 0, shelves: 0, reserve: 0 }, discarded: 0,
-    shelfLayout: PRODUCTS.map(p => p.id),
+    shelfLayout: PRODUCTS.map(p => p.id), infrastructure: { checkouts: 4, bays: 3, outside: 30 },
     receivers: [newReceiver(0)],
     arrivalCredit: 0, elapsed: 0, history: [], summary: null,
     log: [{ text: 'Bienvenue, directeur. Préparez vos équipes et vos premières commandes.', kind: 'info', time: '07:30' }],
@@ -124,7 +195,7 @@ export function expandStore(s, zone) {
   if (s.money < cost) throw new Error('Trésorerie insuffisante pour cet agrandissement.');
   s.money = round(s.money - cost); s.spending = round(s.spending + cost); s.expansions[zone]++;
   s.vatDeductible = round(s.vatDeductible + cost / 6);
-  if (zone === 'reserve') s.products.forEach(p => { p.reserveCapacity += RESERVE_EXPANSION_CAPACITY; });
+  if (zone === 'reserve') s.products.forEach(p => { p.reserveCapacity += RESERVE_EXPANSION_CAPACITY * p.reserveRacks; });
   if (zone === 'shelves') s.shelfLayout.push(...Array(6).fill(null));
   log(s, `${STORE_EXPANSIONS[zone].name} : agrandissement terminé, ${cost} €.`, 'success');
   return { zone, level: s.expansions[zone], cash: s.money };
@@ -134,16 +205,20 @@ export function setShelfCount(s, productId, amount) {
   const product = s.products.find(p => p.id === productId);
   if (!product || !Number.isSafeInteger(amount) || amount < 0) throw new Error('Nombre de meubles invalide.');
   const slots = s.shelfLayout.map((id, slot) => id === productId ? slot : -1).filter(slot => slot >= 0);
+  const quote = quoteInstallation(s, 'shelves', amount, productId);
   const capacity = amount * SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS;
   const committed = s.restockers.filter(w => w.productId === productId).reduce((sum, w) => sum + w.load + w.reserved, 0);
   const held = s.customers.reduce((sum, c) => sum + c.basket.filter(item => s.products[item.index].id === productId).reduce((n, item) => n + item.quantity, 0), 0);
   if (product.shelf + committed + held > capacity) throw new Error('Il reste trop d’articles ou de chargements pour retirer ce meuble. Attendez que le stock baisse.');
   const free = s.shelfLayout.map((id, slot) => id === null ? slot : -1).filter(slot => slot >= 0);
   if (amount - slots.length > free.length) throw new Error('Agrandissez la zone des rayons pour disposer de nouveaux emplacements.');
+  if (amount < slots.length && s.restockers.some(w => w.productId === productId && !['idle', 'returning'].includes(w.phase))) throw new Error('Attendez la fin de la mise en rayon avant de retirer cette face.');
+  if (quote.totalCost > s.money) throw new Error('Trésorerie insuffisante pour ces travaux.');
+  payInstallation(s, quote);
   if (amount > slots.length) free.slice(0, amount - slots.length).forEach(slot => { s.shelfLayout[slot] = productId; });
   else slots.slice(amount).forEach(slot => { s.shelfLayout[slot] = null; });
   product.capacity = capacity;
-  return { productId, count: amount, capacity, freeSlots: s.shelfLayout.filter(id => id === null).length };
+  return { ...quote, productId, count: amount, capacity, freeSlots: s.shelfLayout.filter(id => id === null).length };
 }
 export function discardReserve(s, productId, quantity) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Le magasin ne peut plus être géré.');
@@ -239,7 +314,8 @@ function updateRestocking(s) {
       worker.mode = s.restockMode; worker.productId = target.p.id;
       worker.reserved = Math.min(RESTOCK_EQUIPMENT[worker.mode].capacity, target.available, target.need);
       const [x, z, side] = productShelfAccess(s, target.index, worker.completed); worker.destination = [x + 1.8, z + side * 1.45];
-      const [rx, rz] = reserveProductPosition(target.index); worker.pickup = [rx + 1.75, rz];
+      worker.reserveRack = Math.max(0, Math.min(target.p.reserveRacks - 1, Math.ceil(target.available / (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY)) - 1));
+      const [rx, rz] = reserveProductPosition(target.index, worker.reserveRack); worker.pickup = [rx + 1.75, rz];
       beginRestockPhase(worker, 'loading', RESTOCK_EQUIPMENT[worker.mode].loading);
       continue;
     }
@@ -336,11 +412,7 @@ function dispatchEveningBasket(s) {
 }
 export function buyAutoCheckout(s) {
   if (s.autoCheckout) throw new Error('La caisse automatique est déjà installée.');
-  if (s.money < 3500) throw new Error('Il faut 3 500 € pour installer une caisse automatique.');
-  if (s.phase === 'closed' || s.phase === 'bankrupt') throw new Error('Attendez la préparation de la prochaine journée.');
-  s.money -= 3500; s.spending += 3500; s.autoCheckout = true;
-  s.vatDeductible = round(s.vatDeductible + 3500 / 6);
-  log(s, 'Caisse automatique installée. Elle fonctionne avec au moins un employé aux caisses.', 'success');
+  return setInstallation(s, 'auto', 1);
 }
 export function openStore(s) {
   if (s.phase !== 'preparation') throw new Error('Le magasin ne peut pas ouvrir maintenant.');
@@ -419,7 +491,7 @@ function closeStore(s) {
   const profitTax = profitability.profitTax; s.profitTaxDue = round(s.profitTaxDue + profitTax);
   if (s.autoPayTaxes) settleTaxes(s);
   s.phase = s.money < -1000 ? 'bankrupt' : 'closed';
-  s.summary = { day: s.day, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
+  s.summary = { day: s.day, maintenance: maintenanceCosts(s).total, maintenanceDetails: maintenanceCosts(s).rows, sales: s.sales, spending: s.spending, expenses: operatingCost + salaryPaid, salaryPaid, beforeTax: profitability.beforeTax, netProfit: profitability.netProfit, vatCollected: s.vatCollected, vatDeductible: s.vatDeductible, vatCharged, profitTax, taxableProfit, taxPaid: s.taxPaidToday, contribution: s.ownerContribution, net: round(s.sales + s.ownerContribution - s.spending - operatingCost - salaryPaid - s.taxPaidToday), sold: s.sold, lost: s.lost };
   s.history.push({ ...s.summary });
   s.summary.products = s.products.map(p => ({ id: p.id, sold: p.soldToday, restocked: p.restockedToday }));
   s.history.at(-1).products = s.summary.products;
@@ -508,10 +580,11 @@ function updateReceiving(s) {
       const start = restockerPosition(worker), back = s.expansions.reserve * 3;
       const truck = s.shipments.find(t => t.id === pallet.shipmentId); worker.shipmentBay = truck.bay;
       worker.productId = order.productId; worker.orderId = order.id;
+      worker.reserveRack = Math.min(Math.max(0, Math.floor(s.products.find(p => p.id === order.productId).reserve / (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY))), Math.max(0, s.products.find(p => p.id === order.productId).reserveRacks - 1));
       worker.palletIndex = pallet.index; worker.reserved = pallet.remaining; pallet.status = 'reserved';
       const [px, pz] = deliveryPalletPosition(s, order, pallet); worker.pickup = [px, pz + 1];
       if (worker.toOutside) { const [ox, oz] = outsidePalletPosition(s, pallet); worker.destination = [ox, oz + 1]; }
-      else { const [rx, rz] = reserveProductPosition(s.products.findIndex(p => p.id === order.productId)); worker.destination = [rx + 1.75, rz]; }
+      else { const [rx, rz] = reserveProductPosition(s.products.findIndex(p => p.id === order.productId), worker.reserveRack || 0); worker.destination = [rx + 1.75, rz]; }
       worker.path = outside
         ? [start, [0, -6.35 - back], [0, -9.2 - back], [px, -9.2 - back], worker.pickup]
         : [start, [DELIVERY_BAYS[truck.bay], -6.35 - back], worker.pickup];

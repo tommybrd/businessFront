@@ -1,7 +1,8 @@
 // Keep small baskets at four minutes; larger shops share the same unload/payment overhead.
 export const checkoutDuration = count => 3 + Math.ceil(count / 8);
 
-export const checkoutCount = state => 4 + state.expansions.checkout * 2;
+export const checkoutSpace = state => 4 + state.expansions.checkout * 2;
+export const checkoutCount = state => state.infrastructure?.checkouts ?? checkoutSpace(state);
 
 // One minute to unload, a sequential scan, then one minute to pay.
 export function checkoutProgress(customer, minuteFraction = 0) {

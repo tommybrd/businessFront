@@ -72,8 +72,8 @@ export function createStoreScene(canvas, state, onSelect) {
   box(store, 0.2, 0.9, 2.3, 0, 0.5, -6.35, 0xd2ddca);
   const reserve = new THREE.Group(), dock = new THREE.Group(); store.add(reserve, dock);
   reserve.userData.selection = { view: 'reserve' }; dock.userData.selection = { view: 'fournisseurs' };
-  const reserveZones = state.products.map((product, i) => {
-    const group = new THREE.Group(), [x, z] = reserveProductPosition(i); group.position.set(x, 0, z);
+  const reserveZones = state.products.flatMap((product, i) => Array.from({ length: 3 }, (_, ordinal) => {
+    const group = new THREE.Group(), [x, z] = reserveProductPosition(i, ordinal); group.name = `reserve-rack-${product.id}-${ordinal}`; group.position.set(x, 0, z);
     group.userData.selection = { view: 'reserve', productId: product.id };
     box(group, 3.05, 0.025, 1.4, 0, 0.15, 0, product.color, false);
     const posts = [];
@@ -89,8 +89,8 @@ export function createStoreScene(canvas, state, onSelect) {
       crates.at(-1).userData.level = level;
     }
     const sign = plaque(product.short, 2.3); sign.position.set(0, .27, .75); group.add(sign);
-    reserve.add(group); return { group, crates, boards, posts };
-  });
+    reserve.add(group); return { group, crates, boards, posts, index: i, ordinal };
+  }));
   const deliveryYard = createDeliveryYard(scene, state, box, material, plaque);
   const fixtures = Array.from({ length: 16 }, (_, id) => {
     const group = new THREE.Group(); group.name = `shelf-fixture-${id}`;
@@ -124,10 +124,9 @@ export function createStoreScene(canvas, state, onSelect) {
   const shelves = [];
   const emptyShelves = Array.from({ length: 18 }, (_, slot) => {
     const group = new THREE.Group(), [x, z] = shelfPosition(slot); group.position.set(x, 0, z); group.name = `shelf-empty-${slot}`;
-    group.rotation.y = shelfRotation(slot); group.userData.selection = { view: 'rayons' }; fixtures[shelfFixtureId(slot)].add(group);
-    for (let level = 0; level < SHELF_INITIAL_LEVELS; level++) box(group, 5.4, .1, 1.45, 0, .42 + level * .38, 0, 0xd1dbc5);
-    for (const x of [-2.6, 2.6]) for (const z of [-.65, .65]) box(group, .09, 2.05, .09, x, 1.2, z, COLORS.steel);
-    const sign = plaque('À AFFECTER', 2.2); sign.position.set(0, 1.12, .77); group.add(sign); return group;
+    group.rotation.y = shelfRotation(slot); group.userData.selection = { view: 'rayons' }; store.add(group);
+    box(group, 5.4, .015, 1.45, 0, .08, 0, 0xc3cfc2, false);
+    const sign = plaque('À INSTALLER', 2.2); sign.position.set(0, .15, .77); group.add(sign); return group;
   });
   const checkouts = [];
   const laneX = (i, lanes) => (i - (lanes - 1) / 2) * (lanes <= 4 ? 4 : 3);
@@ -315,9 +314,11 @@ export function createStoreScene(canvas, state, onSelect) {
     rightWall.position.set(11.4 + wide / 2, 0.18, (front - back) / 2); rightWall.scale.z = leftWall.scale.z;
     entrance.position.z = 7.5 + front; exitSign.position.z = 7.5 + front;
     surroundings.update(seconds, running, state.expansions);
-    reserveZones.forEach((zone, i) => {
-      const product = state.products[i], levels = 3 + state.expansions.reserve;
-      const count = Math.ceil(product.reserve / 12);
+    reserveZones.forEach(zone => {
+      const product = state.products[zone.index], levels = 3 + state.expansions.reserve;
+      zone.group.visible = zone.ordinal < product.reserveRacks;
+      const perRack = product.reserveRacks ? product.reserveCapacity / product.reserveRacks : 0;
+      const count = Math.ceil(Math.max(0, Math.min(perRack, product.reserve - zone.ordinal * perRack)) / 12);
       zone.boards.forEach((pair, level) => pair.forEach(board => { board.visible = level < levels; }));
       zone.posts.forEach(post => { post.scale.y = (2.65 + state.expansions.reserve * .8) / 2.65; post.position.y = 1.46 + state.expansions.reserve * .4; });
       zone.crates.forEach((crate, n) => {
@@ -326,7 +327,7 @@ export function createStoreScene(canvas, state, onSelect) {
       });
     });
     deliveryYard.update(minuteFraction);
-    const installedFixtures = new Set(state.shelfLayout.map((_, slot) => shelfFixtureId(slot)));
+    const installedFixtures = new Set(state.shelfLayout.flatMap((id, slot) => id ? [shelfFixtureId(slot)] : []));
     fixtures.forEach((group, id) => { group.visible = installedFixtures.has(id); });
     emptyShelves.forEach((group, slot) => { group.visible = slot < state.shelfLayout.length && state.shelfLayout[slot] === null; });
     for (let slot = 0; slot < state.shelfLayout.length; slot++) {

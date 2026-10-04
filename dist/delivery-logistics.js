@@ -1,5 +1,7 @@
 // Truck movements and pallet coordinates share the simulation clock.
-export const DELIVERY_BAYS = [2.2, 5.6, 9];
+export const DELIVERY_BAYS = [2.2, 5.6, 9, 12.4, 15.8];
+export const deliveryBayCount = state => state.infrastructure?.bays ?? 3;
+export const outsideCapacity = state => state.infrastructure?.outside ?? OUTSIDE_PALLET_CAPACITY;
 export const PALLETS_PER_TRUCK = 10;
 export const OUTSIDE_PALLET_CAPACITY = 30;
 export function outsidePalletPosition(state, pallet) {
@@ -13,13 +15,13 @@ export function outsideSlotsUsed(state) {
 }
 export function freeOutsideSlot(state) {
   const used = new Set(state.orders.flatMap(o => o.pallets.map(p => p.outsideSlot).filter(slot => slot !== null && slot !== undefined)));
-  for (let i = 0; i < OUTSIDE_PALLET_CAPACITY; i++) if (!used.has(i)) return i;
+  for (let i = 0; i < outsideCapacity(state); i++) if (!used.has(i)) return i;
   return null;
 }
 const clamp = n => Math.max(0, Math.min(1, n));
 const lerp = (a, b, t) => a + (b - a) * t;
 export function truckPose(state, shipment, minuteFraction = 0) {
-  const back = state.expansions.reserve * 3, wide = Math.max(state.expansions.shelves * 2, state.expansions.checkout);
+  const back = state.expansions.reserve * 3, wide = Math.max(state.expansions.shelves * 2, state.expansions.checkout) + Math.max(0, deliveryBayCount(state) - 3) * 3.4;
   const x = DELIVERY_BAYS[shipment.bay ?? 0], z = -11.15 - back;
   const time = state.elapsed + minuteFraction;
   if (shipment.phase === 'enroute') return { x: 16 + wide, z: -19 - back - Math.max(0, shipment.eta - time - 8) * 1.8, rotation: 0 };
@@ -57,7 +59,7 @@ export function updateShipments(state) {
   }
   const occupied = new Set(state.shipments.filter(s => ['positioning', 'reversing', 'docked', 'departing'].includes(s.phase)).map(s => s.bay));
   for (const shipment of state.shipments.filter(s => s.phase === 'waiting').sort((a, b) => a.eta - b.eta || a.id - b.id)) {
-    const bay = DELIVERY_BAYS.findIndex((_, index) => !occupied.has(index));
+    const bay = DELIVERY_BAYS.slice(0, deliveryBayCount(state)).findIndex((_, index) => !occupied.has(index));
     if (bay < 0) break;
     shipment.bay = bay; shipment.phase = 'positioning'; shipment.phaseStarted = state.elapsed; occupied.add(bay);
   }
