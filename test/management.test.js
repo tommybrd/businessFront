@@ -22,15 +22,15 @@ test('500 articles fit per family; expansion opens 750 then 1000 without sharing
 test('floor expansion adds empty furniture; theme choices occupy distinct slots and protect real stock', () => {
   const s = quiet(); const snapshot = JSON.stringify(s);
   assert.throws(() => setShelfCount(s, 'produce', 2)); assert.equal(JSON.stringify(s), snapshot);
-  expandStore(s, 'shelves'); assert.equal(s.shelfLayout.length, 12); assert.equal(s.products[0].capacity, 600);
-  setShelfCount(s, 'produce', 4); setShelfCount(s, 'drinks', 3);
-  assert.equal(s.shelfLayout.filter(id => id === 'produce').length, 4); assert.equal(s.products[0].capacity, 2400);
-  assert.equal(s.shelfLayout.filter(id => id === null).length, 1);
-  const locations = Array.from({length:4}, (_, i) => productShelfPosition(s, 0, i));
-  assert.equal(new Set(locations.map(JSON.stringify)).size, 4);
+  expandStore(s, 'shelves'); assert.equal(s.shelfLayout.length, 36); assert.equal(s.products[0].capacity, 600);
+  setShelfCount(s, 'produce', 12); setShelfCount(s, 'drinks', 9);
+  assert.equal(s.shelfLayout.filter(id => id === 'produce').length, 12); assert.equal(s.products[0].capacity, 2400);
+  assert.equal(s.shelfLayout.filter(id => id === null).length, 3);
+  const locations = Array.from({length:12}, (_, i) => productShelfPosition(s, 0, i));
+  assert.equal(new Set(locations.map(JSON.stringify)).size, 12);
   s.products[0].shelf = 1801; const protectedState = JSON.stringify(s);
-  assert.throws(() => setShelfCount(s, 'produce', 3)); assert.equal(JSON.stringify(s), protectedState);
-  s.products[0].shelf = 600; setShelfCount(s, 'produce', 1); assert.equal(s.products[0].capacity, 600);
+  assert.throws(() => setShelfCount(s, 'produce', 9)); assert.equal(JSON.stringify(s), protectedState);
+  s.products[0].shelf = 600; setShelfCount(s, 'produce', 3); assert.equal(s.products[0].capacity, 600);
   assert.throws(() => setShelfCount(s, 'produce', 0)); assert.throws(() => setShelfCount(s, 'produce', -1));
 });
 
@@ -78,15 +78,15 @@ test('articles leave the cart one by one, scan sequentially, and payment starts 
 });
 
 // The reduced floor layout must keep every family reachable on its own face.
-test('four fixtures retain six dense product faces with access on opposite sides of each gondola', () => {
-  const s = quiet(); assert.equal(shelfFixtureCount(s), 4);
+test('twelve short fixtures retain eighteen dense modules with access on opposite sides of each gondola', () => {
+  const s = quiet(); assert.equal(shelfFixtureCount(s), 12);
   assert.ok(s.products.every(p => p.capacity === 600 && p.shelf === 480));
   for (const [a, b] of [[2, 3], [4, 5]]) {
     const north = productShelfAccess(s, a), south = productShelfAccess(s, b);
     assert.equal(north[0], south[0]); assert.equal(north[2], -1); assert.equal(south[2], 1);
     assert.ok(north[1] - 1.45 < north[1] && south[1] + 1.45 > south[1]);
   }
-  expandStore(s, 'shelves'); assert.equal(shelfFixtureCount(s), 4);
-  setShelfCount(s, 'produce', 2); assert.equal(s.products[0].capacity, 1200);
+  expandStore(s, 'shelves'); assert.equal(shelfFixtureCount(s), 12);
+  setShelfCount(s, 'produce', 4); assert.equal(s.products[0].capacity, 800);
   assert.notDeepEqual(productShelfPosition(s, 0, 0), productShelfPosition(s, 0, 1));
 });

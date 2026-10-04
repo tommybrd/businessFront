@@ -1,9 +1,12 @@
+import { makeSave } from './save-format.js';
+import { createSaveManager } from './save-manager.js';
 import { ONLINE_CHANNELS, ONLINE_STATUSES, activeOnlineOrder, onlineUnits, onlinePicked, onlineReserved, createOnlineOrder, cancelOnlineOrder, setOnlineEnabled } from './online-orders.js';
 import { createGame, PRODUCTS, SUPPLIERS, EVENTS, staffCount, dailyCosts, INSTALLATIONS, installationCount, installationLimit, quoteInstallation, setInstallation, maintenanceCosts, outsideCapacity, deliveryBayCount, checkoutDailyCosts, STAFF_DAILY_WAGE, STORE_EXPANSIONS, RESERVE_EXPANSION_CAPACITY, GROUPED_DELIVERY_FEE, dailyProfitability, setShelfCount, shelfFixtureCount, checkoutCount, expandStore, discardReserve, setDirectorSalary, reinvestPersonalCash, payTaxes, setAutomaticTaxPayment, RESTOCK_EQUIPMENT, RESTOCK_TRIGGER_RATIO, SHELF_UNITS_PER_LEVEL, ORDER_MAX_QUANTITY, ORDER_QUANTITIES, OUTSIDE_PALLET_CAPACITY, outsidePallets, outsideSlotsUsed, restockInTransit, selectRestockEquipment, requestRestock, quoteOrder, queueEveningOrder, removeEveningOrder, quoteEveningBasket, currentEvent, clock, setStaff, placeOrder, buyAutoCheckout, openStore, advance } from './engine.js';
 
 import { createStoreScene } from './scene.js';
 
 const state = createGame();
+let saveManager = null, saveUi = null;
 const $ = id => document.getElementById(id);
 const sectionMarkup = new WeakMap();
 function updateSection(id, html) {
@@ -30,7 +33,7 @@ function notice(text, error = false) {
   noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 5000);
 }
 function act(action, message) {
-  try { const result = action(); if (message) notice(message); render(true); return result; }
+  try { if (!saveManager?.ready) throw new Error('Chargez la sauvegarde avant de modifier la partie.'); const result = action(); saveManager.changed(); if (message) notice(message); render(true); return result; }
   catch (error) { notice(error.message, true); return null; }
 }
 function switchTab(name) {
@@ -75,7 +78,7 @@ function stockPanel() {
     const incoming = jobs.reduce((sum, w) => sum + w.load + w.reserved, 0), available = p.reserve - onlineReserved(state,p.id,'reserve') - jobs.reduce((sum, w) => sum + w.reserved, 0);
     const pending = state.restockRequests.includes(p.id), blocked = p.shelf + incoming >= p.capacity || available <= 0 || pending || !['preparation', 'open'].includes(state.phase);
     return `<div class="shelf-card ${selected === p.id ? 'selected-shelf' : ''}"><div class="shelf-title"><button data-select="${p.id}"><span class="product-color" style="background:${p.color}"></span>${p.name}</button><span class="stock-level ${p.shelf < 12 ? 'low' : ''}">${p.shelf} / ${p.capacity} articles en rayon</span></div><div class="stock-track"><span style="width:${(p.capacity ? p.shelf / p.capacity * 100 : 0)}%;background:${p.shelf < 12 ? '#e78e5a' : p.color}"></span></div><div class="shelf-meta"><span>En réserve : ${p.reserve} · Vente : ${euros(p.price)}</span><button class="tiny-button" data-fill-product="${p.id}" ${blocked ? 'disabled' : ''}>${pending ? 'Demandé' : 'Réapprovisionner'}</button><button class="tiny-button" data-view-reserve="${p.id}">Voir la réserve</button></div>${shelfAllocation(p)}${incoming ? `<p class="restock-incoming">${incoming} unités en réapprovisionnement</p>` : ''}</div>`;
-  }).join('')}<div class="reserve-card"><strong>Réapprovisionnement</strong><p>${state.staff.shelves} employés : chargement, transport et mise en rayon.<br>${equipment.name} · ${equipment.capacity} unités par chargement.<br>Départs automatiques à ${RESTOCK_TRIGGER_RATIO * 100} % de remplissage ou moins. « Réapprovisionner » donne la priorité au rayon et permet de le remplir avant ce seuil.</p><div class="restock-overview"><span>${restockInTransit(state)} unités transportées</span><button class="tiny-button" data-show-equipment>Équipement</button></div></div>${!state.staff.shelves ? '<p class="supply-warning">Affectez au moins un employé à la mise en rayon pour charger et remplir les rayons.</p>' : ''}<p class="panel-intro">${shelfFixtureCount(state)} meubles installés · ${state.shelfLayout.filter(id => id !== null).length} / ${state.shelfLayout.length} faces affectées. Deux gondoles réunissent chacune deux familles sur leurs faces opposées. Chaque face contient jusqu’à 600 articles. Les agrandissements ajoutent 6 emplacements libres. L’installation des meubles est payée séparément.</p>${expansionPanel('shelves')}`;
+  }).join('')}<div class="reserve-card"><strong>Réapprovisionnement</strong><p>${state.staff.shelves} employés : chargement, transport et mise en rayon.<br>${equipment.name} · ${equipment.capacity} unités par chargement.<br>Départs automatiques à ${RESTOCK_TRIGGER_RATIO * 100} % de remplissage ou moins. « Réapprovisionner » donne la priorité au rayon et permet de le remplir avant ce seuil.</p><div class="restock-overview"><span>${restockInTransit(state)} unités transportées</span><button class="tiny-button" data-show-equipment>Équipement</button></div></div>${!state.staff.shelves ? '<p class="supply-warning">Affectez au moins un employé à la mise en rayon pour charger et remplir les rayons.</p>' : ''}<p class="panel-intro">${shelfFixtureCount(state)} meubles courts installés · ${state.shelfLayout.filter(id => id !== null).length} / ${state.shelfLayout.length} modules affectés. Les gondoles réunissent deux familles sur leurs faces opposées. Chaque module court contient 200 articles : 40 par niveau sur 5 niveaux. Trois modules remplacent une ancienne face de 600 articles. Les agrandissements ajoutent 18 emplacements libres. L’installation des meubles est payée séparément.</p>${expansionPanel('shelves')}`;
 }
 function equipmentPanel() {
   return `<section class="equipment-section" aria-label="Équipement de réapprovisionnement"><h3>Réserve → rayons</h3><p class="panel-intro">Un employé par équipement. Les achats équipent l’équipe ; les trajets en cours gardent leur matériel jusqu’au retour.</p>${Object.entries(RESTOCK_EQUIPMENT).map(([mode, equipment]) => {
@@ -95,7 +98,7 @@ function reservePanel() {
 }
 function checkoutPanel() {
   const queue = state.customers.filter(c => c.stage === 'queue').length;
-  return `${installationControl('checkouts')}<label class="checkout-sound"><input type="checkbox" id="checkout-sound" ${checkoutSound ? 'checked' : ''}> Bips de scan</label><div class="checkout-status">${Array.from({ length: checkoutCount(state) }, (_, i) => `<span class="checkout-lane"><i class="lane-light ${state.phase === 'open' && i < state.staff.checkout ? 'open' : ''}" aria-hidden="true"></i>Caisse ${i + 1} · ${state.phase === 'open' && i < state.staff.checkout ? state.customers.some(c => c.stage === 'checkout' && c.checkoutLane === i) ? 'encaissement' : 'libre' : 'fermée'}</span>`).join('')}</div><div class="staff-row"><div><strong>Encaissement</strong><p>Une caisse par employé, jusqu’à ${checkoutCount(state)}. Un client à la fois par caisse, puis sortie après paiement. Chaque caisse installée coûte 5 € / jour.</p></div><div class="stepper"><button data-staff="checkout" data-delta="-1" aria-label="Retirer un employé aux caisses" ${state.staff.checkout === 0 ? 'disabled' : ''}>−</button><strong>${state.staff.checkout}</strong><button data-staff="checkout" data-delta="1" aria-label="Ajouter un employé aux caisses">+</button></div></div><div class="finance-row"><span>En attente de caisse</span><strong>${queue} clients</strong></div><div class="finance-row"><span>En cours d’encaissement</span><strong>${state.customers.filter(c => c.stage === 'checkout').length} clients</strong></div><div class="finance-row"><span>Clients encaissés aujourd’hui</span><strong>${state.sold}</strong></div><div class="finance-row"><span>Départs sans achat</span><strong>${state.lost}</strong></div>${installationControl('auto')}<p class="panel-intro">Un employé aux caisses reste nécessaire pour superviser la caisse automatique.</p>${expansionPanel('checkout')}`;
+  return `${installationControl('checkouts')}<label class="checkout-sound"><input type="checkbox" id="checkout-sound" ${checkoutSound ? 'checked' : ''}> Bip au paiement</label><div class="checkout-status">${Array.from({ length: checkoutCount(state) }, (_, i) => `<span class="checkout-lane"><i class="lane-light ${state.phase === 'open' && i < state.staff.checkout ? 'open' : ''}" aria-hidden="true"></i>Caisse ${i + 1} · ${state.phase === 'open' && i < state.staff.checkout ? state.customers.some(c => c.stage === 'checkout' && c.checkoutLane === i) ? 'encaissement' : 'libre' : 'fermée'}</span>`).join('')}</div><div class="staff-row"><div><strong>Encaissement</strong><p>Une caisse par employé, jusqu’à ${checkoutCount(state)}. Un client à la fois par caisse, puis sortie après paiement. Chaque caisse installée coûte 5 € / jour.</p></div><div class="stepper"><button data-staff="checkout" data-delta="-1" aria-label="Retirer un employé aux caisses" ${state.staff.checkout === 0 ? 'disabled' : ''}>−</button><strong>${state.staff.checkout}</strong><button data-staff="checkout" data-delta="1" aria-label="Ajouter un employé aux caisses">+</button></div></div><div class="finance-row"><span>En attente de caisse</span><strong>${queue} clients</strong></div><div class="finance-row"><span>En cours d’encaissement</span><strong>${state.customers.filter(c => c.stage === 'checkout').length} clients</strong></div><div class="finance-row"><span>Clients encaissés aujourd’hui</span><strong>${state.sold}</strong></div><div class="finance-row"><span>Départs sans achat</span><strong>${state.lost}</strong></div>${installationControl('auto')}<p class="panel-intro">Un employé aux caisses reste nécessaire pour superviser la caisse automatique.</p>${expansionPanel('checkout')}`;
 }
 function onlineStaffControl() {
   return `<div class="staff-row"><div><strong>Préparation drive / web</strong><p>Prélève les articles, emballe les commandes et remet les sacs aux voitures. ${euros(STAFF_DAILY_WAGE)} / personne / jour.</p></div><div class="stepper"><button data-staff="online" data-delta="-1" aria-label="Retirer un préparateur" ${!state.staff.online ? 'disabled' : ''}>−</button><strong>${state.staff.online}</strong><button data-staff="online" data-delta="1" aria-label="Ajouter un préparateur">+</button></div></div>`;
@@ -147,7 +150,7 @@ function eveningBasketPanel() {
 const orderMode = () => document.querySelector('input[name="order-mode"]:checked')?.value || 'grouped';
 const orderQuantity = () => Number(document.querySelector('input[name="order-quantity"]:checked')?.value);
 function quantityChoices(value = 48) {
-  return `<fieldset class="quantity-picker"><legend>Quantité · unités</legend><div class="quantity-grid">${ORDER_QUANTITIES.map(n => `<label class="quantity-tile"><input type="radio" name="order-quantity" value="${n}" ${n === value ? 'checked' : ''} required aria-label="${n} unités"><span class="quantity-face"><strong>${n}</strong><small>${Math.ceil(n / 12)} carton${n > 12 ? 's' : ''}</small></span></label>`).join('')}</div></fieldset>`;
+  return `<fieldset class="quantity-picker"><legend>Quantité · articles</legend><p>48 articles = 4 cartons de 12 = 1 palette complète.</p><div class="quantity-grid">${ORDER_QUANTITIES.map(n => `<label class="quantity-tile"><input type="radio" name="order-quantity" value="${n}" ${n === value ? 'checked' : ''} required aria-label="${n} unités"><span class="quantity-face"><strong>${n}</strong><small>${Math.floor(n / 12)} carton${n > 12 ? 's' : ''}${n % 12 ? ` + ${n % 12} articles` : ''} · ${Math.floor(n / 48)} palette${n >= 96 ? 's' : ''} complète${n >= 96 ? 's' : ''}${n % 48 ? ` + ${n % 48} articles` : ''}</small></span></label>`).join('')}</div></fieldset>`;
 }
 function supplierPanel() {
   const productId = selected || PRODUCTS[0].id;
@@ -155,7 +158,7 @@ function supplierPanel() {
 }
 function expansionPanel(zone) {
   const level = state.expansions[zone], cost = STORE_EXPANSIONS[zone].costs[level];
-  const benefit = zone === 'checkout' ? `${4 + (state.expansions.checkout + 1) * 2} emplacements de caisse, à équiper séparément` : zone === 'shelves' ? `6 emplacements supplémentaires, avec installation des meubles séparée` : `${1 + state.expansions.reserve + 1} racks possibles par famille, un niveau supplémentaire par rack, un quai supplémentaire et 15 places extérieures possibles. Installation séparée.`;
+  const benefit = zone === 'checkout' ? `${4 + (state.expansions.checkout + 1) * 2} emplacements de caisse, à équiper séparément` : zone === 'shelves' ? `18 modules supplémentaires de 200 articles, à installer séparément` : `${1 + state.expansions.reserve + 1} racks possibles par famille, un niveau supplémentaire par rack, un quai supplémentaire et 15 places extérieures possibles. Installation séparée.`;
   return `<div class="investment"><h3>Agrandir · ${STORE_EXPANSIONS[zone].name}</h3><p>${cost === undefined ? 'Agrandissement maximal atteint.' : benefit}</p><button data-expand="${zone}" ${cost === undefined || state.money < cost || !['preparation', 'open'].includes(state.phase) ? 'disabled' : ''}>${cost === undefined ? 'Zone agrandie au maximum' : `Agrandir · ${euros(cost)}`}</button></div>`;
 }
 function discardControls(product, reserved) {
@@ -260,7 +263,7 @@ document.querySelectorAll('[data-open]').forEach(b => {
 $('close-panel').addEventListener('click', closePanel);
 $('journal-toggle').addEventListener('click', toggleJournal); $('event-toggle').addEventListener('click', toggleJournal);
 $('close-journal').addEventListener('click', toggleJournal);
-document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => { if (state.phase === 'open') { state.speed = Number(b.dataset.speed); render(); } }));
+document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => { if (state.phase === 'open' && saveManager?.ready) { state.speed = Number(b.dataset.speed); render(); saveManager.changed(); } }));
 document.querySelector('.tabs').addEventListener('keydown', e => {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
   const buttons = [...document.querySelectorAll('[data-tab]')], i = buttons.indexOf(document.activeElement);
@@ -268,8 +271,9 @@ document.querySelector('.tabs').addEventListener('keydown', e => {
   e.preventDefault(); buttons[index].focus(); switchTab(buttons[index].dataset.tab);
 });
 $('main-action').addEventListener('click', () => {
+  if (!saveManager?.ready) return;
   if (state.phase === 'preparation') act(() => openStore(state));
-  else if (state.phase === 'open') { state.speed = state.speed ? 0 : 1; render(); }
+  else if (state.phase === 'open') { state.speed = state.speed ? 0 : 1; render(); saveManager?.changed(); }
   else showSummary();
 });
 $('management-content').addEventListener('click', e => {
@@ -310,7 +314,7 @@ $('management-content').addEventListener('input', previewOrder);
 $('management-content').addEventListener('change', e => {
   if (e.target.dataset.onlineEnabled) act(() => setOnlineEnabled(state,e.target.dataset.onlineEnabled,e.target.checked));
   if (e.target.dataset.reserveQuantity) { reserveQuantities.set(e.target.dataset.reserveQuantity, Number(e.target.value)); renderPanel(); }
-  if (e.target.id === 'checkout-sound') { checkoutSound = e.target.checked; storeScene.setCheckoutSound(checkoutSound); }
+  if (e.target.id === 'checkout-sound') { checkoutSound = e.target.checked; storeScene.setCheckoutSound(checkoutSound); saveManager?.changed(); }
   if (e.target.id === 'director-salary') act(() => setDirectorSalary(state, Number(e.target.value)), 'Salaire du directeur enregistré.');
   if (e.target.id === 'auto-pay-taxes') act(() => setAutomaticTaxPayment(state, e.target.checked));
   if (e.target.id === 'order-product') selected = e.target.value;
@@ -331,17 +335,18 @@ document.addEventListener('keydown', e => {
     if (!$('management-panel').hidden) closePanel();
     else if (!$('journal-panel').hidden) toggleJournal();
   }
-  if (e.code === 'Space' && !['INPUT', 'SELECT', 'BUTTON', 'TEXTAREA'].includes(document.activeElement.tagName) && state.phase === 'open') {
-    e.preventDefault(); state.speed = state.speed ? 0 : 1; render();
+  if (saveManager?.ready && e.code === 'Space' && !['INPUT', 'SELECT', 'BUTTON', 'TEXTAREA'].includes(document.activeElement.tagName) && state.phase === 'open') {
+    e.preventDefault(); state.speed = state.speed ? 0 : 1; render(); saveManager?.changed();
   }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden && state.phase === 'open') { state.speed = 0; render(); } lastTime = performance.now(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if (state.phase === 'open') state.speed = 0; saveManager?.changed(); saveManager?.flush(true); render(); } lastTime = performance.now(); });
+window.addEventListener('pagehide', () => { saveManager?.changed(); saveManager?.flush(true); });
 
 // Browser agents use the same validated actions as the director's controls.
 const context = document.modelContext;
 if (context?.registerTool) {
   const lifecycle = new AbortController();
-  const register = tool => { try { Promise.resolve(context.registerTool(tool, { signal: lifecycle.signal })).catch(() => {}); } catch {} };
+  const register = tool => { const execute = tool.execute; tool.execute = async input => { if (!tool.annotations?.readOnlyHint && !saveManager?.ready) throw new Error('La sauvegarde doit être chargée.'); const result = await execute(input); if (!tool.annotations?.readOnlyHint) saveManager?.changed(); return result; }; try { Promise.resolve(context.registerTool(tool, { signal: lifecycle.signal })).catch(() => {}); } catch {} };
   register({ name: 'read_store_status', description: 'Lire les stocks, équipes, liquidités, équipements et livraisons du magasin.', inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true, untrustedContentHint: false }, execute: () => ({ day: state.day, time: clock(state.minute), phase: state.phase, cash: state.money, profitability: dailyProfitability(state), history: structuredClone(state.history), staff: { ...state.staff }, online: structuredClone(state.online), maintenance: maintenanceCosts(state), infrastructure: { ...state.infrastructure }, dailyCosts: { wages: staffCount(state) * STAFF_DAILY_WAGE, checkouts: checkoutDailyCosts(state), otherMaintenance: maintenanceCosts(state).total - checkoutDailyCosts(state), overhead: 160, total: dailyCosts(state) }, products: state.products.map(p => ({ id: p.id, shelf: p.shelf, reserve: p.reserve, shelfCapacity: p.capacity, reserveCapacity: p.reserveCapacity, reserveRacks: p.reserveRacks })), expansions: { ...state.expansions }, shelfLayout: [...state.shelfLayout], personalCash: state.personalCash, directorSalary: state.directorSalary, taxes: { vatCollected: state.vatCollected, vatDeductible: state.vatDeductible, vatCredit: state.vatCredit, vatDue: state.vatDue, profitTaxDue: state.profitTaxDue, autoPay: state.autoPayTaxes }, receivers: state.receivers.map(({ id, phase, productId, orderId, palletIndex, load, reserved }) => ({ id, phase, productId, orderId, palletIndex, load, reserved })), restockMode: state.restockMode, restockUnlocked: { ...state.restockUnlocked }, restockRequests: [...state.restockRequests], restockers: state.restockers.map(({ id, phase, mode, productId, load, reserved }) => ({ id, phase, mode, productId, load, reserved })), eveningBasket: structuredClone(state.eveningBasket), eveningQuote: quoteEveningBasket(state), eveningError: state.eveningError, checkouts: state.customers.filter(c => c.stage === 'checkout').map(({ id, checkoutLane, checkoutRemaining }) => ({ customerId: id, lane: checkoutLane, remaining: checkoutRemaining })), shipments: structuredClone(state.shipments), outside: { capacity: outsideCapacity(state), reservedSlots: outsideSlotsUsed(state), pallets: outsidePallets(state).map(({ order, pallet }) => ({ orderId: order.id, productId: order.productId, index: pallet.index, quantity: pallet.remaining, slot: pallet.outsideSlot })) }, deliveries: state.orders.filter(o => o.status !== 'received').map(o => ({ ...o })) }) });
   register({name:'read_online_orders',description:'Lire les commandes drive et web, leur contenu, état, effectifs et recettes.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},execute:()=>structuredClone(state.online)});
   register({name:'set_online_service',description:'Ouvrir ou fermer la prise de commandes drive ou web. La zone doit être installée ; les commandes existantes continuent.',inputSchema:{type:'object',properties:{channel:{type:'string',enum:['drive','web']},enabled:{type:'boolean'}},required:['channel','enabled'],additionalProperties:false},annotations:{readOnlyHint:false,untrustedContentHint:false},execute:input=>{const result=setOnlineEnabled(state,input.channel,input.enabled);render();return result;}});
@@ -371,12 +376,34 @@ if (context?.registerTool) {
 }
 function frame(now) {
   const delta = Math.min(250, now - lastTime); lastTime = now;
-  if (state.phase === 'open' && state.speed) {
-    pendingMinutes += delta / 1000 * 3 * state.speed;
-    if (pendingMinutes >= 1) { const minutes = Math.floor(pendingMinutes); pendingMinutes -= minutes; advance(state, minutes); }
+  if (saveManager?.ready && state.phase === 'open' && state.speed) {
+    pendingMinutes += delta / 1000 * state.speed;
+    if (pendingMinutes >= 1) { const minutes = Math.floor(pendingMinutes); pendingMinutes -= minutes; advance(state, minutes); saveManager.changed(); }
   }
   storeScene.update(delta, now, selected, pendingMinutes);
   if (now - lastRender >= 300) { render(); lastRender = now; }
   requestAnimationFrame(frame);
 }
-render(); requestAnimationFrame(frame);
+function saveStatus(info) {
+  saveUi=info;
+  if(!info.ready)state.speed=0;
+  const names={loading:'Chargement…',pending:'À sauvegarder',saving:'Sauvegarde…',saved:'Sauvegardé',error:'Échec de sauvegarde',conflict:'Partie modifiée ailleurs','load-error':'Chargement impossible'};
+  $('save-status').textContent=info.message||`${names[info.status]}${info.savedAt ? ' · '+new Date(info.savedAt).toLocaleString('fr-FR') : ''}`;
+  $('save-toggle').title=names[info.status];$('save-toggle').classList.toggle('save-error',['error','conflict','load-error'].includes(info.status));
+  $('save-now').disabled=!info.ready||info.status==='saving';$('save-previous').disabled=!info.hasPrevious||!info.ready;$('save-new').disabled=!info.ready;
+  $('save-return').disabled=!info.ready;$('save-close').disabled=!info.ready;
+  if(['load-error','conflict'].includes(info.status)&&!$('save-dialog').open)$('save-dialog').showModal();
+}
+saveManager=createSaveManager({snapshot:()=>makeSave(state,{checkoutSound}),apply:record=>{storeScene.resetSimulation();selected=null;for(const key of Object.keys(state))delete state[key];Object.assign(state,record.state);checkoutSound=record.preferences.checkoutSound;storeScene.setCheckoutSound(checkoutSound);pendingMinutes=0;lastTime=performance.now();lastPanel='';render();},notify:saveStatus});
+$('save-toggle').addEventListener('click',()=>{state.speed=0;saveManager.changed();saveManager.flush();$('save-dialog').showModal();});
+for(const id of ['save-close','save-return'])$(id).addEventListener('click',()=>{$('save-dialog').close();canvas.focus();});
+$('save-dialog').addEventListener('cancel',e=>{if(!saveManager.ready)e.preventDefault();});
+$('save-now').addEventListener('click',()=>saveManager.flush());
+$('save-reload').addEventListener('click',()=>saveManager.load());
+$('save-previous').addEventListener('click',()=>saveManager.load(true));
+$('save-new').addEventListener('click',()=>{$('save-confirm').hidden=false;$('save-confirm-text').hidden=false;});
+$('save-cancel-new').addEventListener('click',()=>{$('save-confirm').hidden=true;$('save-confirm-text').hidden=true;});
+$('save-confirm-new').addEventListener('click',async()=>{if(await saveManager.newGame(makeSave(createGame(),{checkoutSound}))) {$('save-confirm').hidden=true;$('save-confirm-text').hidden=true;$('save-dialog').close();}});
+$('save-dialog').showModal();render();requestAnimationFrame(frame);
+if(await saveManager.load())$('save-dialog').close();
+setInterval(()=>saveManager.flush(),5000);

@@ -6,6 +6,7 @@ export const checkoutCount = state => state.infrastructure?.checkouts ?? checkou
 
 // One minute to unload, a sequential scan, then one minute to pay.
 export function checkoutProgress(customer, minuteFraction = 0) {
+  if(customer.checkoutArrived===false)return {elapsed:0,articles:customer.basket.flatMap(item=>Array.from({length:item.quantity},()=>({loading:0,scanning:0}))),scanned:0,phase:'approaching'};
   const count = customer.basket.reduce((sum, item) => sum + item.quantity, 0);
   const duration = customer.checkoutDuration || checkoutDuration(count);
   const elapsed = customer.paid ? duration : Math.max(0, Math.min(duration, duration - customer.checkoutRemaining + minuteFraction));
@@ -39,6 +40,7 @@ export function updateCheckouts(state, recordSale) {
   if (!active.length) return;
   const paid = new Set();
   for (const customer of state.customers.filter(c => c.stage === 'checkout')) {
+    if(customer.checkoutArrived===false)continue;
     customer.checkoutRemaining--;
     if (customer.checkoutRemaining > 0) continue;
     customer.paid = true; recordSale(customer); paid.add(customer.id);
@@ -54,7 +56,7 @@ export function updateCheckouts(state, recordSale) {
     const customer = state.customers.find(c => c.stage === 'queue' && c.checkoutLane === lane);
     if (!customer) continue;
     const articles = customer.basket.reduce((sum, item) => sum + item.quantity, 0);
-    customer.stage = 'checkout'; customer.wait = 0;
+    customer.stage = 'checkout'; customer.wait = 0; customer.checkoutArrived = !customer.motion;
     customer.checkoutRemaining = checkoutDuration(articles);
     customer.checkoutDuration = customer.checkoutRemaining;
   }

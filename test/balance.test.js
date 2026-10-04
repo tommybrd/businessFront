@@ -39,7 +39,7 @@ test('automatic trips wait for depletion; a manual request overrides the thresho
   requestRestock(s, p.id); advance(s, 1); assert.equal(s.restockers[0].productId, p.id);
   setStaff(s, 'shelves', 0); s.restockRequests = []; p.shelf = 450;
   setStaff(s, 'shelves', 1); advance(s, 1); assert.equal(s.restockers[0].productId, p.id);
-  setStaff(s, 'shelves', 0); expandStore(s, 'shelves'); setShelfCount(s, p.id, 2); p.shelf = 901;
+  setStaff(s, 'shelves', 0); expandStore(s, 'shelves'); setShelfCount(s, p.id, 6); p.shelf = 901;
   setStaff(s, 'shelves', 1); advance(s, 1); assert.equal(s.restockers[0].phase, 'idle');
   p.shelf = 900; advance(s, 1); assert.equal(s.restockers[0].productId, p.id);
 });

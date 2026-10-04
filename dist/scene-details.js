@@ -1,3 +1,4 @@
+import { RESERVE_BACK_EXTENSION } from './store-layout.js';
 import * as THREE from 'three';
 import { storeFrontExtension } from './engine.js';
 
@@ -50,8 +51,8 @@ export function shelfStock(product, maximum, unitsPerLevel, parent, box, materia
       for (const batch of batches) {
         for (let n = 0; n < batch.capacity; n++) {
           const index = batch.variant + n * variants, slot = Math.floor(index / levels);
-          if (layout === 'stall') position.makeTranslation(-2.4 + (index % 30) * .165, 1.02 + Math.floor(index / 180) * .17, .65 - Math.floor((index % 180) / 30) * .26);
-          else position.makeTranslation(-2.415 + (slot % 24) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 24) * .275);
+          if (layout === 'stall') position.makeTranslation(-.75 + (index % 10) * .165, 1.02 + Math.floor(index / 60) * .17, .65 - Math.floor((index % 60) / 10) * .26);
+          else position.makeTranslation(-.735 + (slot % 8) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 8) * .275);
           position.multiply(itemScale); batch.mesh.setMatrixAt(n, matrix.multiplyMatrices(position, batch.partMatrix));
         }
         batch.mesh.instanceMatrix.needsUpdate = true; batch.mesh.computeBoundingBox(); batch.mesh.computeBoundingSphere();
@@ -111,14 +112,10 @@ export function createSurroundings(scene, box, material, textSprite) {
     box(parking, 2.8, 0.02, 0.07, x, -0.11, z + (row ? 2 : -2), 0xe8e5cc, false);
   }
   for (let z = 10.5; z < 26; z += 0.75) box(parking, 1.7, 0.025, 0.32, 9.5, -0.1, z, 0xe5e3c9, false);
-  const parkingSign = textSprite('PARKING CLIENTS', { background: '#233d31ef', color: '#f2eed7', worldWidth: 4.1 });
-  parkingSign.position.set(-9, 0.75, 9.6); parking.add(parkingSign);
   const access = new THREE.Group(); exterior.add(access);
   const serviceRoad = box(access, 4.3, 0.1, 52, 16, -0.2, 1, 0x68766a);
   box(access, 35, 0.1, 4.5, 0, -0.17, -11.1, 0x7b8673);
   for (let z = -13; z < 24; z += 4) box(access, 0.08, 0.02, 2.1, 16, -0.13, z, 0xe0dfc6, false);
-  const accessSign = textSprite('ACCÈS LIVRAISONS', { background: '#233d31ef', color: '#f2eed7', worldWidth: 4 });
-  accessSign.position.set(13.7, 0.8, -9.5); access.add(accessSign);
   const neighborhood = new THREE.Group(); exterior.add(neighborhood);
   const backStreet = box(neighborhood, 64, 0.08, 5.2, 0, -0.25, -23, 0x657167);
   const sideStreets = [-22, 25].map(x => box(neighborhood, 5.2, 0.08, 49, x, -0.25, 1.5, 0x657167));
@@ -174,6 +171,7 @@ export function createSurroundings(scene, box, material, textSprite) {
     parking.add(group); return group;
   }
   return {
+    reset() { for(const c of cars.values()){parking.remove(c.group);c.group.traverse(o=>o.geometry?.dispose());}cars.clear(); },
     register(customer) {
       if (customer.id % 3 !== 0) return [9.5, 10 + extension];
       const used = new Set([...cars.values()].map(c => c.slot)), slot = places.findIndex((_, i) => i >= 3 && !used.has(i));
@@ -191,10 +189,10 @@ export function createSurroundings(scene, box, material, textSprite) {
       }
     },
     update(seconds, running, expansions) {
-      extension = storeFrontExtension(expansions); parking.position.z = extension; access.position.z = -expansions.reserve * 3; access.position.x = Math.max(.8, expansions.checkout);
+      extension = storeFrontExtension(expansions); parking.position.z = extension; access.position.z = -(RESERVE_BACK_EXTENSION + expansions.reserve * 3); access.position.x = Math.max(.8, expansions.checkout);
       drivewayX = 16 + access.position.x;
       driveway.scale.x = (4.6 + access.position.x) / 4.6; driveway.position.x = 15.2 + access.position.x / 2;
-      const back = expansions.reserve * 3, streetLength = 49 + extension + back;
+      const back = (RESERVE_BACK_EXTENSION + expansions.reserve * 3), streetLength = 49 + extension + back;
       serviceRoad.scale.z = (52 + extension + back) / 52; serviceRoad.position.z = 1 + (extension + back) / 2;
       backStreet.position.z = -23 - back;
       backMarkings.position.z = -back;

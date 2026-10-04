@@ -1,3 +1,4 @@
+import { RESERVE_BACK_EXTENSION } from './store-layout.js';
 import * as THREE from 'three';
 import { stockCarton } from './scene-details.js';
 import { DELIVERY_BAYS, truckPose, OUTSIDE_PALLET_CAPACITY, outsidePalletPosition, outsidePallets, outsideCapacity, deliveryBayCount } from './delivery-logistics.js';
@@ -13,8 +14,8 @@ export function createDeliveryYard(scene, state, box, material, plaque) {
   for (let slot = 0; slot < 60; slot++) {
     const marks = new THREE.Group(); marks.name = `outside-slot-${slot}`; outsideArea.add(marks); outsideMarks.push(marks);
     const [x, z] = outsidePalletPosition({ expansions: { reserve: 0 } }, { outsideSlot: slot });
-    for (const side of [-1, 1]) box(marks, .035, .015, 1.15, x + side * .65, -.025, z, 0xe4c566, false);
-    box(marks, 1.33, .015, .035, x, -.025, z - .59, 0xe4c566, false);
+    for (const side of [-1, 1]) box(marks, .035, .015, 1.15, x + side * .65, -.025, z + RESERVE_BACK_EXTENSION, 0xe4c566, false);
+    box(marks, 1.33, .015, .035, x, -.025, z + RESERVE_BACK_EXTENSION - .59, 0xe4c566, false);
   }
   // Separate staff access keeps the buffer reachable when all three trucks are docked.
   for (const x of [-.65, .65]) box(infrastructure, .1, 2.1, .15, x, 1.05, -7.9, 0x708d77);
@@ -74,7 +75,7 @@ export function createDeliveryYard(scene, state, box, material, plaque) {
     return { truck, pallets, rearDoors, reversingLights };
   }
   function update(minuteFraction = 0) {
-    infrastructure.position.z = -state.expansions.reserve * 3;
+    infrastructure.position.z = -(RESERVE_BACK_EXTENSION + state.expansions.reserve * 3);
     const extraWidth = Math.max(0, deliveryBayCount(state) - 3) * 3.4;
     yardFloor.scale.x = (14 + extraWidth) / 14; yardFloor.position.x = 5 + extraWidth / 2;
     annex.visible = extraWidth > 0; annex.scale.x = extraWidth / 6.8; annex.position.x = 11.4 + extraWidth / 2;

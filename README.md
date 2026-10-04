@@ -1,3 +1,17 @@
+## v0.9.0 — reprise et circulation
+
+La partie est sauvegardée automatiquement sur le compte du joueur toutes les cinq secondes et lors de la mise en arrière-plan. Le menu « Partie » permet une sauvegarde manuelle, la reprise de la version précédente et une nouvelle partie après confirmation. La reprise reste en pause ; le temps écoulé hors du jeu ne modifie pas la simulation. Les conflits entre fenêtres arrêtent la partie et demandent de recharger.
+
+Les clients se déplacent selon la simulation sauvegardée. Le tapis attend leur arrivée : déchargement du caddie, scans successifs, récupération, paiement, puis sortie. Un seul bip accompagne le paiement et le montant reste près de la caisse. À vitesse 1, une seconde représente une minute de jeu.
+
+Les anciennes faces de 600 articles sont divisées en trois modules de 200 articles (40 articles par niveau, cinq niveaux). Les 18 modules initiaux conservent les 2 880 articles de départ et la maintenance totale d'origine. Chaque module supplémentaire coûte 120 €, son retrait 30 €, sa maintenance 1 € par jour. Un agrandissement libère 18 nouveaux emplacements, à équiper séparément. La réserve occupe environ 45 % du bâtiment initial et ses allées relient les racks aux quais. L'entrée et la sortie disposent de portillons et de barrières distincts. Les panneaux Parking clients et Accès livraisons ont été retirés.
+
+Unités de commande : 48 articles = 4 cartons de 12 = une palette complète. Le reste éventuel est indiqué pour les commandes qui ne remplissent pas un carton ou une palette.
+
+La sauvegarde utilise le Worker `worker/index.js`, le schéma `db/schema.ts` et les migrations Drizzle. Les requêtes se basent exclusivement sur l'identité transmise par Sites. Aucun identifiant de compte n'est pris dans le corps de la requête. En local, `npm run dev` applique les migrations à `.sites-runtime/game-saves.sqlite` et utilise une partie de test distincte (`local-playtest`). Ce fichier ne part jamais dans Git ni dans le déploiement. Node.js 22.13 ou ultérieur est nécessaire pour cette base locale.
+
+Vérification : `npm run check`, `npm test`, `npm run build`. Après un changement de schéma : `npm run db:generate`, inspecter la migration et publier avec le même identifiant Sites. Les migrations déjà appliquées restent immuables.
+
 # Market Front
 
 Nom de travail d'un jeu de gestion de supermarché. Le joueur est le directeur et pilote le magasin depuis une vue d'ensemble.

@@ -13,7 +13,7 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
   document.addEventListener('pointerdown', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
   function beep() {
-    if (!soundEnabled || !audio || audio.state !== 'running' || document.hidden || audio.currentTime - lastBeep < .08) return;
+    if (!soundEnabled || !audio || audio.state !== 'running' || document.hidden) return;
     const oscillator = audio.createOscillator(), gain = audio.createGain(), now = audio.currentTime;
     oscillator.frequency.value = 1050; gain.gain.setValueAtTime(.025, now); gain.gain.exponentialRampToValueAtTime(.001, now + .07);
     oscillator.connect(gain); gain.connect(audio.destination); oscillator.start(now); oscillator.stop(now + .08);
@@ -26,11 +26,12 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
     const bip = textSprite('BIP', { width: 192, height: 80, worldWidth: .9, color: '#e5ffd2', background: '#285c46e8', size: 40 });
     bip.position.set(automatic ? 0 : .32, 1.65, 0); bip.visible = false; group.add(bip);
     const cargo = new THREE.Group(); cargo.name = 'checkout-conveyor-articles'; scene.add(cargo);
-    return { group, scan, stripes, bip, cargo, key: null, scanned: 0, pulse: 0, automatic };
+    const result={ group, scan, stripes, bip, cargo, key: null, scanned: 0, pulse: 0, automatic };stations.push(result);return result;
   }
   function clearCargo(station) {
     for (const unit of [...station.cargo.children]) { station.cargo.remove(unit); unit.traverse(o => o.geometry?.dispose()); }
   }
+  const stations=[];
   const position = new THREE.Vector3(), cartPosition = new THREE.Vector3(), beltPosition = new THREE.Vector3();
   function updateStation(station, customer, actor, fraction, seconds, running) {
     station.pulse = Math.max(0, station.pulse - (running ? seconds : 0));
@@ -44,7 +45,7 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
     }
     if (customer && actor) {
       const progress = checkoutProgress(customer, fraction);
-      if (progress.scanned > station.scanned) { station.pulse = .28; if (running) beep(); }
+      if (progress.scanned > station.scanned) station.pulse = .12;
       station.scanned = progress.scanned;
       station.group.userData.checkoutPhase = progress.phase; station.group.userData.scannedArticles = progress.scanned;
       station.group.updateWorldMatrix(true, false); actor.group.updateWorldMatrix(true, true);
@@ -71,24 +72,26 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
       });
       if (!station.automatic) station.stripes.forEach((stripe, i) => { stripe.position.x = -.98 + ((i * .2 + progress.elapsed * .45) % 1.2); });
     } else { station.group.userData.checkoutPhase = 'idle'; station.group.userData.scannedArticles = 0; }
-    station.bip.visible = station.pulse > 0; station.scan.material = material(station.pulse > 0 ? 0xc0ff83 : 0x662f2f);
+    station.bip.visible = false; station.scan.material = material(station.pulse > 0 ? 0xc0ff83 : 0x662f2f);
   }
-  function beginPayment(actor) {
+  function beginPayment(actor,station) {
+    if(!station)return;
+    if(state.speed>0)beep();
     const amount = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(actor.customer.value);
     const sprite = textSprite(`✓ ${amount}`, { color: '#edffcf', background: '#245738ed', width: 384, height: 112, size: 46, worldWidth: 2.1 });
-    sprite.name = 'customer-payment'; sprite.userData.amount = actor.customer.value;
-    sprite.position.set(0, 1.65, .56); sprite.renderOrder = 20; actor.group.add(sprite);
-    actor.payment = { sprite, elapsed: 0, width: sprite.scale.x, height: sprite.scale.y };
+    sprite.name = 'checkout-payment'; sprite.userData.amount = actor.customer.value;
+    sprite.position.set(.65,1.7,-.2);sprite.renderOrder=20;station.group.add(sprite);station.bip.visible=true;
+    actor.payment = { sprite, station, elapsed: 0, width: sprite.scale.x, height: sprite.scale.y };
   }
   function updatePayment(actor, seconds, running) {
     if (!actor.payment) return false;
     const payment = actor.payment; if (running) payment.elapsed += seconds;
     const t = Math.min(1, payment.elapsed / 1.5), pulse = 1 + .12 * Math.sin(t * Math.PI);
-    payment.sprite.position.y = 1.65 + t * .65; payment.sprite.scale.set(payment.width * pulse, payment.height * pulse, 1);
+    payment.sprite.position.y = 1.7; payment.sprite.scale.set(payment.width * pulse, payment.height * pulse, 1);
     payment.sprite.material.opacity = Math.min(1, (1 - t) * 4);
     actor.arms[0].rotation.x = -.9; actor.arms[1].rotation.x = -.65;
     if (t >= 1) {
-      actor.group.remove(payment.sprite); payment.sprite.material.map.dispose(); payment.sprite.material.dispose(); actor.payment = null;
+      payment.station.group.remove(payment.sprite);payment.station.bip.visible=false; payment.sprite.material.map.dispose(); payment.sprite.material.dispose(); actor.payment = null;
     }
     return payment.elapsed < .2;
   }
@@ -96,5 +99,6 @@ export function createCheckoutVisuals(scene, state, { box, material, textSprite 
     document.removeEventListener('pointerdown', unlockAudio); document.removeEventListener('keydown', unlockAudio);
     audio?.close().catch(() => {});
   }
-  return { station, updateStation, beginPayment, updatePayment, dispose, setSound: enabled => { soundEnabled = enabled; if (enabled) unlockAudio(); } };
+  function reset(){for(const s of stations){clearCargo(s);s.key=null;s.scanned=0;s.pulse=0;for(const o of [...s.group.children])if(o.name==='checkout-payment'){o.removeFromParent();o.material.map.dispose();o.material.dispose();}}}
+  return { reset, station, updateStation, beginPayment, updatePayment, dispose, setSound: enabled => { soundEnabled = enabled; if (enabled) unlockAudio(); } };
 }

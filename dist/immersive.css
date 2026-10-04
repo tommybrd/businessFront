@@ -189,3 +189,4 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 .online-order-title span { color: #c6e5b6; }
 .online-carrier { background: #304e3b; color: #e0edda; }
 .online-service label, .online-order-title { font-size: 14px; }
+#save-dialog{width:min(460px,calc(100vw - 24px));max-height:90dvh;background:#192f2c;color:var(--ink);border:1px solid #5e7965;border-radius:8px;overflow-y:auto}#save-dialog::backdrop{background:#12261d88}.save-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}.save-heading h2{font-size:22px}.save-actions{display:grid;gap:10px;margin:20px 0}.save-actions button{min-height:44px;text-align:left}.save-error{color:var(--danger)!important}#save-return{width:100%;min-height:44px}#save-status{font-size:16px;line-height:1.5;color:#d1edb8}#save-confirm-text{color:#ffb99b}

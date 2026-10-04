@@ -49,3 +49,12 @@ test('the automatic checkout serves its own customer and closes when no cashier 
   setStaff(s, 'checkout', 0); assert.ok(s.customers.every(c => c.stage === 'queue' && c.checkoutLane === null));
   advance(s, 18); assert.equal(s.sold, 0);
 });
+
+test('a physical customer arrives with a full basket before unloading, scanning and payment',()=>{
+ const s=store();buyer(s,202);const c=s.customers[0];c.motion={position:[9.5,-3.3],path:[],key:'shopping-0',facing:0};
+ advance(s,1);assert.equal(c.stage,'checkout');assert.equal(c.checkoutArrived,false);const remaining=c.checkoutRemaining;
+ advance(s,1);assert.equal(c.checkoutRemaining,remaining);assert.equal(s.sales,0);
+ let guard=0;while(!c.checkoutArrived&&guard++<40)advance(s,1);
+ assert.equal(c.checkoutArrived,true);assert.ok(guard<40);assert.equal(s.sales,0);
+ advance(s,c.checkoutRemaining);assert.equal(s.sales,3.4);assert.equal(s.sold,1);
+});

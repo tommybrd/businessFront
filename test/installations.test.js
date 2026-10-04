@@ -20,10 +20,10 @@ test('floor extensions make room; individual checkout and shelf installations ar
   const s = quiet(); expandStore(s, 'checkout'); assert.equal(checkoutCount(s), 4);
   const cash = s.money; setInstallation(s, 'checkouts', 6); assert.equal(checkoutCount(s), 6); assert.equal(s.money, cash - 1800);
   expandStore(s, 'shelves'); const initial = s.money;
-  assert.equal(s.shelfLayout.filter(Boolean).length, 6); assert.equal(s.products[0].capacity, 600);
-  setShelfCount(s, 'produce', 2); assert.equal(s.money, initial - 350); assert.equal(s.products[0].capacity, 1200);
-  s.products[0].shelf = 1200; unchanged(s, () => setShelfCount(s, 'produce', 1));
-  s.products[0].shelf = 600; setShelfCount(s, 'produce', 1); assert.equal(s.money, initial - 430); assert.equal(s.products[0].capacity, 600);
+  assert.equal(s.shelfLayout.filter(Boolean).length, 18); assert.equal(s.products[0].capacity, 600);
+  setShelfCount(s, 'produce', 6); assert.equal(s.money, initial - 360); assert.equal(s.products[0].capacity, 1200);
+  s.products[0].shelf = 1200; unchanged(s, () => setShelfCount(s, 'produce', 3));
+  s.products[0].shelf = 600; setShelfCount(s, 'produce', 3); assert.equal(s.money, initial - 450); assert.equal(s.products[0].capacity, 600);
 });
 
 test('a checkout serving a customer cannot be removed; unused cashiers are not silently dismissed', () => {

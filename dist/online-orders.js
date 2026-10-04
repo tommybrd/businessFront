@@ -89,9 +89,9 @@ function travel(w, destination, phase, s) {
   // Side aisle and central reserve doorway, without crossing the gondolas.
   const path = [start];
   if (start[1] < -4 || destination[1] < -4) {
-    if (start[1] < -4) path.push([start[0], -3.65], [0,-3.65]);
+    if (start[1] < -4) path.push([11.65,start[1]],[11.65,-3.65]);
     else path.push([-10.5,start[1]],[-10.5,-3.65],[0,-3.65]);
-    if (destination[1] < -4) path.push([destination[0],-3.65]);
+    if (destination[1] < -4) path.push([11.65,-3.65],[11.65,destination[1]]);
     else path.push([-10.5,-3.65],[-10.5,destination[1]]);
   } else path.push([-10.5,start[1]],[-10.5,destination[1]]);
   path.push(destination); w.path = path;
@@ -104,7 +104,7 @@ function targetNext(s, w, o, hooks) {
     const p=s.products[l.index];
     w.reserveRack = source === 'reserve' ? Math.max(0,Math.min(p.reserveRacks-1,Math.ceil(p.reserve / (500 + s.expansions.reserve*250))-1)) : null;
     const point = source === 'reserve' ? hooks.reservePoint(l.index,w.reserveRack) : hooks.shelfPoint(s,l.index);
-    const destination = source === 'reserve' ? [point[0]+1.75,point[1]] : [point[0],point[1]+point[2]*1.45];
+    const destination = source === 'reserve' ? [point[0],point[1]+1.25] : [point[0],point[1]+point[2]*1.45];
     travel(w,destination,'travelling',s); return;
   }
   travel(w,packPoint(s),'returning',s);
