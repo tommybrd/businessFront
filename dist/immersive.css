@@ -214,8 +214,9 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 
 .stock-alert-status {position:fixed;top:214px;left:114px;z-index:2;max-width:min(530px,calc(100vw - 130px));padding:9px 13px;text-align:left;color:#f6dc94;border-color:#a2894b;font-size:13px;}
 .stock-alert-status.critical {color:#ffc7ae;border-color:#b36e50;}
-.stock-alert-card {border-left:3px solid #bea04e;padding:12px;margin:10px 0;background:#253c31;}
-.stock-alert-card.critical {border-color:#ed9d74;}.stock-alert-card h3 {font-size:16px;margin:0 0 8px;}.stock-alert-card button {margin:4px 5px 0 0;}
+.shelf-alerts {display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+.shelf-alert {display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border:1px solid #bfa54e;border-radius:5px;background:#514724;color:#f7e0a4;font-size:12px;line-height:1.4;}
+.shelf-alert.critical {border-color:#bc7054;background:#54372e;color:#ffd3bb;}
 @media(max-width:800px){.stock-alert-status {top:220px;left:8px;max-width:calc(100vw - 16px);font-size:12px;}}
 
 .quantity-face{padding:8px 4px;min-width:0;aspect-ratio:auto;min-height:92px}.quantity-tile{min-width:0}.quantity-picker>p{line-height:1.5;margin:6px 0 12px}.reserve-quick-order .quantity-face{min-height:66px}

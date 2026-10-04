@@ -1,4 +1,4 @@
-# Market Front · v0.11.3
+# Market Front · v0.11.4
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
