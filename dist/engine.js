@@ -9,6 +9,8 @@ import {newTheftState,settleTheft,securityDailyCost} from './theft.js';
 import {newSatisfactionMetrics,satisfactionMetrics,adjustSatisfaction} from './satisfaction.js';
 export {satisfactionReport} from './satisfaction.js';
 import { walkingPath, routeWaypoints, reachable } from './walking-route.js';
+import {autoCheckoutCount,isAutoCheckoutLane,autoCheckoutIndex} from './store-layout.js';
+export {autoCheckoutCount} from './store-layout.js';
 import { stepCustomerMotion } from './customer-motion.js';
 import { STORE_SIZES, storeSize, shopArea, reserveBackExtension, shopBounds, shelfAccessPoint, reserveAccessPoint, layoutObjects, objectBox, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, shelfPosition, shelfRotation, shelfFixtureId, shelfFixtureCount, productShelfPosition, productShelfAccess, storeFrontExtension, reserveProductPosition } from './store-layout.js';
 export { SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, SHELF_MODULE_CAPACITY, shelfPosition, shelfRotation, shelfFixtureId, shelfFixtureCount, productShelfPosition, productShelfAccess, storeFrontExtension, reserveProductPosition } from './store-layout.js';
@@ -53,7 +55,7 @@ export const STORE_EXPANSIONS = {
   shelves: { name: 'Rayons', costs: [3000, 5000] },
   reserve: { name: 'Réserve', costs: [2500, 4500] },
 };
-export const checkoutDailyCosts = s => checkoutCount(s) * 5 + (s.autoCheckout ? 8 : 0);
+export const checkoutDailyCosts = s => checkoutCount(s) * 5 + autoCheckoutCount(s) * 8;
 export const INSTALLATIONS = {
   drive: { name: 'Zone de retrait drive', install: 2000, remove: 300, maintenance: 15 },
   web: { name: 'Poste d’emballage web', install: 1500, remove: 250, maintenance: 10 },
@@ -65,7 +67,7 @@ export const INSTALLATIONS = {
   outside: { name: 'Places de palettes dehors', install: 40, remove: 10, maintenance: .5 },
 };
 export function maintenanceCosts(s) {
-  const counts = { drive: s.infrastructure.drive, web: s.infrastructure.web, checkouts: checkoutCount(s), auto: Number(s.autoCheckout), shelves: s.shelfLayout.filter(Boolean).length,
+  const counts = { drive: s.infrastructure.drive, web: s.infrastructure.web, checkouts: checkoutCount(s), auto: autoCheckoutCount(s), shelves: s.shelfLayout.filter(Boolean).length,
     reserve: s.products.reduce((sum, p) => sum + p.reserveRacks, 0), bays: deliveryBayCount(s), outside: outsideCapacity(s) };
   const rows = Object.entries(INSTALLATIONS).map(([kind, definition]) => ({ kind, name: definition.name, count: counts[kind], unitCost: definition.maintenance, cost: round(counts[kind] * definition.maintenance) }));
   return { rows, total: round(rows.reduce((sum, row) => sum + row.cost, 0)) };
@@ -76,11 +78,12 @@ export function installationCount(s, kind, productId) {
     const p = s.products.find(p => p.id === productId); if (!p) throw new Error('Produit inconnu.');
     return kind === 'shelves' ? s.shelfLayout.filter(id => id === productId).length : p.reserveRacks;
   }
-  return kind === 'auto' ? Number(s.autoCheckout) : s.infrastructure[kind];
+  return kind === 'auto' ? autoCheckoutCount(s) : s.infrastructure[kind];
 }
 export function installationLimit(s, kind, productId) {
   if (kind === 'checkouts') return checkoutSpace(s);
-  if (['auto', 'drive', 'web'].includes(kind)) return 1;
+  if (kind === 'auto') return checkoutSpace(s);
+  if (['drive', 'web'].includes(kind)) return 1;
   if (kind === 'reserve') return 1 + s.expansions.reserve;
   if (kind === 'bays') return 3 + s.expansions.reserve;
   if (kind === 'outside') return 30 + s.expansions.reserve * 15;
@@ -108,6 +111,35 @@ function assertCustomLayoutClear(s) {
   if(r.left<q.right-.001&&r.right>q.left+.001&&r.back<q.front-.001&&r.front>q.back+.001)throw new Error('Déplacez les équipements qui occupent cet emplacement avant ces travaux.');
  }
 }
+function placeAddedFixtures(before,proposal) {
+  proposal.layout={...before.layout};
+  const previous=new Map(layoutObjects(before).map(o=>[o.id,o]));
+  // Adding registers must not displace registers already installed by the player.
+  for(const o of layoutObjects(proposal)) {
+    const old=previous.get(o.id);
+    if(old&&(old.x!==o.x||old.z!==o.z||old.rotation!==o.rotation))proposal.layout[o.id]={x:old.x,z:old.z,rotation:old.rotation};
+  }
+  const overlaps=(a,b,margin=0)=>{const r=objectBox(a,margin),q=objectBox(b,margin);return r.left<q.right-.001&&r.right>q.left+.001&&r.back<q.front-.001&&r.front>q.back+.001;};
+  for(const added of layoutObjects(proposal).filter(o=>!previous.has(o.id))) {
+    const others=layoutObjects(proposal).filter(o=>o.id!==added.id);
+    const valid=(o,margin)=>fitsPlacement(proposal,o)&&!others.some(other=>overlaps(o,other,margin));
+    if(valid(added,0))continue;
+    const b=shopBounds(proposal),positions=[];
+    for(let x=Math.ceil(b.left*2)/2;x<=b.right;x+=.5)for(let z=Math.ceil((added.zone==='shop'?-3.65:b.back+.2)*2)/2;z<=(added.zone==='reserve'?-4.6:b.front-.7);z+=.5)positions.push({x,z,rotation:added.rotation});
+    positions.sort((a,b)=>(a.x-added.x)**2+(a.z-added.z)**2-((b.x-added.x)**2+(b.z-added.z)**2));
+    let found=false;
+    for(const position of positions) {
+      const o={...added,...position};if(!valid(o,.2))continue;
+      proposal.layout[added.id]=position;
+      const origin=[9.5,7.1+storeFrontExtension(proposal.expansions,proposal.storeSize)];
+      if(layoutObjects(proposal).every(other=>reachable(proposal,origin,other.access))){found=true;break;}
+    }
+    if(!found)throw new Error('Aucune place libre accessible. Libérez un emplacement ou agrandissez cette zone.');
+  }
+  const installed=new Set(layoutObjects(proposal).map(o=>o.id));
+  for(const id of Object.keys(proposal.layout))if(!installed.has(id))delete proposal.layout[id];
+  assertCustomLayoutClear(proposal);
+}
 export function setInstallation(s, kind, amount, productId) {
   if (!['preparation', 'open'].includes(s.phase)) throw new Error('Les travaux ne sont pas disponibles.');
   if (kind === 'shelves') return setShelfCount(s, productId, amount);
@@ -117,7 +149,7 @@ export function setInstallation(s, kind, amount, productId) {
   if (quote.delta < 0) {
     if (['drive','web'].includes(kind) && onlineInstallationBusy(s,kind)) throw new Error('Terminez les commandes et attendez le départ des véhicules avant de retirer cette zone.');
     if (kind === 'checkouts' && s.customers.some(c => c.stage === 'checkout' && Number.isInteger(c.checkoutLane) && c.checkoutLane >= amount)) throw new Error('Cette caisse sert un client. Attendez la fin du paiement.');
-    if (kind === 'auto' && s.customers.some(c => c.stage === 'checkout' && c.checkoutLane === 'auto')) throw new Error('La caisse automatique sert un client.');
+    if (kind === 'auto' && s.customers.some(c => c.stage === 'checkout' && isAutoCheckoutLane(c.checkoutLane) && autoCheckoutIndex(c.checkoutLane)>=amount)) throw new Error('Cette caisse automatique sert un client. Attendez la fin du paiement.');
     if (kind === 'bays' && s.shipments.some(t => t.bay >= amount && ['positioning', 'reversing', 'docked', 'departing'].includes(t.phase))) throw new Error('Un camion utilise ce quai. Attendez son départ.');
     if (kind === 'outside' && s.orders.some(o => o.pallets.some(p => p.outsideSlot !== null && p.outsideSlot !== undefined && p.outsideSlot >= amount))) throw new Error('Les dernières places sont occupées ou réservées à un transpalette. Libérez-les avant le retrait.');
     if (kind === 'reserve') {
@@ -132,12 +164,13 @@ export function setInstallation(s, kind, amount, productId) {
   }
   const proposal={...s,infrastructure:{...s.infrastructure}};
   if(kind==='reserve')proposal.products=s.products.map(p=>p.id===productId?{...p,reserveRacks:amount}:p);
-  else if(kind==='auto')proposal.autoCheckout=Boolean(amount);
+  else if(kind==='auto'){proposal.autoCheckout=Boolean(amount);proposal.autoCheckoutCount=amount;}
   else proposal.infrastructure[kind]=amount;
-  assertCustomLayoutClear(proposal);
+  placeAddedFixtures(s,proposal);
   payInstallation(s, quote);
+  s.layout=proposal.layout;
   if (kind === 'reserve') { const p = s.products.find(p => p.id === productId); p.reserveRacks = amount; p.reserveCapacity = amount * (RESERVE_PRODUCT_CAPACITY + s.expansions.reserve * RESERVE_EXPANSION_CAPACITY); }
-  else if (kind === 'auto') s.autoCheckout = Boolean(amount);
+  else if (kind === 'auto') {s.autoCheckout = Boolean(amount);s.autoCheckoutCount=amount;}
   else s.infrastructure[kind] = amount;
   if (['drive','web'].includes(kind)) s.online.enabled[kind] = Boolean(amount);
   if (kind === 'checkouts') setStaff(s, 'checkout', amount);
@@ -146,10 +179,10 @@ export function setInstallation(s, kind, amount, productId) {
 }
 export const receivingInTransit = s => s.receivers.reduce((sum, worker) => sum + worker.load, 0);
 export const RESTOCK_EQUIPMENT = {
-  small: { name: 'Petit chariot', capacity: 8, cost: 0, loading: 2, stockRate: 2, travelSpeed: 2.4, requires: null },
-  medium: { name: 'Chariot moyen', capacity: 24, cost: 1200, loading: 3, stockRate: 4, travelSpeed: 2.3, requires: 'small' },
-  large: { name: 'Grand chariot', capacity: 48, cost: 3600, loading: 5, stockRate: 6, travelSpeed: 2.1, requires: 'medium' },
-  hyper: { name: 'Hyper chariot', capacity: 96, cost: 7200, loading: 7, stockRate: 6, travelSpeed: 2, requires: 'large' },
+  small: { name: 'Petit chariot', capacity: 80, cost: 0, loading: 3, stockRate: 8, travelSpeed: 2.4, requires: null },
+  medium: { name: 'Chariot moyen', capacity: 160, cost: 1200, loading: 5, stockRate: 12, travelSpeed: 2.3, requires: 'small' },
+  large: { name: 'Grand chariot', capacity: 200, cost: 3600, loading: 7, stockRate: 16, travelSpeed: 2.1, requires: 'medium' },
+  hyper: { name: 'Hyper chariot', capacity: 500, cost: 7200, loading: 10, stockRate: 24, travelSpeed: 2, requires: 'large' },
 };
 export const RESTOCK_PICKUP = [-2.4, -4.65];
 export function deliveryPalletPosition(s, order, pallet) {
@@ -192,6 +225,7 @@ export function createStarterGame(seed=73471) {
 }
 export function startDayOnLoad(s) {
   s.minimumSupplierQuantity=ORDER_MIN_QUANTITY;
+  s.receivers.filter(w=>w.phase==='idle').forEach(w=>{w.pickup=receiverHome(s,w);w.destination=[...w.pickup];});
   if(s.phase==='closed')nextDay(s);
   if(s.phase==='preparation'&&!s.morningPreparation)openStore(s);
   if(s.phase==='preparation'&&s.morningPreparation)s.speed=1;
@@ -199,8 +233,8 @@ export function startDayOnLoad(s) {
   return s;
 }
 export function premisesCosts(s) {
-  const area=shopArea(s),ratio=area/317;
-  const electricity=round(20*ratio+2*checkoutCount(s)+.5*s.shelfLayout.filter(Boolean).length+.5*s.products.reduce((n,p)=>n+p.reserveRacks,0)+3*Number(s.autoCheckout)+5*s.infrastructure.drive+5*s.infrastructure.web);
+  const area=shopArea(s),ratio=area/1000;
+  const electricity=round(20*ratio+2*checkoutCount(s)+.5*s.shelfLayout.filter(Boolean).length+.5*s.products.reduce((n,p)=>n+p.reserveRacks,0)+3*autoCheckoutCount(s)+5*s.infrastructure.drive+5*s.infrastructure.web);
   const rows=[{name:'Loyer',cost:round(90*ratio)},{name:'Électricité',cost:electricity},{name:'Assurance',cost:round(10*ratio)},{name:'Entretien des locaux',cost:round(20*ratio)}];
   if(securityDailyCost(s))rows.push({name:'Surveillance',cost:securityDailyCost(s)});
   return {area,rows,total:round(rows.reduce((n,r)=>n+r.cost,0))};
@@ -211,7 +245,7 @@ export function setStoreSize(s,size) {
   if(s.speed)throw new Error('Mettez le magasin en pause pour changer sa taille.');
   if([...s.restockers,...s.receivers,...s.online.workers].some(w=>w.phase!=='idle')||s.customers.some(c=>c.stage==='checkout')||s.shipments.some(t=>['positioning','reversing','docked','departing'].includes(t.phase))||s.online.carrier||s.online.orders.some(o=>o.car))throw new Error('Attendez la fin des opérations en cours avant de changer de local.');
   const slots=STORE_SIZES[size].shelves+s.expansions.shelves*18;
-  if(s.shelfLayout.slice(slots).some(Boolean)||s.infrastructure.checkouts>Math.min(8,STORE_SIZES[size].checkouts+s.expansions.checkout*2))throw new Error('Retirez les installations en trop avant de réduire le magasin.');
+  if(s.shelfLayout.slice(slots).some(Boolean)||Math.max(s.infrastructure.checkouts,autoCheckoutCount(s))>Math.min(8,STORE_SIZES[size].checkouts+s.expansions.checkout*2))throw new Error('Retirez les installations en trop avant de réduire le magasin.');
   const cost=Math.max(0,STORE_SIZES[size].lease-storeSize(s).lease);
   if(cost>s.money)throw new Error('Trésorerie insuffisante pour ce local.');
   const candidate={...s,storeSize:size};assertCustomLayoutClear(candidate);
@@ -286,6 +320,7 @@ export function setStaff(s, role, amount) {
     for (const worker of workers.slice(amount)) (role === 'shelves' ? resetRestocker : resetReceiver)(s, worker);
     workers.length = Math.min(workers.length, amount);
     while (workers.length < amount) workers.push((role === 'shelves' ? newRestocker : newReceiver)(workers.length));
+    if(role==='receiving')workers.filter(w=>w.phase==='idle').forEach(w=>{w.pickup=receiverHome(s,w);w.destination=[...w.pickup];});
   }
   if (role === 'checkout') releaseClosedCheckouts(s);
   return { ...s.staff };
@@ -321,8 +356,9 @@ export function setShelfCount(s, productId, amount) {
   const proposal={...s,shelfLayout:[...s.shelfLayout]};
   if(amount>slots.length)free.slice(0,amount-slots.length).forEach(slot=>proposal.shelfLayout[slot]=productId);
   else slots.slice(amount).forEach(slot=>proposal.shelfLayout[slot]=null);
-  assertCustomLayoutClear(proposal);
+  placeAddedFixtures(s,proposal);
   payInstallation(s, quote);
+  s.layout=proposal.layout;
   if (amount > slots.length) free.slice(0, amount - slots.length).forEach(slot => { s.shelfLayout[slot] = productId; });
   else slots.slice(amount).forEach(slot => { s.shelfLayout[slot] = null; });
   product.capacity = capacity;
@@ -419,7 +455,7 @@ function updateMixedRestocker(s,w) {
  if(w.phase==='idle') {
   const candidates=s.products.map((p,index)=>({p,index,available:p.reserve-onlineReserved(s,p.id,'reserve')-s.restockers.reduce((n,o)=>n+restockReserved(o,p.id),0),need:p.capacity-p.shelf-onlineHeld(s,p.id,'shelf')-s.restockers.reduce((n,o)=>n+restockLoad(o,p.id)+restockReserved(o,p.id),0)})).filter(c=>c.available>0&&c.need>0&&(s.restockRequests.includes(c.p.id)||c.p.shelf<=c.p.capacity*RESTOCK_TRIGGER_RATIO)).sort((a,b)=>{const priority=p=>{const i=s.restockRequests.indexOf(p.id);return i<0?999:i;};return priority(a.p)-priority(b.p)||a.p.shelf/a.p.capacity-b.p.shelf/b.p.capacity;}).slice(0,3);
   if(!candidates.length)return;
-  w.mode=s.restockMode==='small'?'medium':s.restockMode;
+  w.mode=s.restockMode;
   const cargo=candidates.map(c=>({productId:c.p.id,quantity:0,reserved:0,reserveRack:Math.max(0,Math.min(c.p.reserveRacks-1,Math.ceil(c.available/(RESERVE_PRODUCT_CAPACITY+s.expansions.reserve*RESERVE_EXPANSION_CAPACITY))-1))}));
   let capacity=RESTOCK_EQUIPMENT[w.mode].capacity,added=true;
   while(capacity&&added){added=false;for(let i=0;i<candidates.length&&capacity;i++)if(cargo[i].reserved<Math.min(candidates[i].available,candidates[i].need)){cargo[i].reserved++;capacity--;added=true;}}
@@ -573,8 +609,7 @@ function dispatchEveningBasket(s) {
   s.eveningBasket = []; s.eveningError = null;
 }
 export function buyAutoCheckout(s) {
-  if (s.autoCheckout) throw new Error('La caisse automatique est déjà installée.');
-  return setInstallation(s, 'auto', 1);
+  return setInstallation(s, 'auto', autoCheckoutCount(s)+1);
 }
 export function openStore(s) {
   if (s.phase !== 'preparation') throw new Error('Le magasin ne peut pas ouvrir maintenant.');
@@ -722,7 +757,7 @@ function spawnCustomer(s) {
   const planned=items.reduce((n,l)=>n+l.quantity,0),carryMode=planned<=6?'bag':planned<=15?'mini':'cart';
   s.customers.push({ carryMode, id: s.nextId++, items, itemIndex: 0, basket: [], value: 0, stage: 'shopping', motion: {position:[9.5,10+storeFrontExtension(s.expansions,s.storeSize)],path:[],key:'',facing:Math.PI}, progress: 0, wait: 0, x: 530, y: 590, color: ['#f8ba63', '#85d9c0', '#c1a7ff', '#f291a8'][Math.floor(random(s) * 4)] });
 }
-function receiverHome(worker) { return [5 + (worker.id % 6) * .55, -5.3]; }
+export function receiverHome(s,worker) {const bays=Math.min(3,deliveryBayCount(s))||1;return [DELIVERY_BAYS[worker.id%bays]+1.45+(Math.floor(worker.id/bays)%3)*.65,-6.25-reserveBackExtension(s)+Math.floor(worker.id/(bays*3))*.6];}
 function resetReceiver(s, worker) {
   const order = s.orders.find(o => o.id === worker.orderId), pallet = order?.pallets[worker.palletIndex];
   if (order && worker.load) { order.remaining += worker.load; order.status = 'unloading'; }
@@ -730,15 +765,15 @@ function resetReceiver(s, worker) {
     pallet.status = worker.fromOutside ? 'outside' : 'dock'; pallet.remaining = worker.load || worker.reserved;
     if (!worker.fromOutside) { pallet.outsideSlot = null; pallet.outsideOrigin = false; }
   }
-  Object.assign(worker, { phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], pickup: receiverHome(worker), destination: receiverHome(worker), toOutside: false, fromOutside: false });
+  Object.assign(worker, { phase: 'idle', productId: null, orderId: null, palletIndex: null, load: 0, reserved: 0, remaining: 0, total: 0, path: [], pickup: receiverHome(s,worker), destination: receiverHome(s,worker), toOutside: false, fromOutside: false });
 }
 function receiverTravel(s, worker, returning = false) {
   const [x, z] = worker.destination, back = reserveBackExtension(s);
   let path;
   if (returning) {
     path = worker.toOutside
-      ? [[x, z], [x, -9.2 - back], [0, -9.2 - back], [0, -6.35 - back], receiverHome(worker)]
-      : [[x, z], [11.65,z], [11.65, -4.65], receiverHome(worker)];
+      ? [[x, z], [x, -9.2 - back], [0, -9.2 - back], [0, -6.35 - back], receiverHome(s,worker)]
+      : [[x, z], [11.65,z], [11.65, -4.65], receiverHome(s,worker)];
   } else if (worker.fromOutside) {
     path = [worker.pickup, [worker.pickup[0], -9.2 - back], [0, -9.2 - back], [0, -6.35 - back], [11.65, -6.35 - back], [11.65,z], [x,z]];
   } else {
@@ -761,6 +796,7 @@ function updateReceiving(s) {
   };
   for (const worker of s.receivers.slice(0, s.staff.receiving)) {
     if (worker.phase === 'idle') {
+      worker.pickup=receiverHome(s,worker);worker.destination=[...worker.pickup];
       const outside = outsidePallets(s).find(({ order, pallet }) => pallet.status === 'outside' && pallet.remaining <= spaceFor(order.productId));
       let order = outside?.order, pallet = outside?.pallet;
       worker.fromOutside = !!outside; worker.toOutside = false;

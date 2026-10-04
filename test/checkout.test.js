@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, setStaff, openStore, advance, buyAutoCheckout } from '../dist/engine.js';
+import {setInstallation,autoCheckoutCount,checkoutDailyCosts,premisesCosts} from '../dist/engine.js';
+import {checkoutStatus} from '../dist/checkout-flow.js';
+import {makeSave,readSave} from '../dist/save-format.js';
 
 function store(cashiers = 1) {
   const state = createGame();
@@ -57,4 +60,16 @@ test('a physical customer arrives with a full basket before unloading, scanning 
  let guard=0;while(!c.checkoutArrived&&guard++<40)advance(s,1);
  assert.equal(c.checkoutArrived,true);assert.ok(guard<40);assert.equal(s.sales,0);
  advance(s,c.checkoutRemaining);assert.equal(s.sales,3.4);assert.equal(s.sold,1);
+});
+
+test('multiple automatic lanes serve independent small baskets, survive saving, charge each fixture and protect a busy removal',()=>{
+ const s=store();s.money=50000;const initial=premisesCosts(s);setInstallation(s,'auto',3);
+ assert.equal(autoCheckoutCount(s),3);assert.equal(checkoutDailyCosts(s),4*5+3*8);assert.equal(premisesCosts(s).rows[1].cost,initial.rows[1].cost+9);
+ for(let id=300;id<304;id++)buyer(s,id);buyer(s,304);s.products[0].shelf-=10;s.customers.at(-1).basket[0].quantity=11;s.customers.at(-1).value=37.4;
+ advance(s,1);assert.deepEqual(s.customers.slice(0,4).map(c=>c.checkoutLane),[0,'auto','auto:1','auto:2']);assert.equal(s.customers.at(-1).checkoutLane,0);
+ assert.equal(checkoutStatus(s,'auto:2'),'busy');const snapshot=JSON.stringify(s);assert.throws(()=>setInstallation(s,'auto',2));assert.equal(JSON.stringify(s),snapshot);
+ const resumed=readSave(makeSave(s)).state;resumed.speed=s.speed;advance(s,4);advance(resumed,4);assert.deepEqual(s,resumed);assert.equal(s.sold,4);assert.equal(s.sales,13.6);assert.equal(checkoutStatus(s,'auto:2'),'available');
+ setInstallation(s,'auto',2);assert.equal(autoCheckoutCount(s),2);assert.equal(checkoutStatus(s,'auto:2'),'unavailable');setStaff(s,'checkout',0);assert.equal(checkoutStatus(s,'auto'),'unavailable');
+ const bad=makeSave(s);bad.state.autoCheckoutCount=9;assert.throws(()=>readSave(bad));
+ const old=createGame();old.autoCheckout=true;const legacy=readSave(makeSave(old)).state;assert.equal(autoCheckoutCount(legacy),1);legacy.money=10000;buyAutoCheckout(legacy);assert.equal(autoCheckoutCount(legacy),2);
 });

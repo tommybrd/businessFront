@@ -12,20 +12,21 @@ test('a normal day requires shelf replenishment; prepared medium carts avoid sho
     assert.equal(prepared.requested, unattended.requested);
     assert.ok(unattended.shortfall > 300);
     assert.equal(prepared.shortfall, 0);
-    assert.ok(prepared.restocked > 1000 && prepared.trips > 30);
+    assert.ok(prepared.restocked > 1000 && prepared.trips > 0 && prepared.trips < 30);
     assert.ok(prepared.sold > unattended.sold + 300);
   }
 });
 
-test('Saturday demand rewards better equipment, while Black Friday needs targeted supplier deliveries too', () => {
+test('larger carts reduce trips on Saturday; exceptional demand still needs supplier deliveries', () => {
   for (const seed of seeds) {
     const normal = simulateDay({ seed, mode: 'large' });
     const small = simulateDay({ seed, day: 3 });
     const medium = simulateDay({ seed, day: 3, mode: 'medium' });
     const large = simulateDay({ seed, day: 3, mode: 'large' });
     assert.ok(large.requested > normal.requested * 1.4);
-    assert.ok(small.shortfall > medium.shortfall && medium.shortfall > large.shortfall);
-    assert.ok(large.sold > medium.sold + 500 && medium.sold > small.sold + 500);
+    assert.ok(small.shortfall >= medium.shortfall && medium.shortfall >= large.shortfall);
+    assert.ok(large.sold >= medium.sold && medium.sold >= small.sold);
+    assert.ok(small.trips>medium.trips&&medium.trips>large.trips);
     const blackFriday = simulateDay({ seed, day: 4, mode: 'large' });
     assert.ok(blackFriday.requested > large.requested * 1.3 && blackFriday.shortfall > 1000);
   }

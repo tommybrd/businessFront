@@ -1,12 +1,14 @@
 import {createShelfFurniture} from './shelf-furniture.js';
+import {checkoutStatus} from './checkout-flow.js';
 import {walkingPath} from './walking-route.js';
+import {autoCheckoutCount,autoCheckoutLane,autoCheckoutIndex,isAutoCheckoutLane} from './store-layout.js';
 import { reservePlacement, shelfPlacement, checkoutPlacement, checkoutPoint, cashierPoint, reserveBackExtension, RESERVE_BACK_EXTENSION, SHELF_MODULE_CAPACITY } from './store-layout.js';
 import { customerPosition } from './customer-motion.js';
 import { createOnlineScene } from './online-scene.js';
 import { onlineWorkerPosition, onlinePicked } from './online-orders.js';
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
-import { RESTOCK_EQUIPMENT, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, restockerPosition, checkoutCount, activeCheckoutLanes, reserveProductPosition, shelfPosition, shelfRotation, shelfFixtureId, productShelfAccess, storeFrontExtension } from './engine.js';
+import { receiverHome,RESTOCK_EQUIPMENT, SHELF_UNITS_PER_LEVEL, SHELF_INITIAL_LEVELS, restockerPosition, checkoutCount, activeCheckoutLanes, reserveProductPosition, shelfPosition, shelfRotation, shelfFixtureId, productShelfAccess, storeFrontExtension } from './engine.js';
 import { createCheckoutVisuals } from './checkout-visuals.js';
 import { createKeyboardCameraControls } from './camera-controls.js';
 import { createDeliveryYard } from './delivery-scene.js';
@@ -134,11 +136,16 @@ export function createStoreScene(canvas, state, onSelect) {
     const light = box(group, 0.23, 0.23, 0.23, 0.83, 1.72, 0, 0xe56850, false);
     checkouts.push({ group, light, effects: checkoutVisuals.station(group) });
   }
-  const auto = new THREE.Group(); auto.position.set(9.2, 0, 6); store.add(auto);
-  auto.userData.selection = { view: 'caisses', fixtureId:'auto' }; auto.name = 'checkout-auto'; auto.rotation.y = -Math.PI / 2;
-  box(auto, 0.95, 0.9, 0.75, 0, 0.5, 0, 0x90b877);
-  box(auto, 0.68, 0.4, 0.1, 0, 1.14, 0, 0x244b3c);
-  const autoEffects = checkoutVisuals.station(auto, true);
+  const automaticCheckouts=Array.from({length:8},(_,i)=>{
+    const group=new THREE.Group();store.add(group);group.rotation.y=-Math.PI/2;
+    group.name=`checkout-${autoCheckoutLane(i)}`;group.userData.selection={view:'caisses',fixtureId:autoCheckoutLane(i)};
+    box(group,.95,.9,.75,0,.5,0,0x90b877);
+    box(group,.68,.4,.1,0,1.14,0,0x244b3c);
+    box(group,.06,.5,.06,.38,1.55,0,COLORS.steel);
+    const light=box(group,.18,.18,.18,.38,1.85,0,0xe56850,false);
+    return {group,light,effects:checkoutVisuals.station(group,true)};
+  });
+  const signalColor=lane=>({available:0xb8ee81,busy:0xf5c64f,unavailable:0xe56850}[checkoutStatus(state,lane)]);
   const gates=new THREE.Group();gates.name='entrance-exit-gates';store.add(gates);
   for(const x of [6.5,8.15,10.35]) {
     for(const z of [8.25,9.6])box(gates,.1,.95,.1,x,.5,z,COLORS.steel);
@@ -261,7 +268,9 @@ export function createStoreScene(canvas, state, onSelect) {
     const product = state.products.find(p => p.id === worker.productId);
     const cargo=worker.cargo?.filter(l=>l.quantity>0)||[{productId:worker.productId,quantity:worker.load}];
     const cartons=cargo.flatMap(line=>Array.from({length:Math.ceil(line.quantity/12)},()=>line.productId));
-    actor.equipment.cargo.forEach((crate,i)=>{crate.visible=i<cartons.length;crate.material=material(state.products.find(p=>p.id===cartons[i])?.color||0xc8ab77);});
+    const filled=Math.ceil(worker.load/RESTOCK_EQUIPMENT[mode].capacity*actor.equipment.cargo.length);
+    actor.equipment.group.userData.articleCount=worker.load;
+    actor.equipment.cargo.forEach((crate,i)=>{crate.visible=i<filled;const id=cartons[Math.min(cartons.length-1,Math.floor(i/Math.max(1,filled)*cartons.length))];crate.material=material(state.products.find(p=>p.id===id)?.color||0xc8ab77);});
     if (moving) actor.equipment.wheels.forEach(wheel => { wheel.rotation.x += seconds * running * 8; });
   }
   function displayOnlineWorker(actor,worker,running,seconds,fraction) {
@@ -294,7 +303,7 @@ export function createStoreScene(canvas, state, onSelect) {
       actor.equipment = restockVehicle('pallet'); actor.group.add(actor.equipment.group);
     }
     actor.equipment.group.visible = true;
-    const position = restockerPosition(worker, minuteFraction), old = actor.group.position;
+    const position = worker.phase==='idle'?receiverHome(state,worker):restockerPosition(worker, minuteFraction), old = actor.group.position;
     const dx = position[0] - old.x, dz = position[1] - old.z, moving = running > 0 && ['collecting','approaching', 'outbound', 'returning'].includes(worker.phase);
     if (moving && Math.hypot(dx, dz) > 0.001) actor.group.rotation.y = Math.atan2(dx, dz);
     else if (worker.phase === 'storing') actor.group.rotation.y = worker.toOutside?Math.PI:reservePlacement(state,state.products.findIndex(p=>p.id===worker.productId),worker.reserveRack||0).rotation+Math.PI;
@@ -389,17 +398,19 @@ export function createStoreScene(canvas, state, onSelect) {
     const lanes = checkoutCount(state);
     checkouts.forEach((checkout, i) => {
       const placement=checkoutPlacement(state,i);checkout.group.visible = i < lanes; checkout.group.position.set(placement.x,0,placement.z);checkout.group.rotation.y=placement.rotation;
-      checkout.light.material = material(state.phase === 'open' && state.staff.checkout > i ? 0xb8ee81 : 0xe56850);
+      checkout.light.material = material(signalColor(i));
     });
-    const autoPlacement=checkoutPlacement(state,'auto');auto.position.set(autoPlacement.x,0,autoPlacement.z);auto.rotation.y=autoPlacement.rotation;
-    auto.visible = state.autoCheckout;
+    automaticCheckouts.forEach((station,i)=>{
+      const lane=autoCheckoutLane(i),p=checkoutPlacement(state,lane);station.group.visible=i<autoCheckoutCount(state);
+      station.group.position.set(p.x,0,p.z);station.group.rotation.y=p.rotation;station.light.material=material(signalColor(lane));
+    });
     const liveIds = new Set(state.customers.map(c => c.id));
     for (const [id, actor] of customers) if (!liveIds.has(id)) {
       if (!actor.exiting) {
         updateCustomerCart(actor, actor.customer); actor.exiting = true;
         if (actor.customer.paid) {
           const lane=actor.customer.checkoutLane,[x,z]=checkoutPoint(state,lane);
-          checkoutVisuals.beginPayment(actor, lane === 'auto' ? autoEffects : checkouts[lane]?.effects);
+          checkoutVisuals.beginPayment(actor, isAutoCheckoutLane(lane) ? automaticCheckouts[autoCheckoutIndex(lane)]?.effects : checkouts[lane]?.effects);
           actor.key = 'paid-exit'; actor.arrivalRoute = null;
           actor.route = [...(Object.keys(state.layout||{}).length?walkingPath(state,[actor.group.position.x,actor.group.position.z],[7.3,7.7+front])?.slice(1)||[]:[[x,z],[x,7.7+front],[7.3,7.7+front]]),[7.3,10+front],[actor.home[0],actor.home[1]+front]];
         } else setDestination(actor, actor.home[0], actor.home[1] + front, 'exit');
@@ -437,11 +448,11 @@ export function createStoreScene(canvas, state, onSelect) {
       } else {
         const unassigned = queue.filter(c => c.checkoutLane == null);
         const lane = customer.checkoutLane ?? (activeLanes.length ? activeLanes[0] : Math.max(0, unassigned.indexOf(customer)) % lanes);
-        const x = lane === 'auto' ? auto.position.x - .85 : laneX(lane, lanes) - .85;
+        const point=checkoutPoint(state,lane),x=point[0];
         const index = customer.checkoutLane == null ? Math.floor(unassigned.indexOf(customer) / lanes) : queue.filter(c => c.checkoutLane === lane).indexOf(customer);
         const column = Math.floor(Math.max(0, index) / 3), row = Math.max(0, index) % 3;
-        const qx = x - column * .7, qz = 4.55 + front - (column % 2 ? 2 - row : row) * .85;
-        const z = customer.stage === 'checkout' ? 5.65 + front : qz;
+        const qx = x - column * .7, qz = point[1]-1.1 - (column % 2 ? 2 - row : row) * .85;
+        const z = customer.stage === 'checkout' ? point[1] : qz;
         const targetX = customer.stage === 'checkout' ? x : qx;
         const key = `${customer.stage}-${lane}-${index}-${lanes}-${front}`;
         if (actor.key !== key) {
@@ -458,8 +469,10 @@ export function createStoreScene(canvas, state, onSelect) {
       const customer = state.customers.find(c => c.stage === 'checkout' && c.checkoutLane === i);
       checkoutVisuals.updateStation(checkout.effects, customer, customers.get(customer?.id), minuteFraction, seconds, running);
     });
-    const autoCustomer = state.customers.find(c => c.stage === 'checkout' && c.checkoutLane === 'auto');
-    checkoutVisuals.updateStation(autoEffects, autoCustomer, customers.get(autoCustomer?.id), minuteFraction, seconds, running);
+    automaticCheckouts.forEach((station,i)=>{
+      const customer=state.customers.find(c=>c.stage==='checkout'&&c.checkoutLane===autoCheckoutLane(i));
+      checkoutVisuals.updateStation(station.effects,customer,customers.get(customer?.id),minuteFraction,seconds,running);
+    });
     const roles = [...Array(state.staff.checkout).fill('checkout'), ...Array(state.staff.shelves).fill('shelves'), ...Array(state.staff.receiving).fill('receiving'), ...Array(state.staff.online).fill('online')];
     while (employees.length < roles.length) addEmployee();
     let checkoutIndex = 0, shelfIndex = 0, receivingIndex = 0, onlineIndex = 0;

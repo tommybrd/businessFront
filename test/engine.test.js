@@ -59,7 +59,7 @@ test('without cashiers, abandoned baskets return to stock and no sales are inven
 });
 
 test('automatic checkout charges once and needs a cashier to operate', () => {
-  const s = createGame(); buyAutoCheckout(s); assert.equal(s.money, 5000); assert.throws(() => buyAutoCheckout(s));
+  const s = createGame(); buyAutoCheckout(s); assert.equal(s.money, 5000); buyAutoCheckout(s); assert.equal(s.money,1500);
   setStaff(s, 'checkout', 0); openStore(s); advance(s, 720); assert.equal(s.sales, 0);
 });
 
@@ -95,7 +95,7 @@ test('restocking needs a human and goods reach a shelf only after loading and tr
   const unmanned = isolatedRestocking('small', 0); advance(unmanned, 100);
   assert.equal(unmanned.products[0].shelf, 0); assert.equal(restockInTransit(unmanned), 0);
   const s = isolatedRestocking(); advance(s, 1);
-  assert.equal(s.restockers[0].phase, 'loading'); assert.equal(s.restockers[0].reserved, 8); assert.equal(s.restockers[0].load, 0);
+  assert.equal(s.restockers[0].phase, 'loading'); assert.equal(s.restockers[0].reserved, 80); assert.equal(s.restockers[0].load, 0);
   assert.equal(s.products[0].reserve, 160); assert.equal(s.products[0].shelf, 0);
   advance(s, 5);
   assert.equal(s.restockers[0].phase, 'outbound'); assert.equal(s.products[0].shelf, 0);
@@ -117,27 +117,25 @@ test('equipment unlocks are sequential, charge once, and fail without changing s
   selectRestockEquipment(s, 'large'); assert.equal(s.money, 3700); assert.equal(s.spending, 4800);
 });
 
-test('larger equipment carries more stock in the same working period without creating goods', () => {
-  const results = ['small', 'medium', 'large'].map(mode => {
-    const s = isolatedRestocking(mode); advance(s, 150);
-    assert.equal(s.products[0].shelf + s.products[0].reserve + restockInTransit(s), 160);
-    assert.ok(s.restockers.every(w => w.load >= 0));
-    return s.products[0].shelf;
-  });
-  assert.ok(results[1] > results[0], results.join(','));
-  assert.ok(results[2] > results[1], results.join(','));
+test('larger equipment fills a substantial shelf sooner without creating goods', () => {
+ const results=['small','medium','large'].map(mode=>{
+  const s=isolatedRestocking(mode);s.products[0].reserve=500;let minutes=0;
+  while(s.products[0].shelf<400&&minutes<650){advance(s,1);minutes++;assert.equal(s.products[0].shelf+s.products[0].reserve+restockInTransit(s),500);}
+  assert.ok(s.products[0].shelf>=400);return minutes;
+ });
+ assert.ok(results[1]<results[0]&&results[2]<results[1],results.join(','));
 });
 
 test('an equipment change applies to the next trip and does not enlarge a current load', () => {
   const s = isolatedRestocking(); advance(s, 1); selectRestockEquipment(s, 'medium');
-  assert.equal(s.restockers[0].mode, 'small'); assert.equal(s.restockers[0].reserved, 8);
+  assert.equal(s.restockers[0].mode, 'small'); assert.equal(s.restockers[0].reserved, 80);
   for (let i = 0; i < 100 && !s.restockers[0].completed; i++) advance(s, 1);
   advance(s, 1);
-  assert.equal(s.restockers[0].mode, 'medium'); assert.equal(s.restockers[0].reserved, 24);
+  assert.equal(s.restockers[0].mode, 'medium'); assert.equal(s.restockers[0].reserved, 80);
 });
 
 test('reassigning a restocker returns carried goods and closing clears transport jobs', () => {
-  const s = isolatedRestocking('large'); advance(s, 8); assert.equal(restockInTransit(s), 48);
+  const s = isolatedRestocking('large'); advance(s, 8); assert.equal(restockInTransit(s), 160);
   setStaff(s, 'shelves', 0); assert.equal(restockInTransit(s), 0); assert.equal(s.products[0].reserve, 160);
   setStaff(s, 'shelves', 1); advance(s, 712);
   assert.equal(s.phase, 'open'); assert.equal(s.day, 2); assert.equal(restockInTransit(s), 0);
@@ -181,13 +179,13 @@ test('low or empty stocks never trigger supplier purchases without an explicit o
 });
 
 test('shelf workers load their own carts concurrently, with no separate preparation team', () => {
-  const s = isolatedRestocking('large', 2); s.products[0].capacity = 128;
+  const s = isolatedRestocking('large', 2); s.products[0].capacity = 500;s.products[0].reserve=500;s.products[0].reserveCapacity=500;
   setStaff(s, 'receiving', 0); setStaff(s, 'checkout', 0); advance(s, 1);
-  assert.ok(s.restockers.every(w => w.phase === 'loading' && w.reserved === 48 && w.load === 0));
-  assert.equal(s.products[0].reserve, 160);
-  advance(s, 5);
-  assert.ok(s.restockers.every(w => w.phase === 'outbound' && w.load === 48));
-  assert.equal(s.products[0].reserve, 64); assert.equal(inventoryPosition(s, 'produce'), 160);
+  assert.ok(s.restockers.every(w => w.phase === 'loading' && w.reserved === 200 && w.load === 0));
+  assert.equal(s.products[0].reserve, 500);
+  advance(s, 7);
+  assert.ok(s.restockers.every(w => w.phase === 'outbound' && w.load === 200));
+  assert.equal(s.products[0].reserve, 100); assert.equal(inventoryPosition(s, 'produce'), 500);
 });
 
 test('restocking, staffing and manual ordering persist across continuous days', () => {

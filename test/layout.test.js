@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createGame,createStarterGame,startDayOnLoad,setStoreSize,moveFixture,premisesCosts,dailyCosts,setInstallation,advance,openStore,requestRestock,inventoryPosition,setStaff,placeOrder} from '../dist/engine.js';
-import {layoutObjects,shelfAccessPoint,checkoutPoint,shopArea,objectBox,reserveAccessPoint} from '../dist/store-layout.js';
+import {objectBox,layoutObjects,shelfAccessPoint,checkoutPoint,shopArea,reserveAccessPoint} from '../dist/store-layout.js';
 import {walkingPath} from '../dist/walking-route.js';
+import {receiverHome,restockerPosition} from '../dist/engine.js';
 import {makeSave,readSave} from '../dist/save-format.js';
 const unchanged=(s,fn)=>{const before=JSON.stringify(s);assert.throws(fn);assert.equal(JSON.stringify(s),before);};
 test('new game is a small shop with two stocked modules, one staffed checkout and three employees',()=>{
@@ -13,7 +14,7 @@ test('page load resumes current minute at x1 and leaves a bankrupt game stopped'
  const s=createGame();openStore(s);advance(s,30);s.speed=0;const snapshot=readSave(makeSave(s));const before=snapshot.state.minute;startDayOnLoad(snapshot.state);assert.equal(snapshot.state.minute,before);assert.equal(snapshot.state.speed,1);s.phase='bankrupt';s.speed=0;startDayOnLoad(s);assert.equal(s.speed,0);
 });
 test('larger premises and expansions increase itemized charges and closing charges them once',()=>{
- const s=createStarterGame();s.money=50000;const small=premisesCosts(s);setStoreSize(s,'standard');const medium=premisesCosts(s);assert.equal(s.money,47000);assert.equal(s.shelfLayout.length,18);setStoreSize(s,'large');const large=premisesCosts(s);assert.equal(s.money,43500);assert.equal(s.shelfLayout.length,36);assert.ok(small.total<medium.total&&medium.total<large.total);assert.ok(small.area<medium.area&&medium.area<large.area);assert.equal(shopArea(s),2060);
+ const s=createStarterGame();s.money=50000;const small=premisesCosts(s);setStoreSize(s,'standard');const medium=premisesCosts(s);assert.equal(s.money,47000);assert.equal(s.shelfLayout.length,18);setStoreSize(s,'large');const large=premisesCosts(s);assert.equal(s.money,43500);assert.equal(s.shelfLayout.length,36);assert.ok(small.total<medium.total&&medium.total<large.total);assert.ok(small.area<medium.area&&medium.area<large.area);assert.equal(shopArea(s),30000);
  const before=JSON.stringify(s);s.money=0;unchanged(s,()=>setStoreSize(s,'unknown'));s.money=43500;s.arrivalCredit=-10000;const cash=s.money,cost=dailyCosts(s);openStore(s);s.minute=1199;advance(s,1);assert.equal(s.money,cash-cost);assert.deepEqual(s.history[0].premises,large);advance(s,0);assert.equal(s.money,cash-cost);
 });
 test('installing or removing a checkout adjusts its employee in the same operation and protects a busy lane',()=>{
@@ -64,8 +65,12 @@ import {stockAlerts} from '../dist/stock-alerts.js';
 test('stock alerts target real shortages and low stock, omit uninstalled families, and clear after replenishment',()=>{
  const s=createStarterGame();assert.deepEqual(stockAlerts(s),[]);s.products[0].shelf=0;s.products[0].reserve=0;s.products[1].shelf=20;const alerts=stockAlerts(s);assert.equal(alerts.filter(a=>a.severity==='critical').length,2);assert.equal(alerts.filter(a=>a.severity==='warning').length,1);assert.ok(alerts.every(a=>['produce','bakery'].includes(a.productId)));s.products[0].shelf=120;s.products[0].reserve=48;s.products[1].shelf=120;assert.deepEqual(stockAlerts(s),[]);
 });
-test('new installations cannot overlap custom furniture or debit cash after a placement rejection',()=>{
- const s=createStarterGame();moveFixture(s,'shelf:1',0,0);moveFixture(s,'shelf:4',-6.5,-2);unchanged(s,()=>setInstallation(s,'shelves',2,'produce'));
+test('a new shelf finds a free reachable place when its default slot is occupied, without moving existing furniture',()=>{
+ const s=createStarterGame();moveFixture(s,'shelf:1',0,0);moveFixture(s,'shelf:4',-6.5,-2);const existing=layoutObjects(s),cash=s.money,stock=s.products.map(p=>inventoryPosition(s,p.id));setInstallation(s,'shelves',2,'produce');
+ assert.equal(s.money,cash-120);assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),stock);
+ const added=layoutObjects(s).find(o=>o.id==='shelf:0');assert.ok(s.layout[added.id]);
+ for(const old of existing){assert.deepEqual(layoutObjects(s).find(o=>o.id===old.id),old);const a=objectBox(added),b=objectBox(old);assert.ok(!(a.left<b.right&&a.right>b.left&&a.back<b.front&&a.front>b.back));}
+ assert.ok(walkingPath(s,[9.5,5.1],added.access));assert.deepEqual(readSave(makeSave(s)).state.layout,s.layout);
 });
 test('a full double-height pallet contains exactly twenty cartons and remains compatible with old partial pallets',()=>{
  const s=createStarterGame();const order=placeOrder(s,'produce',480,'express');assert.equal(order.pallets.length,2);assert.ok(order.pallets.every(p=>p.quantity===240));assert.equal(order.pallets.reduce((n,p)=>n+p.quantity/12,0),40);const snapshot=makeSave(s);snapshot.state.orders[0].pallets[0].quantity=48;snapshot.state.orders[0].pallets[0].remaining=48;assert.equal(readSave(snapshot).state.orders[0].pallets[0].quantity,48);
@@ -73,7 +78,7 @@ test('a full double-height pallet contains exactly twenty cartons and remains co
 
 test('medium carts collect several families, reserve each separately and deliver without losing or duplicating articles',()=>{
  const s=createStarterGame();assert.equal(s.restockMode,'medium');assert.equal(s.restockUnlocked.medium,true);s.arrivalCredit=-100000;s.products[0].shelf=0;s.products[1].shelf=0;setStaff(s,'shelves',3);openStore(s);const total=s.products.map(p=>inventoryPosition(s,p.id));let mixed=false;
- for(let i=0;i<250;i++){advance(s,1);assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);for(const w of s.restockers){assert.ok(w.load+w.reserved<=24);if(w.cargo?.filter(l=>l.quantity>0).length>1)mixed=true;}for(const p of s.products){assert.ok(p.reserve>=0&&p.shelf<=p.capacity);}}
+ for(let i=0;i<250;i++){advance(s,1);assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);for(const w of s.restockers){assert.ok(w.load+w.reserved<=160);if(w.cargo?.filter(l=>l.quantity>0).length>1)mixed=true;}for(const p of s.products){assert.ok(p.reserve>=0&&p.shelf<=p.capacity);}}
  assert.ok(mixed);assert.equal(s.products[0].reserve,0);assert.equal(s.products[1].reserve,0);assert.equal(s.products[0].shelf,48);assert.equal(s.products[1].shelf,48);
 });
 test('saving a mixed load resumes deterministically and removing the employee returns all carried families',()=>{
@@ -91,7 +96,14 @@ test('busy shelf and reserve fixtures can move in pause without losing a mixed l
  assert.deepEqual(s.products.map(p=>inventoryPosition(s,p.id)),total);
 });
 
-test('floor areas use the fivefold scale and rent, area electricity, insurance and cleaning follow it',()=>{
- const s=createStarterGame();assert.equal(shopArea(s),1085);s.storeSize='standard';assert.equal(shopArea(s),1585);const c=premisesCosts(s);assert.equal(c.rows[0].cost,450);assert.equal(c.rows[2].cost,50);assert.equal(c.rows[3].cost,100);assert.equal(c.rows[1].cost,104);
- s.storeSize='large';assert.equal(shopArea(s),2060);const before=shopArea(s);s.expansions.reserve=1;assert.ok(shopArea(s)>before);assert.ok(premisesCosts(s).total>c.total);
+test('floor areas use the three store sizes and rent, area electricity, insurance and cleaning follow it',()=>{
+ const s=createStarterGame();assert.equal(shopArea(s),1000);s.storeSize='standard';assert.equal(shopArea(s),5000);const c=premisesCosts(s);assert.equal(c.rows[0].cost,450);assert.equal(c.rows[2].cost,50);assert.equal(c.rows[3].cost,100);assert.equal(c.rows[1].cost,104);
+ s.storeSize='large';assert.equal(shopArea(s),30000);const before=shopArea(s);s.expansions.reserve=1;assert.ok(shopArea(s)>before);assert.ok(premisesCosts(s).total>c.total);
+});
+
+test('idle receivers stage beside the delivery doors and follow a changed reserve depth after loading an old save',()=>{
+ const s=createStarterGame();setStaff(s,'receiving',3);startDayOnLoad(s);
+ for(const w of s.receivers){assert.deepEqual(restockerPosition(w),receiverHome(s,w));assert.ok(w.pickup[1]<-9);}
+ s.expansions.reserve=1;const restored=readSave(makeSave(s)).state;startDayOnLoad(restored);
+ for(const w of restored.receivers){assert.deepEqual(w.pickup,receiverHome(restored,w));assert.ok(w.pickup[1]<s.receivers[w.id].pickup[1]);}
 });

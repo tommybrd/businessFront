@@ -50,7 +50,7 @@ test('human pallet transport preserves incoming goods through reallocation, capa
 });
 
 test('discarding reserve goods protects prepared loads and does not refund paid merchandise', () => {
-  const s = createGame(); setStaff(s, 'shelves', 1); s.arrivalCredit = -10000; requestRestock(s, 'produce'); openStore(s); advance(s, 1);
+  const s = createGame(); setStaff(s, 'shelves', 1); s.arrivalCredit = -10000; s.products.forEach(p=>p.reserve=200); requestRestock(s, 'produce'); openStore(s); advance(s, 1);
   const p = s.products.find(p => s.restockers.some(w => w.productId === p.id && w.reserved));
   const reserved = s.restockers.filter(w => w.productId === p.id).reduce((sum, w) => sum + w.reserved, 0);
   const cash = s.money; assert.throws(() => discardReserve(s, p.id, p.reserve));
@@ -159,7 +159,7 @@ test('cash-register operating costs and staff wages are charged once at closing 
   buyAutoCheckout(s); assert.equal(checkoutDailyCosts(s), 38);
   setStaff(s, 'checkout', 12); const cash = s.money, costs = dailyCosts(s);
   openStore(s); s.minute = 1199; s.arrivalCredit = -10000; advance(s, 1);
-  assert.equal(s.history[0].expenses, 13 * 85 + 125 + 821.94);
+  assert.equal(s.history[0].expenses, 13 * 85 + 125 + 820.52);
   assert.equal(s.money, cash - costs); assert.equal(s.history[0].net, -costs - 7300);
   advance(s, 0); assert.equal(s.money, cash - costs);
 });

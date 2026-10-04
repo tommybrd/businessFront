@@ -125,7 +125,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,canvas:focus-visib
 .checkout-status{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
 .checkout-lane{display:flex;align-items:center;gap:7px;border:1px solid #4b6855;background:#243d34;padding:9px;border-radius:4px;font-size:14px}
 .lane-light{width:10px;height:10px;border-radius:50%;background:#f16a57;box-shadow:0 0 8px #f16a5760}
-.lane-light.open{background:#c4f185;box-shadow:0 0 8px #c4f18560}
+.lane-light.available{background:#c4f185;box-shadow:0 0 8px #c4f18560}
 .journal{position:fixed;top:94px;left:114px;width:330px;max-height:calc(100dvh - 168px);overflow-y:auto;z-index:4;padding:16px;overscroll-behavior:contain}
 .journal-heading h2{font-size:18px}
 .journal .event-box{border:0;border-radius:3px;background:#294334;margin:14px 0;padding:12px}
@@ -250,3 +250,9 @@ dialog{background:#203a30;border-color:#638058;border-radius:8px;z-index:9}
 .reserve-overflow {font-size:12px;line-height:1.4;color:#f1bf92;margin-top:4px;}
 .warehouse-reserve-gauge {grid-column:1/-1;width:100%;margin-bottom:12px;}
 .warehouse-product .supplier-incoming,.warehouse-product .supplier-planned,.warehouse-product .reserve-overflow {font-size:12px;}
+
+.lane-light.busy{background:#f5c64f;box-shadow:0 0 8px #f5c64f60}
+.finance-details,.finance-settings{margin:12px 0 20px}
+.finance-details>summary,.finance-settings>summary,.supplier-invoices details>summary,.tax-account details>summary{cursor:pointer;padding:10px 0;font-weight:600}
+.finance-settings[open]>.size-picker{margin-top:16px}
+.personal-transfer input{min-width:0;flex:1}

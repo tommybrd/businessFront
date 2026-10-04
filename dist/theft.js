@@ -1,3 +1,4 @@
+import {isAutoCheckoutLane} from './store-layout.js';
 export const SECURITY_LEVELS={basic:{name:'Surveillance simple',factor:1,daily:0,install:0},cameras:{name:'Caméras',factor:.5,daily:25,install:600},reinforced:{name:'Caméras et contrôle',factor:.2,daily:60,install:1400}};
 export const newTheftState=seed=>({level:'basic',seed:(seed^82973)>>>0,daily:{checked:0,stolen:0,lostRevenue:0,lostCost:0,autoStolen:0,staffedStolen:0,products:Array(6).fill(0)}});
 export const theftRates=s=>({staffed:.01*SECURITY_LEVELS[s.theft?.level||'basic'].factor,automatic:.04*SECURITY_LEVELS[s.theft?.level||'basic'].factor});
@@ -11,7 +12,7 @@ export function setSecurityLevel(s,level) {
 }
 export function settleTheft(s,customer) {
  if(!s.theft)return;
- const t=s.theft,automatic=customer.checkoutLane==='auto',rate=automatic?theftRates(s).automatic:theftRates(s).staffed;
+ const t=s.theft,automatic=isAutoCheckoutLane(customer.checkoutLane),rate=automatic?theftRates(s).automatic:theftRates(s).staffed;
  customer.stolen=[];
  for(const item of customer.basket) {
   let stolen=0;

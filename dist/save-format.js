@@ -1,4 +1,5 @@
 import {validStoreHours} from './store-hours.js';
+import {isAutoCheckoutLane} from './store-layout.js';
 export const SAVE_VERSION = 1;
 export const MAX_SAVE_BYTES = 1000000;
 const saveProductIds = ['produce','bakery','dairy','grocery','drinks','home'];
@@ -22,10 +23,11 @@ export function validateSave(snapshot) {
   for(const zone of ['checkout','shelves','reserve'])saveAssert(Number.isSafeInteger(s.expansions[zone])&&s.expansions[zone]>=0&&s.expansions[zone]<=2);
   saveAssert(Array.isArray(s.products)&&s.products.length===6&&s.products.every((p,i)=>p.id===saveProductIds[i]&&[p.shelf,p.reserve,p.capacity,p.reserveCapacity,p.reserveRacks].every(n=>Number.isSafeInteger(n)&&n>=0)));
   saveAssert(s.shelfLayout.every(id=>id===null||saveProductIds.includes(id)));
+  if(s.autoCheckoutCount!==undefined)saveAssert(Number.isInteger(s.autoCheckoutCount)&&s.autoCheckoutCount>=0&&s.autoCheckoutCount<=8&&s.autoCheckout===Boolean(s.autoCheckoutCount));
   if(s.storeSize!==undefined)saveAssert(['small','standard','large'].includes(s.storeSize));
   if(s.layout!==undefined){
     saveAssert(s.layout&&typeof s.layout==='object'&&!Array.isArray(s.layout)&&Object.keys(s.layout).length<=120);
-    for(const [id,p]of Object.entries(s.layout))saveAssert(/^(shelf:[0-9]{1,2}|checkout:[0-7]|reserve:[0-5]:[0-2]|auto|packing)$/.test(id)&&p&&[p.x,p.z,p.rotation].every(Number.isFinite)&&Math.abs(p.x)<=30&&Math.abs(p.z)<=60&&[0,Math.PI/2,Math.PI,Math.PI*1.5,-Math.PI/2].some(a=>Math.abs(a-p.rotation)<.00001));
+    for(const [id,p]of Object.entries(s.layout))saveAssert(/^(shelf:[0-9]{1,2}|checkout:[0-7]|reserve:[0-5]:[0-2]|auto(?::[1-7])?|packing)$/.test(id)&&p&&[p.x,p.z,p.rotation].every(Number.isFinite)&&Math.abs(p.x)<=30&&Math.abs(p.z)<=60&&[0,Math.PI/2,Math.PI,Math.PI*1.5,-Math.PI/2].some(a=>Math.abs(a-p.rotation)<.00001));
   }
   if(s.theft!==undefined)saveAssert(s.theft&&['basic','cameras','reinforced'].includes(s.theft.level)&&Number.isSafeInteger(s.theft.seed)&&s.theft.daily&&['checked','stolen','lostRevenue','lostCost','autoStolen','staffedStolen'].every(k=>Number.isFinite(s.theft.daily[k])&&s.theft.daily[k]>=0)&&Array.isArray(s.theft.daily.products)&&s.theft.daily.products.length===6);
   if(s.satisfactionDetails!==undefined)saveAssert(s.satisfactionDetails&&['opening','since','requests','fulfilled','waitingCustomers','waitMinutes','maxWait','waitDepartures','stockDepartures','closingDepartures','stockPenalty','waitPenalty','paymentRecovery'].every(k=>Number.isFinite(s.satisfactionDetails[k])&&s.satisfactionDetails[k]>=0)&&['shortages','missing'].every(k=>Array.isArray(s.satisfactionDetails[k])&&s.satisfactionDetails[k].length===6));
@@ -46,7 +48,7 @@ export function validateSave(snapshot) {
   for(const c of s.customers) {
     saveAssert(Number.isSafeInteger(c.wait)&&c.wait>=0);
     if(c.stage==='shopping')saveAssert(Number.isSafeInteger(c.itemIndex)&&c.itemIndex>=0&&c.itemIndex<c.items.length&&Number.isFinite(c.progress));
-    if(c.stage==='checkout')saveAssert((c.checkoutLane==='auto'||Number.isSafeInteger(c.checkoutLane))&&Number.isFinite(c.checkoutDuration)&&c.checkoutDuration>0&&Number.isFinite(c.checkoutRemaining)&&c.checkoutRemaining>=0);
+    if(c.stage==='checkout')saveAssert((isAutoCheckoutLane(c.checkoutLane)||Number.isSafeInteger(c.checkoutLane))&&Number.isFinite(c.checkoutDuration)&&c.checkoutDuration>0&&Number.isFinite(c.checkoutRemaining)&&c.checkoutRemaining>=0);
     if(c.motion)saveAssert(Array.isArray(c.motion.position)&&c.motion.position.length===2&&c.motion.position.every(Number.isFinite)&&Array.isArray(c.motion.path)&&c.motion.path.every(p=>Array.isArray(p)&&p.length===2&&p.every(Number.isFinite))&&typeof c.motion.key==='string'&&Number.isFinite(c.motion.facing));
   }
   saveAssert(Array.isArray(s.online.orders)&&s.online.enabled&&s.online.daily&&Number.isInteger(s.online.seed)&&Number.isInteger(s.online.nextId));
