@@ -1,3 +1,4 @@
+import {createShelfFurniture} from './shelf-furniture.js';
 import {walkingPath} from './walking-route.js';
 import { reservePlacement, shelfPlacement, checkoutPlacement, checkoutPoint, cashierPoint, reserveBackExtension, RESERVE_BACK_EXTENSION, SHELF_MODULE_CAPACITY } from './store-layout.js';
 import { customerPosition } from './customer-motion.js';
@@ -105,25 +106,13 @@ export function createStoreScene(canvas, state, onSelect) {
   function createShelf(product, index, slot) {
     const group = new THREE.Group(), [x, z] = shelfPosition(slot); group.name = `shelf-slot-${slot}`; group.position.set(x, 0, z); group.rotation.y = shelfRotation(slot); fixtures[shelfFixtureId(slot)].add(group);
     group.userData.selection = { view: 'rayons', productId: product.id, fixtureId:`shelf:${slot}` };
-    const stall = product.id === 'produce';
-    if (stall) {
-      group.userData.fixture = 'produce-stall';
-      for (const x of [-.75, .75]) for (const z of [-.65, .65]) box(group, .16, .85, .16, x, .5, z, 0x957046);
-      box(group, 1.8, .2, 1.8, 0, .88, 0, 0xb59462);
-      for (const x of [-.9, -.3, .3, .9]) box(group, .065, .28, 1.8, x, 1.04, 0, 0xc1a272);
-      for (const z of [-.88, .88]) box(group, 1.8, .28, .06, 0, 1.04, z, 0xc1a272);
-    } else {
-      box(group, 1.8, .25, 1.45, 0, .22, 0, 0xb9c8ae);
-      for (let level = 0; level < SHELF_INITIAL_LEVELS; level++) box(group, 1.8, .1, 1.45, 0, .42 + level * .38, 0, 0xd1dbc5);
-      for (const px of [-.83, .83]) for (const pz of [-.65, .65]) box(group, .09, 2.05, .09, px, 1.2, pz, COLORS.steel);
-      box(group, 1.8, .18, .14, 0, 1.45, .76, product.color);
-    }
-    const units = shelfStock(product, SHELF_UNITS_PER_LEVEL * SHELF_INITIAL_LEVELS, stall ? SHELF_MODULE_CAPACITY : SHELF_UNITS_PER_LEVEL, group, box, material, stall ? 'stall' : 'shelf');
+    const furniture=createShelfFurniture(group,product,{box,material});
+    const units=shelfStock(product,SHELF_UNITS_PER_LEVEL*SHELF_INITIAL_LEVELS,furniture.unitsPerLevel,group,box,material,furniture.layout);
     const selection = box(group, 1.95, .015, 2.05, 0, .1, 0, 0xc6e49f, false); selection.visible = false;
     box(group, 1.65, .09, .04, 0, .31, .95, 0x4c6252);
     const stockBar = box(group, 1.65, .09, .05, 0, .31, .98, product.color, false);
-    const sign = plaque(product.short, 1.5); sign.position.set(0, stall ? .8 : 1.12, stall ? .94 : .77); group.add(sign);
-    return { group, units, selection, stockBar, index, slot, stall, productId: product.id };
+    const sign = plaque(product.short, 1.5); sign.position.set(0,furniture.signY,furniture.signZ); group.add(sign);
+    return {group,units,selection,stockBar,index,slot,furniture,productId:product.id};
   }
   const shelves = [];
   const emptyShelves = Array.from({ length: 72 }, (_, slot) => {
@@ -388,7 +377,11 @@ export function createStoreScene(canvas, state, onSelect) {
       const placement=shelfPlacement(state,shelf.slot);shelf.group.position.set(placement.x,0,placement.z);shelf.group.rotation.y=placement.rotation;
       const p = state.products[shelf.index], slots = state.shelfLayout.map((id, slot) => id === p.id ? slot : -1).filter(slot => slot >= 0), ordinal = slots.indexOf(shelf.slot);
       const count = Math.floor(p.shelf / slots.length) + (ordinal < p.shelf % slots.length ? 1 : 0);
-      shelf.units.update(count, shelf.stall ? 1 : SHELF_INITIAL_LEVELS);
+      shelf.units.update(count,shelf.furniture.levels);
+      if(shelf.furniture.doors.length){
+        const picking=state.customers.some(c=>c.stage==='shopping'&&c.progress>0&&c.items[c.itemIndex]?.index===shelf.index&&c.id%slots.length===ordinal)||state.restockers.some(w=>w.phase==='stocking'&&w.productId===p.id&&w.completed%slots.length===ordinal);
+        for(const door of shelf.furniture.doors)door.group.rotation.y=THREE.MathUtils.lerp(door.group.rotation.y,picking?door.side*.48:0,.18);
+      }
       shelf.selection.visible = selected === p.id;
       const ratio = p.capacity ? p.shelf / p.capacity : 0; shelf.stockBar.scale.x = ratio; shelf.stockBar.position.x = -1.65 * (1 - ratio) / 2;
       shelf.stockBar.material = material(p.shelf < 12 ? 0xefaa73 : p.color);

@@ -19,8 +19,8 @@ export function productUnit(product, index, box, material) {
     box(group, 0.07, 0.07, 0.07, 0, 0.26, 0, 0xf2eee0, false);
     box(group, 0.16, 0.07, 0.01, 0, 0.13, 0.08, 0xe9eadb, false);
   } else if (product.id === 'bakery') {
-    const loaf = new THREE.Mesh(new THREE.CapsuleGeometry(0.07, 0.17, 2, 6), material(0xd4a05c));
-    loaf.rotation.x = Math.PI / 2; loaf.position.y = 0.08; group.add(loaf);
+    const loaf = new THREE.Mesh(new THREE.CapsuleGeometry(index%3===2?.09:.055,index%3===2?.12:.4,2,7),material(index%3===1?0xe4bd7a:0xcf9c53));
+    loaf.rotation.x=Math.PI/2;loaf.position.y=.08;group.add(loaf);
   } else {
     box(group, 0.18, 0.26, 0.19, 0, 0.13, 0, product.color, false);
     box(group, 0.14, 0.08, 0.012, 0, 0.13, 0.102, 0xf2efe5, false);
@@ -31,7 +31,7 @@ export function productUnit(product, index, box, material) {
 
 // Batch the dense stock while retaining one instance for each real article.
 export function shelfStock(product, maximum, unitsPerLevel, parent, box, material, layout = 'shelf') {
-  const variants = product.id === 'produce' ? 3 : 1, batches = [];
+  const variants = ['produce','bakery'].includes(product.id)?3:1,batches=[];
   const group = new THREE.Group(); group.name = `shelf-stock-${product.id}`; parent.add(group);
   for (let variant = 0; variant < variants; variant++) {
     const template = productUnit(product, variant, box, material);
@@ -51,7 +51,8 @@ export function shelfStock(product, maximum, unitsPerLevel, parent, box, materia
       for (const batch of batches) {
         for (let n = 0; n < batch.capacity; n++) {
           const index = batch.variant + n * variants, slot = Math.floor(index / levels);
-          if (layout === 'stall') position.makeTranslation(-.75 + (index % 10) * .165, 1.02 + Math.floor(index / 60) * .17, .65 - Math.floor((index % 60) / 10) * .26);
+          if(layout==='basket'){const row=index%50,column=row%10,zRow=Math.floor(row/10),layer=Math.floor(index/50);position.makeRotationY(((index%3)-1)*.16);position.setPosition((-.59+column*.131)*(1-Math.abs(zRow-2)*.15),.99+layer*.1,-.3+zRow*.15);}
+          else if (layout === 'stall') position.makeTranslation(-.75 + (index % 10) * .165, 1.02 + Math.floor(index / 60) * .17, .65 - Math.floor((index % 60) / 10) * .26);
           else position.makeTranslation(-.735 + (slot % 8) * .21, .48 + (index % levels) * .38, .55 - Math.floor(slot / 8) * .275);
           position.multiply(itemScale); batch.mesh.setMatrixAt(n, matrix.multiplyMatrices(position, batch.partMatrix));
         }

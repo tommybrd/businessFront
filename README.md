@@ -1,4 +1,4 @@
-# Market Front · v0.11.1
+# Market Front · v0.11.2
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
@@ -14,7 +14,7 @@ Finances propose petit, moyen ou grand magasin, avec surface, coût de changemen
 
 Aménager ouvre un plan et met la partie en pause. Sélectionner un équipement puis le glisser, ou toucher sa destination ; Tourner le pivote de 90°. Rayons, caisses, caisse automatique, racks et poste de préparation sont déplaçables. Les chevauchements, sorties bloquées et passages coupés sont refusés. Un équipement en cours d’utilisation attend la fin de son opération. La simulation, les chemins autour des obstacles et la scène 3D utilisent les positions sauvegardées.
 
-Les repères de la scène sont les portillons, barrières, voyants et meubles. Aucun panneau Entrée, Sortie, Caisse 1, Auto, Module libre, Quai ou Drive ne flotte dans le magasin. Les plaques des produits font partie du mobilier. Le montant du paiement reste près du poste et un bip unique accompagne le paiement (après autorisation audio du navigateur), sans option de désactivation.
+Les repères de la scène sont les portillons, barrières, voyants et meubles. Le pain repose en vrac dans une grande corbeille tressée sur meuble en bois ; le frais utilise des armoires réfrigérées à deux portes vitrées, avec éclairage et ventilation. Les portes s’entrouvrent pendant le prélèvement ou le rangement. Chaque meuble montre son stock réel et conserve ses emplacements, sa capacité et ses accès sauvegardés. Aucun panneau Entrée, Sortie, Caisse 1, Auto, Module libre, Quai ou Drive ne flotte dans le magasin. Les plaques des produits font partie du mobilier. Le montant du paiement reste près du poste et un bip unique accompagne le paiement (après autorisation audio du navigateur), sans option de désactivation.
 
 ## Stocks, clients et livraisons
 
