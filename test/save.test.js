@@ -98,3 +98,66 @@ test('loading errors do not start a new game or overwrite server state',async()=
  let puts=0;const a=gameClient(backend(),{fetcher:async(path,options)=>{if(options.method==='PUT')puts++;return Response.json({error:'offline'},{status:503});}});
  assert.equal(await a.manager.load(),false);assert.equal(a.manager.ready,false);assert.equal(await a.manager.flush(),false);assert.equal(puts,0);
 });
+
+test('offline startup restores even a clean synced save and continues saving after a reopen',async()=>{
+ const env=backend(),store=storage();const a=gameClient(env,{store});await a.manager.load();a.state.money=7654;await a.manager.flush();
+ const offline=()=>{throw new TypeError('Network unavailable');};
+ const b=gameClient(env,{store,fetcher:offline});assert.equal(await b.manager.load(),true);assert.equal(b.state.money,7654);assert.equal(b.manager.offline,true);
+ b.state.money=4567;b.manager.changed();await b.manager.flush();
+ const c=gameClient(env,{store,fetcher:offline});assert.equal(await c.manager.load(),true);assert.equal(c.state.money,4567);
+ const connected=gameClient(env,{store});await connected.manager.load();assert.equal(connected.state.money,4567);
+ assert.equal((await(await saveApi(req(),env)).json()).snapshot.state.money,4567);
+});
+test('returning Internet reconciles the revision and syncs the live offline session',async()=>{
+ const env=backend(),store=storage();let offline=false;
+ const a=gameClient(env,{store,fetcher:(path,o)=>{if(offline)throw new TypeError('offline');return saveApi(req(o.method,o.body?JSON.parse(o.body):null,'alice',path),env);}});
+ await a.manager.load();offline=true;a.state.money=6543;a.manager.changed();await a.manager.flush();assert.equal(a.manager.offline,true);
+ offline=false;assert.equal(await a.manager.flush(),true);assert.equal(a.manager.offline,false);assert.equal((await(await saveApi(req(),env)).json()).snapshot.state.money,6543);
+});
+test('offline new game is durable and the preceding local game can be restored',async()=>{
+ const env=backend(),store=storage();const a=gameClient(env,{store});await a.manager.load();a.state.money=6543;await a.manager.flush();
+ const b=gameClient(env,{store,fetcher:()=>{throw new TypeError('offline');}});await b.manager.load();
+ assert.equal(await b.manager.newGame(makeSave(createGame(543))),true);assert.equal(b.state.seed,543);assert.equal(b.manager.hasPrevious,true);
+ const c=gameClient(env,{store,fetcher:()=>{throw new TypeError('offline');}});await c.manager.load();assert.equal(c.state.seed,543);
+ assert.equal(await c.manager.load(true),true);assert.equal(c.state.money,6543);
+});
+test('offline branch and remote branch require an explicit choice, retaining a recovery copy',async()=>{
+ const env=backend(),store=storage();const a=gameClient(env,{store});await a.manager.load();
+ const offline=gameClient(env,{store,fetcher:()=>{throw new TypeError('offline');}});await offline.manager.load();offline.state.money=3210;offline.manager.changed();
+ const remote=gameClient(env);await remote.manager.load();remote.state.money=9876;await remote.manager.flush();
+ let last;const b=gameClient(env,{store,notify:x=>{last=x;}});assert.equal(await b.manager.load(),false);assert.equal(last.status,'conflict');assert.equal(b.state.money,3210);
+ assert.equal((await(await saveApi(req(),env)).json()).snapshot.state.money,9876);
+ assert.equal(await b.manager.load(),true);assert.equal(b.state.money,9876);assert.equal(last.hasRecovery,true);
+ assert.equal(await b.manager.recoverLocal(),true);assert.equal(b.state.money,3210);assert.equal((await(await saveApi(req(),env)).json()).snapshot.state.money,3210);
+});
+test('explicitly keeping the local branch updates the cloud and retains its previous state',async()=>{
+ const env=backend(),store=storage();const a=gameClient(env,{store});await a.manager.load();
+ const offline=gameClient(env,{store,fetcher:()=>{throw new TypeError('offline');}});await offline.manager.load();offline.state.money=3210;offline.manager.changed();
+ const remote=gameClient(env);await remote.manager.load();remote.state.money=9876;await remote.manager.flush();
+ const b=gameClient(env,{store});assert.equal(await b.manager.load(),false);assert.equal(await b.manager.keepLocal(),true);assert.equal(b.manager.ready,true);
+ assert.equal((await(await saveApi(req(),env)).json()).snapshot.state.money,3210);
+ assert.equal((await(await saveApi(req('GET',null,'alice','/api/save?previous=1'),env)).json()).snapshot.state.money,9876);
+});
+test('authentication errors and login HTML never fall back to a local game or overwrite another owner',async()=>{
+ const env=backend(),store=storage();const a=gameClient(env,{store});await a.manager.load();
+ for(const response of [()=>Response.json({error:'Login'},{status:401}),()=>new Response('<html>login</html>',{headers:{'Content-Type':'text/html'}})]){
+  const b=gameClient(env,{store,fetcher:response});assert.equal(await b.manager.load(),false);assert.equal(b.manager.ready,false);
+  const c=gameClient(env,{store,fetcher:()=>{throw Error('offline');}});assert.equal(await c.manager.load(),false);
+  await a.manager.load();
+ }
+ const other=await saveApi(req('PUT',{ownerId:'alice',revision:0,snapshot:makeSave(createGame())},'bob'),env);assert.equal(other.status,403);
+ assert.equal((await(await saveApi(req('GET',null,'bob'),env)).json()).snapshot,null);
+});
+test('failed local storage and corrupt local data are never reported as saved offline',async()=>{
+ const env=backend();const broken={getItem:()=>null,setItem:()=>{throw Error('quota');},removeItem:()=>{}};let offline=false,last;
+ const a=gameClient(env,{store:broken,notify:x=>{last=x;},fetcher:(path,o)=>{if(offline)throw Error('offline');return saveApi(req(o.method,o.body?JSON.parse(o.body):null,'alice',path),env);}});
+ assert.equal(await a.manager.load(),true);offline=true;a.state.money=2222;a.manager.changed();assert.equal(await a.manager.flush(),false);assert.equal(last.status,'error');
+ const store=storage();store.setItem('market-front-local-save-v1',JSON.stringify({ownerId:'alice',revision:1,dirty:true,lastPayload:null,payload:{}}));
+ const b=gameClient(env,{store,fetcher:()=>{throw Error('offline');}});assert.equal(await b.manager.load(),false);
+});
+test('a lost PUT response reconciles an already accepted snapshot without a false conflict',async()=>{
+ const env=backend();let lose=false;
+ const a=gameClient(env,{fetcher:async(path,o)=>{const response=await saveApi(req(o.method,o.body?JSON.parse(o.body):null,'alice',path),env);if(lose&&o.method==='PUT')throw Error('lost response');return response;}});
+ await a.manager.load();lose=true;a.state.money=4321;await a.manager.flush();assert.equal(a.manager.offline,true);
+ lose=false;assert.equal(await a.manager.flush(),true);assert.equal(a.manager.ready,true);assert.equal(a.manager.revision,2);
+});

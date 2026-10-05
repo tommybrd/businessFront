@@ -1,4 +1,4 @@
-# Market Front · v0.12.0
+# Market Front · v0.13.0
 
 Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le magasin, ses équipes, ses commandes et sa trésorerie.
 
@@ -6,7 +6,7 @@ Jeu de gestion de supermarché en français, en vue 3D. Le joueur dirige le maga
 
 Le chargement reprend automatiquement à vitesse ×1, sans simuler le temps passé hors du jeu. Une nouvelle partie commence dans un petit local avec deux rayons de 200 articles, une caisse, trois employés, 240 articles en rayon et 96 en réserve. Une partie existante garde ses stocks et ses équipements. Chaque caisse installée inclut désormais un employé et son salaire.
 
-Sauvegarde automatique liée au compte Sites, toutes les cinq secondes et à la mise en arrière-plan. Le menu Partie permet sauvegarde manuelle, rechargement, reprise de la version précédente (en pause) et nouvelle partie après confirmation. Un conflit entre fenêtres arrête la simulation jusqu’au rechargement. Les journées s’enchaînent, sauf faillite. Une seconde représente une minute à ×1.
+Sauvegarde automatique liée au compte Sites, toutes les cinq secondes et à la mise en arrière-plan. Le menu Partie permet sauvegarde manuelle, rechargement, reprise de la version précédente (en pause) et nouvelle partie après confirmation. Le jeu est téléchargé automatiquement pour une reprise hors ligne après une première ouverture connectée. Les sauvegardes locales sont validées et liées au dernier compte chargé. La synchronisation reprend avec Internet, sans écraser une partie qui a avancé ailleurs : un conflit met le jeu en pause et propose la version en ligne ou celle de cet appareil, avec copie de récupération. Le menu Partie indique si le téléchargement hors ligne est terminé. Safari sur iPad peut ajouter le site à l’écran d’accueil. Effacer les données du navigateur supprime la copie locale ; la copie déjà synchronisée reste sur le compte. Les mises à jour s’appliquent après fermeture des fenêtres du jeu. Les journées s’enchaînent, sauf faillite. Une seconde représente une minute à ×1.
 
 ## Local et aménagement
 

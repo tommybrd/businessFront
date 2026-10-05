@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "Market Front",
+  "short_name": "Market Front",
+  "lang": "fr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#102b27",
+  "theme_color": "#102b27",
+  "icons": [
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

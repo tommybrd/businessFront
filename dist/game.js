@@ -1,3 +1,4 @@
+import { startOfflineSupport } from './offline.js';
 import {reserveStockProjection} from './reserve-stock.js';
 import {postCollectionMinute} from './store-hours.js';
 import {deliveryVehicle} from './delivery-logistics.js';
@@ -16,7 +17,7 @@ import { setStoreHours,storeHours,nextStoreHours,stockValuation,setSupplierPayme
 import { createStoreScene } from './scene.js';
 
 const state = createStarterGame();
-let saveManager = null, saveUi = null;
+let saveManager = null, saveUi = null, offlineSupportStatus='';
 const $ = id => document.getElementById(id);
 let panelPointerHeld=false;
 $('management-content').addEventListener('pointerdown',()=>{panelPointerHeld=true;});
@@ -493,10 +494,12 @@ function frame(now) {
 }
 function saveStatus(info) {
   saveUi=info;
+  if(info.ready)$('offline-status').textContent=info.localAvailable?offlineSupportStatus:'Sauvegarde locale indisponible sur cet appareil.';
   if(!info.ready)state.speed=0;
-  const names={loading:'Chargement…',pending:'À sauvegarder',saving:'Sauvegarde…',saved:'Sauvegardé',error:'Échec de sauvegarde',conflict:'Partie modifiée ailleurs','load-error':'Chargement impossible'};
+  const names={loading:'Chargement…',pending:'À sauvegarder',saving:'Sauvegarde…',saved:'Sauvegardé',error:'Échec de sauvegarde',conflict:'Partie modifiée ailleurs','load-error':'Chargement impossible',offline:'Sauvegardé sur cet appareil'};
   $('save-status').textContent=info.message||`${names[info.status]}${info.savedAt ? ' · '+new Date(info.savedAt).toLocaleString('fr-FR') : ''}`;
   $('save-toggle').title=names[info.status];$('save-toggle').classList.toggle('save-error',['error','conflict','load-error'].includes(info.status));
+  $('save-local').hidden=info.status!=='conflict';$('save-reload').textContent=info.status==='conflict'?'Reprendre la partie en ligne':'Recharger la sauvegarde';$('save-recovery').hidden=!info.hasRecovery;
   $('save-now').disabled=!info.ready||info.status==='saving';$('save-previous').disabled=!info.hasPrevious||!info.ready;$('save-new').disabled=!info.ready;
   $('save-return').disabled=!info.ready;$('save-close').disabled=!info.ready;
   if(['load-error','conflict'].includes(info.status)&&!$('save-dialog').open)$('save-dialog').showModal();
@@ -513,6 +516,11 @@ $('save-cancel-new').addEventListener('click',()=>{$('save-confirm').hidden=true
 $('save-confirm-new').addEventListener('click',async()=>{if(await saveManager.newGame(makeSave(createStarterGame(),{checkoutSound}))) {startDayOnLoad(state);saveManager.changed();render();$('save-confirm').hidden=true;$('save-confirm-text').hidden=true;$('save-dialog').close();}});
 $('save-dialog').showModal();render();requestAnimationFrame(frame);
 if(await saveManager.load()){startDayOnLoad(state);saveManager.changed();render();$('save-dialog').close();}
+startOfflineSupport({notify:message=>{offlineSupportStatus=message;$('offline-status').textContent=saveUi?.ready&&!saveUi.localAvailable?'Sauvegarde locale indisponible sur cet appareil.':message;},onAuthRequired:()=>saveManager.lockAuth()});
+window.addEventListener('online',()=>saveManager.ready?saveManager.flush():undefined);
+window.addEventListener('offline',()=>{saveManager.changed();saveManager.flush();});
+$('save-local').addEventListener('click',async()=>{if(await saveManager.keepLocal()){startDayOnLoad(state);saveManager.changed();render();$('save-dialog').close();}});
+$('save-recovery').addEventListener('click',async()=>{if(await saveManager.recoverLocal()){startDayOnLoad(state);saveManager.changed();render();$('save-dialog').close();}});
 setInterval(()=>saveManager.flush(),5000);
 import { RESTOCK_ROBOT, robotCount, robotWorkers } from './restock-robots.js';
 import { setRobotCount } from './engine.js';

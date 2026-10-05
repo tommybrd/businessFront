@@ -1,5 +1,6 @@
 import { validateSave, MAX_SAVE_BYTES } from '../dist/save-format.js';
 import { loadSaveRow, writeSaveRow } from './save-db.js';
+const ASSET_VERSION='__MARKET_FRONT_VERSION__';
 const STATIC_ASSETS = '__MARKET_FRONT_ASSETS__';
 function jsonResponse(body,status=200){return Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});}
 export async function saveApi(request,env) {
@@ -19,6 +20,7 @@ export async function saveApi(request,env) {
   if(Number(request.headers.get('content-length'))>MAX_SAVE_BYTES)return jsonResponse({error:'Cette partie dépasse la taille maximale de sauvegarde.'},413);
   const text=await request.text();if(new TextEncoder().encode(text).length>MAX_SAVE_BYTES)return jsonResponse({error:'Cette partie dépasse la taille maximale de sauvegarde.'},413);
   let body;try{body=JSON.parse(text);if(!Number.isSafeInteger(body.revision)||body.revision<0)throw new Error();validateSave(body.snapshot);}catch{return jsonResponse({error:'La partie à sauvegarder est incomplète ou incompatible.'},422);}
+  if(body.ownerId!==undefined&&body.ownerId!==userId)return jsonResponse({error:'Le compte connecté a changé. Rechargez sa partie.'},403);
   const row=await writeSaveRow(env.DB,userId,body.revision,JSON.stringify(body.snapshot),new Date().toISOString());
   if(!row)return jsonResponse({error:'La partie a changé dans une autre fenêtre. Rechargez la sauvegarde avant de continuer.'},409);
   return jsonResponse({revision:row.revision,savedAt:row.updated_at,hasPrevious:body.revision>0});
@@ -30,5 +32,5 @@ export default { async fetch(request,env) {
   }
   const path=url.pathname==='/'?'/index.html':url.pathname;
   const asset=STATIC_ASSETS[path];if(!asset||!['GET','HEAD'].includes(request.method))return new Response('Introuvable',{status:404});
-  return new Response(request.method==='HEAD'?null:asset.body,{headers:{'Content-Type':asset.type,'Cache-Control':path.endsWith('.html')?'no-store':'public, max-age=0, must-revalidate','X-Content-Type-Options':'nosniff'}});
+  return new Response(request.method==='HEAD'?null:asset.encoding==='base64'?Uint8Array.from(atob(asset.body),c=>c.charCodeAt(0)):asset.body,{headers:{'Content-Type':asset.type,'X-Market-Front-Asset':'1','X-Market-Front-Version':ASSET_VERSION,'Service-Worker-Allowed':'/','Cache-Control':path.endsWith('.html')?'no-store':'public, max-age=0, must-revalidate','X-Content-Type-Options':'nosniff'}});
 }};

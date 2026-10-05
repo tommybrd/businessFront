@@ -4,7 +4,8 @@ import { resolve, extname, sep } from 'node:path';
 import { saveApi } from '../worker/index.js';
 import { localSaveDatabase } from './local-save-db.mjs';
 const root=resolve(import.meta.dirname,'../dist'),DB=localSaveDatabase();
-const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml'};
+const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.webmanifest':'application/manifest+json'};
+const sw=await readFile(resolve(root,'sw.js'),'utf8').catch(()=>''),assetVersion=sw.match(/const VERSION='([^']+)'/)?.[1]||'development';
 const server=createServer(async(req,res)=>{
   try {
     const url=new URL(req.url,`http://${req.headers.host}`),pathname=decodeURIComponent(url.pathname);
@@ -19,7 +20,7 @@ const server=createServer(async(req,res)=>{
     }
     const file=resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
     if(!file.startsWith(root+sep)||pathname.split('/').some(p=>p.startsWith('.'))||pathname.startsWith('/server/')){res.writeHead(403).end();return;}
-    const content=await readFile(file);res.writeHead(200,{'Content-Type':types[extname(file)]||'application/octet-stream','Cache-Control':'no-store'});res.end(content);
+    const content=await readFile(file);res.writeHead(200,{'Content-Type':types[extname(file)]||'application/octet-stream','Cache-Control':'no-store','X-Market-Front-Asset':'1','X-Market-Front-Version':assetVersion});res.end(content);
   } catch(error){console.error(error.message);res.writeHead(404).end('Introuvable');}
 });
 const port=Number(process.env.PORT||3000);
