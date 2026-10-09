@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 const {chromium,webkit}=await import(process.argv[2]);
 const {createServer}=await import('node:http');
 const {DatabaseSync}=await import('node:sqlite');
-const {readFile}=await import('node:fs/promises');
+const {readFile,mkdtemp,rm}=await import('node:fs/promises');
+const {tmpdir}=await import('node:os');
+const {join}=await import('node:path');
 const {sqliteBinding}=await import('./local-save-db.mjs');
 const {default:worker}=await import('../dist/server/index.js');
 const db=new DatabaseSync(':memory:');db.exec(await readFile('drizzle/0000_loud_thunderbolt_ross.sql','utf8'));
@@ -22,24 +24,28 @@ const url=`http://127.0.0.1:${server.address().port}/`;
 try{
 const response=await fetch(url);assert.equal(response.status,200);
 for(const [name,engine,options]of [['Chromium',chromium,{channel:'chrome'}],['WebKit',webkit,{}]]){
- const browser=await engine.launch({headless:true,...options});
- const context=await browser.newContext({viewport:{width:1024,height:768},hasTouch:true,isMobile:true});
+ const profile=await mkdtemp(join(tmpdir(),'market-front-flight-'));
+ const launch=()=>engine.launchPersistentContext(profile,{headless:true,...options,viewport:{width:1024,height:768},hasTouch:true,isMobile:true});
+ let context=await launch();
  const errors=[];
  const setOffline=async value=>{// WebKit offline emulation has an upstream navigation bug (#42775). Disconnect the real test server instead.
  if(name==='WebKit'){await fetch(new URL('/__qa_offline?enabled='+(value?'1':'0'),url));}else await context.setOffline(value);};
  try{
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
-  await page.goto(url);await page.locator('#save-dialog').waitFor({state:'hidden'});
+  await page.goto(url);try{await page.locator('#save-dialog').waitFor({state:'hidden'});}catch(error){console.error(name,await page.locator('#save-status').textContent(),errors);throw error;}
   await page.locator('[data-speed="0"]').click();
   await page.waitForFunction(()=>document.querySelector('#offline-status').textContent==='Jeu disponible hors ligne');
   assert.ok(await page.evaluate(()=>!!navigator.serviceWorker.controller));
+  await page.locator('#save-toggle').click();await page.locator('#save-flight').click();
+  await page.waitForFunction(()=>document.querySelector('#save-flight').textContent==='Revenir en ligne');
+  assert.match(await page.locator('#offline-status').textContent(),/Prêt pour l’avion/);await page.locator('#save-return').click();
   await page.locator('.world-tools [data-open="rayons"]').first().click();
   const add=page.locator('[data-install-kind="shelves"][data-install-product="produce"][data-install-count="2"]');
   await add.waitFor();const before=await page.locator('#money').textContent();
   await setOffline(true);await add.click();
   const after=await page.locator('#money').textContent();assert.notEqual(before,after);
   await page.locator('#save-toggle').click();await page.waitForFunction(()=>/locale effectuée|cet appareil/.test(document.querySelector('#save-status').textContent));assert.match(await page.locator('#save-status').textContent(),/locale effectuée|cet appareil/);
-  await page.close();
+  await context.close();context=await launch();if(name==='Chromium')await context.setOffline(true);
   const reopened=await context.newPage();reopened.on('pageerror',e=>errors.push(e.message));
   await reopened.goto(url);await reopened.locator('#save-dialog').waitFor({state:'hidden'});await reopened.locator('[data-speed="0"]').click();
   assert.equal(await reopened.locator('#money').textContent(),after);
@@ -47,6 +53,8 @@ for(const [name,engine,options]of [['Chromium',chromium,{channel:'chrome'}],['We
   assert.match(await reopened.locator('[data-shelf-product="produce"] .stock-level').textContent(),/400/);
   await reopened.locator('#save-toggle').click();assert.match(await reopened.locator('#save-status').textContent(),/locale effectuée|cet appareil/);
   await setOffline(false);
+  assert.equal(await reopened.locator('#save-flight').textContent(),'Revenir en ligne');
+  await reopened.locator('#save-flight').click();
   await reopened.waitForFunction(()=>document.querySelector('#save-toggle').title==='Sauvegardé');
   const cloud=await reopened.evaluate(async()=>await(await fetch('/api/save')).json());assert.equal(cloud.snapshot.state.products[0].capacity,400);
   const cached=await reopened.evaluate(async()=>{const names=await caches.keys();const cache=await caches.open(names.find(n=>n.startsWith('market-front-assets-')));return (await cache.keys()).map(r=>new URL(r.url).pathname);});
@@ -58,8 +66,8 @@ for(const [name,engine,options]of [['Chromium',chromium,{channel:'chrome'}],['We
   await reopened.locator('#save-toggle').click();await reopened.locator('#save-new').click();await reopened.locator('#save-confirm-new').click();await reopened.locator('#save-dialog').waitFor({state:'hidden'});
   await reopened.locator('[data-speed="0"]').click();
   assert.deepEqual(errors,[]);
-  console.log(`${name}: téléchargement, fermeture et reprise hors ligne, changement de rayon, synchronisation et rechargement vérifiés.`);
- }finally{await setOffline(false);await context.close();await browser.close();}
+  console.log(`${name}: téléchargement, mode avion préparé, fermeture complète du navigateur et reprise hors ligne, changement de rayon, retour en ligne et synchronisation vérifiés.`);
+ }finally{await setOffline(false);await context.close();await rm(profile,{recursive:true,force:true});}
 }
 
 }finally{await new Promise(resolve=>server.close(resolve));db.close();}

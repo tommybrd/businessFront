@@ -161,3 +161,21 @@ test('a lost PUT response reconciles an already accepted snapshot without a fals
  await a.manager.load();lose=true;a.state.money=4321;await a.manager.flush();assert.equal(a.manager.offline,true);
  lose=false;assert.equal(await a.manager.flush(),true);assert.equal(a.manager.ready,true);assert.equal(a.manager.revision,2);
 });
+
+test('prepared flight mode survives reopening and sends no save requests until explicitly resumed',async()=>{
+ const env=backend(),store=storage();let requests=0;
+ const fetcher=(path,o)=>{requests++;return saveApi(req(o.method,o.body?JSON.parse(o.body):null,'alice',path),env);};
+ const a=gameClient(env,{store,fetcher});await a.manager.load();assert.equal(await a.manager.setFlightMode(true),true);const before=requests;
+ a.state.money=4567;a.manager.changed();await a.manager.flush();assert.equal(requests,before);
+ const b=gameClient(env,{store,fetcher});assert.equal(await b.manager.load(),true);assert.equal(b.manager.flightMode,true);assert.equal(b.state.money,4567);assert.equal(requests,before);
+ assert.equal(await b.manager.newGame(makeSave(createGame(765))),true);assert.equal(requests,before);assert.equal(b.state.seed,765);
+ assert.equal(await b.manager.setFlightMode(false),true);assert.equal(await b.manager.flush(),true);assert.ok(requests>before);assert.equal((await(await saveApi(req(),env)).json()).snapshot.state.seed,765);
+});
+test('returning from a prepared flight still protects a conflicting remote branch',async()=>{
+ const env=backend(),store=storage();const a=gameClient(env,{store});await a.manager.load();await a.manager.setFlightMode(true);a.state.money=4567;a.manager.changed();
+ const remote=gameClient(env);await remote.manager.load();remote.state.money=8765;await remote.manager.flush();
+ await a.manager.setFlightMode(false);assert.equal(await a.manager.flush(),false);assert.equal(a.manager.ready,false);assert.equal(a.state.money,4567);assert.equal((await(await saveApi(req(),env)).json()).snapshot.state.money,8765);
+});
+test('flight preparation rejects unavailable local storage instead of claiming a durable flight',async()=>{
+ const env=backend();const a=gameClient(env,{store:{getItem:()=>null,setItem:()=>{throw Error('quota');},removeItem:()=>{}}});await a.manager.load();assert.equal(await a.manager.setFlightMode(true),false);assert.equal(a.manager.flightMode,false);
+});

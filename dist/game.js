@@ -494,6 +494,8 @@ function frame(now) {
 }
 function saveStatus(info) {
   saveUi=info;
+  $('save-flight').textContent=info.flightMode?'Revenir en ligne':'Préparer pour l’avion';$('save-flight').disabled=!info.flightMode&&!info.ready;
+  $('save-mode-label').textContent=info.flightMode?'Partie · ✈':'Partie';
   if(info.ready)$('offline-status').textContent=info.localAvailable?offlineSupportStatus:'Sauvegarde locale indisponible sur cet appareil.';
   if(!info.ready)state.speed=0;
   const names={loading:'Chargement…',pending:'À sauvegarder',saving:'Sauvegarde…',saved:'Sauvegardé',error:'Échec de sauvegarde',conflict:'Partie modifiée ailleurs','load-error':'Chargement impossible',offline:'Sauvegardé sur cet appareil'};
@@ -516,7 +518,18 @@ $('save-cancel-new').addEventListener('click',()=>{$('save-confirm').hidden=true
 $('save-confirm-new').addEventListener('click',async()=>{if(await saveManager.newGame(makeSave(createStarterGame(),{checkoutSound}))) {startDayOnLoad(state);saveManager.changed();render();$('save-confirm').hidden=true;$('save-confirm-text').hidden=true;$('save-dialog').close();}});
 $('save-dialog').showModal();render();requestAnimationFrame(frame);
 if(await saveManager.load()){startDayOnLoad(state);saveManager.changed();render();$('save-dialog').close();}
-startOfflineSupport({notify:message=>{offlineSupportStatus=message;$('offline-status').textContent=saveUi?.ready&&!saveUi.localAvailable?'Sauvegarde locale indisponible sur cet appareil.':message;},onAuthRequired:()=>saveManager.lockAuth()});
+const offlineSupport=startOfflineSupport({isFlightMode:()=>saveManager.flightMode,notify:message=>{offlineSupportStatus=message;$('offline-status').textContent=saveUi?.ready&&!saveUi.localAvailable?'Sauvegarde locale indisponible sur cet appareil.':message;},onAuthRequired:()=>saveManager.lockAuth()});
+$('save-flight').addEventListener('click',async()=>{
+  $('save-flight').disabled=true;
+  const enabled=!saveManager.flightMode;
+  try{
+    if(enabled){saveManager.changed();await saveManager.flush();if(!saveManager.ready)throw Error('Rechargez votre partie avant de préparer le vol.');}
+    await offlineSupport.setFlightMode(enabled);
+    if(!await saveManager.setFlightMode(enabled)){await offlineSupport.setFlightMode(!enabled);return;}
+    if(!enabled){if(saveManager.ready)await saveManager.flush();else if(await saveManager.load()){startDayOnLoad(state);saveManager.changed();render();}}
+  }catch(error){$('offline-status').textContent=error.message;}
+  finally{$('save-flight').disabled=!saveManager.flightMode&&!saveManager.ready;}
+});
 window.addEventListener('online',()=>saveManager.ready?saveManager.flush():undefined);
 window.addEventListener('offline',()=>{saveManager.changed();saveManager.flush();});
 $('save-local').addEventListener('click',async()=>{if(await saveManager.keepLocal()){startDayOnLoad(state);saveManager.changed();render();$('save-dialog').close();}});

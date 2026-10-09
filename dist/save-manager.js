@@ -1,10 +1,12 @@
 import { readSave, MAX_SAVE_BYTES } from './save-format.js';
+const FLIGHT_KEY='market-front-flight-mode-v1';
 const AUTH_KEY='market-front-offline-auth-blocked';
 const LOCAL_KEY='market-front-local-save-v1', DRAFT_KEY='market-front-pending-save-v1', RECOVERY_KEY='market-front-recovery-save-v1';
 const CONNECTION_ERROR='Sauvegarde locale effectuée · synchronisation au retour d’Internet.';
 export function createSaveManager({snapshot,apply,notify=()=>{},fetcher=globalThis.fetch,storage=globalThis.localStorage,isOnline=()=>globalThis.navigator?.onLine!==false}) {
   let revision=0,ownerId=null,lastPayload=null,inFlight=null,ready=false,hasPrevious=false,savedAt=null,dirty=false,blocked=false,loading=false,status='loading',offline=false,previousPayload=null,localAvailable=false;
-  const emit=(next,message='')=>{status=next;notify({status,message,ready,hasPrevious,savedAt,revision,offline,localAvailable,hasRecovery:parse(RECOVERY_KEY)?.ownerId===ownerId});};
+  let flightMode=false;try{flightMode=storage?.getItem(FLIGHT_KEY)==='1';}catch{}
+  const emit=(next,message='')=>{status=next;notify({status,message,ready,hasPrevious,savedAt,revision,offline,flightMode,localAvailable,hasRecovery:parse(RECOVERY_KEY)?.ownerId===ownerId});};
   const parse=key=>{try{return JSON.parse(storage?.getItem(key)||'null');}catch{return null;}};
   function localRecord(){
     try{const r=parse(LOCAL_KEY);if(!r||typeof r.ownerId!=='string'||!r.ownerId||!Number.isSafeInteger(r.revision)||r.revision<0||typeof r.dirty!=='boolean')return null;
@@ -31,7 +33,7 @@ export function createSaveManager({snapshot,apply,notify=()=>{},fetcher=globalTh
   }
   function conflict(){blocked=true;ready=false;persist();const retained=backup();emit('conflict',retained?'Deux parties ont avancé. Choisissez celle à reprendre ; une copie de récupération est conservée sur cet appareil.':'Deux parties ont avancé. Libérez de l’espace sur cet appareil avant de choisir celle à reprendre.');return false;}
   async function request(method,body,previous=false,keepalive=false){
-    if(!isOnline())throw new TypeError('Hors ligne');
+    if(flightMode||!isOnline())throw new TypeError('Hors ligne');
     const options={method,credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'},signal:AbortSignal.timeout(10000)};
     if(body){body={...body,ownerId};options.headers['Content-Type']='application/json';options.headers['X-Market-Front-Save']='1';options.body=JSON.stringify(body);options.keepalive=keepalive&&new TextEncoder().encode(options.body).length<60000;}
     const response=await fetcher(`/api/save${previous?'?previous=1':''}`,options);
@@ -72,7 +74,7 @@ export function createSaveManager({snapshot,apply,notify=()=>{},fetcher=globalTh
   }
   function changed(){if(!ready||blocked)return;dirty=JSON.stringify(snapshot())!==lastPayload;
     if(!persist()){emit('error','Sauvegarde sur l’appareil indisponible. Gardez le jeu ouvert et reconnectez-vous.');return;}
-    if(offline||!isOnline())emit('offline',CONNECTION_ERROR);else if(status==='saved')emit('pending');
+    if(flightMode||offline||!isOnline())emit('offline',CONNECTION_ERROR);else if(status==='saved')emit('pending');
   }
   async function reconcile(){
     const result=await request('GET');
@@ -92,7 +94,7 @@ export function createSaveManager({snapshot,apply,notify=()=>{},fetcher=globalTh
         let payload=snapshot();dirty=JSON.stringify(payload)!==lastPayload;
         if(new TextEncoder().encode(JSON.stringify(payload)).length>MAX_SAVE_BYTES-100)throw Object.assign(new Error('Cette partie dépasse la taille maximale de sauvegarde.'),{status:413});
         const stored=persist(payload);
-        if(!isOnline()){offline=true;if(!stored){emit('error','Impossible de sauvegarder sur cet appareil. Gardez le jeu ouvert.');return false;}emit('offline',CONNECTION_ERROR);return false;}
+        if(flightMode||!isOnline()){offline=true;if(!stored){emit('error','Impossible de sauvegarder sur cet appareil. Gardez le jeu ouvert.');return false;}emit('offline',CONNECTION_ERROR);return false;}
         if(offline&&!await reconcile())return false;
         payload=snapshot();const serialized=JSON.stringify(payload);
         if(serialized===lastPayload){dirty=false;persist(payload);emit('saved');return true;}
@@ -107,6 +109,14 @@ export function createSaveManager({snapshot,apply,notify=()=>{},fetcher=globalTh
         if(connectionFailure(error)&&localAvailable){offline=true;emit('offline',CONNECTION_ERROR);}else emit('error',error.message||'Sauvegarde indisponible.');return false;
       }finally{inFlight=null;}
     });return inFlight;
+  }
+  async function setFlightMode(enabled){
+    if(inFlight)await inFlight;
+    if(enabled&&(!ready||blocked))return false;
+    if(enabled&&!persist()){emit('error','Impossible de sauvegarder sur cet appareil. Le mode avion ne peut pas être préparé.');return false;}
+    try{if(!storage)throw Error();if(enabled)storage.setItem(FLIGHT_KEY,'1');else storage.removeItem(FLIGHT_KEY);}
+    catch{emit('error','Impossible de conserver le mode hors ligne sur cet appareil.');return false;}
+    flightMode=enabled;if(enabled){offline=true;emit('offline','Prêt pour l’avion · partie sauvegardée sur cet appareil.');}else emit(offline?'offline':'pending');return true;
   }
   async function newGame(payload){
     if(!ready||blocked||loading)return false;loading=true;if(inFlight)await inFlight;
@@ -138,5 +148,5 @@ export function createSaveManager({snapshot,apply,notify=()=>{},fetcher=globalTh
     const recovery=parse(RECOVERY_KEY);if(!ready||blocked||recovery?.ownerId!==ownerId)return false;
     try{return await newGame(readSave(recovery.payload));}catch{return false;}
   }
-  return {load,flush,changed,newGame,keepLocal,recoverLocal,lockAuth,get ready(){return ready;},get hasPrevious(){return hasPrevious;},get revision(){return revision;},get dirty(){return dirty;},get offline(){return offline;}};
+  return {load,flush,changed,newGame,setFlightMode,keepLocal,recoverLocal,lockAuth,get ready(){return ready;},get hasPrevious(){return hasPrevious;},get revision(){return revision;},get dirty(){return dirty;},get offline(){return offline;},get flightMode(){return flightMode;}};
 }

@@ -1,6 +1,6 @@
 {
   "name": "market-front",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "private": true,
   "type": "module",
   "description": "Jeu de gestion de supermarch\u00e9 en vue d'ensemble",
