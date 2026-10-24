@@ -414,6 +414,15 @@ static uint ConvertSdlKeycodeIntoMy(SDL_Keycode kc)
 	return key;
 }
 
+/**
+ * Is this physical key one of the letter keys used to scroll the map?
+ * Scancodes are layout independent: these are ZQSD on AZERTY and WASD on QWERTY.
+ */
+static bool IsMapScrollScancode(SDL_Scancode sc)
+{
+	return sc == SDL_SCANCODE_W || sc == SDL_SCANCODE_A || sc == SDL_SCANCODE_S || sc == SDL_SCANCODE_D;
+}
+
 bool VideoDriver_SDL_Base::PollEvent()
 {
 	SDL_Event ev;
@@ -503,6 +512,10 @@ bool VideoDriver_SDL_Base::PollEvent()
 			if ((ev.key.keysym.mod & (KMOD_ALT | KMOD_GUI)) &&
 					(ev.key.keysym.sym == SDLK_RETURN || ev.key.keysym.sym == SDLK_f)) {
 				if (ev.key.repeat == 0) ToggleFullScreen(!_fullscreen);
+			} else if (!this->edit_box_focused && IsMapScrollScancode(ev.key.keysym.scancode) &&
+					(ev.key.keysym.mod & (KMOD_CTRL | KMOD_ALT | KMOD_GUI)) == 0) {
+				/* ZQSD (AZERTY) / WASD (QWERTY) scroll the map; do not fire their
+				 * letter hotkeys (raise land, autorail, signal, dynamite). */
 			} else {
 				char32_t character;
 
@@ -666,11 +679,14 @@ void VideoDriver_SDL_Base::InputLoop()
 	 * to switch to another application. */
 	this->fast_forward_key_pressed = keys[SDL_SCANCODE_TAB] && (mod & KMOD_ALT) == 0;
 
-	/* Determine which directional keys are down. */
-	_dirkeys.Set(DirectionKey::Left, keys[SDL_SCANCODE_LEFT]);
-	_dirkeys.Set(DirectionKey::Up, keys[SDL_SCANCODE_UP]);
-	_dirkeys.Set(DirectionKey::Right, keys[SDL_SCANCODE_RIGHT]);
-	_dirkeys.Set(DirectionKey::Down, keys[SDL_SCANCODE_DOWN]);
+	/* Determine which directional keys are down. ZQSD on an AZERTY keyboard
+	 * sits on the same physical keys (scancodes) as WASD on QWERTY, so one
+	 * set of scancodes covers both layouts. Ignored while typing in an edit box. */
+	bool letters = !this->edit_box_focused;
+	_dirkeys.Set(DirectionKey::Left, keys[SDL_SCANCODE_LEFT] || (letters && keys[SDL_SCANCODE_A]));
+	_dirkeys.Set(DirectionKey::Up, keys[SDL_SCANCODE_UP] || (letters && keys[SDL_SCANCODE_W]));
+	_dirkeys.Set(DirectionKey::Right, keys[SDL_SCANCODE_RIGHT] || (letters && keys[SDL_SCANCODE_D]));
+	_dirkeys.Set(DirectionKey::Down, keys[SDL_SCANCODE_DOWN] || (letters && keys[SDL_SCANCODE_S]));
 
 	if (old_ctrl_pressed != _ctrl_pressed) HandleCtrlChanged();
 }
