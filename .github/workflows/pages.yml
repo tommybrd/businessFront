@@ -1,0 +1,83 @@
+name: Deploy web game to GitHub Pages
+
+on:
+  push:
+    branches: [web-perso]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build (emscripten)
+    runs-on: ubuntu-latest
+    container:
+      # Same version as upstream CI (see os/emscripten/Dockerfile).
+      image: emscripten/emsdk:6.0.1
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup cache
+      uses: actions/cache@v4
+      with:
+        path: /emsdk/upstream/emscripten/cache
+        key: 6.0.1-${{ runner.os }}
+
+    - name: Add liblzma support
+      run: |
+        cp ${GITHUB_WORKSPACE}/os/emscripten/ports/liblzma.py /emsdk/upstream/emscripten/tools/ports/contrib/
+
+    - name: Build (host tools)
+      run: |
+        mkdir build-host
+        cd build-host
+        cmake .. -DOPTION_TOOLS_ONLY=ON
+        make -j$(nproc) tools
+
+    - name: Build (web)
+      run: |
+        mkdir build
+        cd build
+        emcmake cmake .. \
+          -DHOST_BINARY_DIR=../build-host \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DOPTION_USE_ASSERTS=OFF
+        cmake --build . -j $(nproc) --target openttd
+
+    - name: Prepare site
+      run: |
+        mkdir public
+        cp build/openttd.data build/openttd.html build/openttd.js build/openttd.wasm public/
+        cp build/openttd.html public/index.html
+        touch public/.nojekyll
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: public
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: Configure Pages
+      uses: actions/configure-pages@v5
+      with:
+        enablement: true
+
+    - name: Deploy
+      id: deployment
+      uses: actions/deploy-pages@v4
