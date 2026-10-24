@@ -745,6 +745,11 @@ static const DrawBuildingsTileStruct _industry_draw_tile_data[NEW_INDUSTRYTILEOF
 	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5b9,                   PAL_NONE,  3,  1, 11, 14,  28, 0),
 	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5ba,                   PAL_NONE,  3,  1, 11, 14,  28, 0),
 	M(SPR_CONCRETE_GROUND,                   PAL_NONE,  0x5ba,                   PAL_NONE,  3,  1, 11, 14,  28, 0),
+	/* Business Front: central warehouse (GFX_WAREHOUSE_BIZ 176), reuses the "warehouse" town building 0x12 */
+	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5c1,                   PAL_NONE,  1,  2, 15, 12,   4, 0),
+	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5c2,                   PAL_NONE,  1,  2, 15, 12,  24, 0),
+	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5c3,                   PAL_NONE,  1,  2, 15, 12,  31, 0),
+	M(SPR_CONCRETE_GROUND,                   PAL_NONE,  0x5c3,                   PAL_NONE,  1,  2, 15, 12,  31, 0),
 };
 #undef M
 

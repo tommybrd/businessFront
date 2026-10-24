@@ -86,7 +86,19 @@ Money BusinessMonthlyRent(const Industry *i)
  */
 bool IsBusinessIndustryType(IndustryType type)
 {
+	return IsRestaurantIndustryType(type) || IsWarehouseIndustryType(type);
+}
+
+/** Is this industry type a burger restaurant? */
+bool IsRestaurantIndustryType(IndustryType type)
+{
 	return type == IT_BURGER_SHOP;
+}
+
+/** Is this industry type a central warehouse? */
+bool IsWarehouseIndustryType(IndustryType type)
+{
+	return type == IT_WAREHOUSE_BIZ;
 }
 
 /**
@@ -149,7 +161,7 @@ uint16_t BusinessBreadStock(const Industry *i)
  */
 bool BusinessIsHeated(const Industry *i)
 {
-	return i != nullptr && IsBusinessIndustryType(i->type) && BusinessWoodStock(i) > 0;
+	return i != nullptr && IsRestaurantIndustryType(i->type) && BusinessWoodStock(i) > 0;
 }
 
 /**
@@ -233,19 +245,62 @@ static void BusinessRunMonth(Industry *i, uint32_t town_attractiveness)
 	cur_company.Restore();
 }
 
+/**
+ * Run one month of a central warehouse: everything delivered by truck plus a market purchase (cheaper than
+ * what a restaurant pays) is handed out to the trucks, as produced cargo. The purchase follows what was
+ * actually picked up last month, so nothing is bought for nothing.
+ * @param i The warehouse.
+ */
+static void WarehouseRunMonth(Industry *i)
+{
+	Money purchases = 0;
+	CargoType wood_type = GetCargoTypeByLabel(CT_WOOD);
+
+	for (auto &a : i->accepted) {
+		if (!IsValidCargoType(a.cargo)) continue;
+		auto p = i->GetCargoProduced(a.cargo);
+		if (p == std::end(i->produced)) continue;
+
+		/* Deliveries go straight to the loading bay. */
+		uint32_t out = a.waiting;
+		a.waiting = 0;
+
+		/* Market purchase: at least the minimum, otherwise what the trucks took away last month. */
+		uint32_t bought = Clamp<uint32_t>(p->history[LAST_MONTH].transported, BIZ_WAREHOUSE_MIN_PURCHASE, BIZ_WAREHOUSE_MAX_PURCHASE);
+		purchases += (a.cargo == wood_type ? BIZ_WAREHOUSE_PRICE_WOOD : BIZ_WAREHOUSE_PRICE_GRAIN) * bought;
+		out += bought;
+
+		p->waiting = ClampTo<uint16_t>(p->waiting + out);
+	}
+
+	i->biz_last_purchases = purchases;
+	i->biz_last_revenue = 0;
+	i->biz_last_costs = purchases + BusinessMonthlyRent(i);
+	i->biz_last_profit = -i->biz_last_costs;
+	SetWindowDirty(WindowClass::IndustryView, i->index);
+
+	if (!Company::IsValidID(i->founder)) return;
+	Backup<CompanyID> cur_company(_current_company, i->founder);
+	SubtractMoneyFromCompany(i->founder, CommandCost(ExpensesType::BusinessRevenue, i->biz_last_costs));
+	cur_company.Restore();
+}
+
 /** Monthly loop of all businesses. */
 static const IntervalTimer<TimerGameEconomy> _economy_business_monthly({TimerGameEconomy::Trigger::Month, TimerGameEconomy::Priority::Industry}, [](auto)
 {
 	/* Total attractiveness per town, for the market share. */
 	std::map<TownID, uint32_t> town_attract;
 	for (const Industry *i : Industry::Iterate()) {
-		if (!IsBusinessIndustryType(i->type) || i->town == nullptr) continue;
+		if (!IsRestaurantIndustryType(i->type) || i->town == nullptr) continue;
 		town_attract[i->town->index] += BusinessAttractiveness(i);
 	}
 
 	for (Industry *i : Industry::Iterate()) {
-		if (!IsBusinessIndustryType(i->type) || i->town == nullptr) continue;
-		BusinessRunMonth(i, town_attract[i->town->index]);
+		if (IsWarehouseIndustryType(i->type)) {
+			WarehouseRunMonth(i);
+		} else if (IsRestaurantIndustryType(i->type) && i->town != nullptr) {
+			BusinessRunMonth(i, town_attract[i->town->index]);
+		}
 	}
 });
 
@@ -263,6 +318,14 @@ std::vector<std::string> BusinessViewLines(const Industry *i)
 		if (!IsValidCargoType(a.cargo)) continue;
 		lines.push_back(GetString(STR_BUSINESS_VIEW_STOCK, a.cargo, a.waiting));
 	}
+
+	if (IsWarehouseIndustryType(i->type)) {
+		lines.push_back(GetString(STR_BUSINESS_VIEW_WAREHOUSE_HOWTO));
+		lines.push_back(GetString(STR_BUSINESS_VIEW_WAREHOUSE_PURCHASES, i->biz_last_purchases));
+		lines.push_back(GetString(STR_BUSINESS_VIEW_COSTS_PLAIN, i->biz_last_costs));
+		return lines;
+	}
+
 	lines.push_back(GetString(BusinessIsHeated(i) ? STR_BUSINESS_VIEW_HEATED : STR_BUSINESS_VIEW_COLD));
 	lines.push_back(GetString(STR_BUSINESS_VIEW_BREAD, (uint64_t)BusinessBreadStock(i) * BIZ_BURGERS_PER_GRAIN));
 	lines.push_back(GetString(STR_BUSINESS_VIEW_PURCHASES, i->biz_last_purchases));

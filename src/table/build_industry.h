@@ -495,6 +495,15 @@ static const std::vector<IndustryTileLayout> _tile_table_burger_shop {
 	_tile_table_burger_shop_0,
 };
 
+/* Business Front: central warehouse, a single tile. */
+static const IndustryTileLayout _tile_table_warehouse_biz_0 {
+	{{0, 0}, GFX_WAREHOUSE_BIZ},
+};
+
+static const std::vector<IndustryTileLayout> _tile_table_warehouse_biz {
+	_tile_table_warehouse_biz_0,
+};
+
 static const IndustryTileLayout _tile_table_bank_0 {
 	{{0, 0}, 58},
 	{{1, 0}, 59},
@@ -1079,6 +1088,7 @@ enum IndustryTypes : uint8_t {
 	IT_TOFFEE_QUARRY       =  35,
 	IT_SUGAR_MINE          =  36,
 	IT_BURGER_RESTAURANT   =  37, ///< Business Front: burger restaurant (see IT_BURGER_SHOP in industry_type.h)
+	IT_CENTRAL_WAREHOUSE   =  38, ///< Business Front: central warehouse (see IT_WAREHOUSE_BIZ in industry_type.h)
 	IT_END,
 };
 
@@ -1524,6 +1534,18 @@ extern const IndustrySpec _origin_industry_specs[NEW_INDUSTRYOFFSET] = {
 	   {},
 	   STR_INDUSTRY_NAME_BURGER_SHOP,                   STR_NEWS_INDUSTRY_CONSTRUCTION,
 	   STR_NEWS_INDUSTRY_CLOSURE_GENERAL,    STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_GENERAL,     STR_NEWS_INDUSTRY_PRODUCTION_DECREASE_GENERAL),
+
+	/* Business Front: central warehouse. Receives wood and grain/wheat by truck, buys the rest cheaper on the
+	 * market, and hands everything out to trucks (produced cargo) for the restaurants. Funded by a company only. */
+	MI(_tile_table_warehouse_biz,              {},
+	     8,  0xFFFFFFFF,                       0, 0, 0, 0,    0, 0, 0, 0,        191,
+	   IT_INVALID,        IT_INVALID,          IT_INVALID,       IndustryCheck::None,
+	   CT_WOOD,        0, MCT_GRAIN_WHEAT_MAIZE, 0, 5,
+	   CT_WOOD,        0, MCT_GRAIN_WHEAT_MAIZE, 0, CT_INVALID,  0,
+	   INDUSTRYLIFE_BLACK_HOLE,                     LandscapeTypes({LandscapeType::Temperate, LandscapeType::Arctic}),
+	   {},
+	   STR_INDUSTRY_NAME_WAREHOUSE_BIZ,                 STR_NEWS_INDUSTRY_CONSTRUCTION,
+	   STR_NEWS_INDUSTRY_CLOSURE_GENERAL,    STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_GENERAL,     STR_NEWS_INDUSTRY_PRODUCTION_DECREASE_GENERAL),
 };
 #undef MI
 
@@ -1776,6 +1798,9 @@ static const IndustryTileSpec _origin_industry_tile_specs[NEW_INDUSTRYTILEOFFSET
 	{0, CT_INVALID, 0, CT_INVALID, false},
 
 	/* Business Front: burger restaurant (accepts wood and grain/wheat) */
+	{8, CT_WOOD, 8, MCT_GRAIN_WHEAT_MAIZE, false},
+
+	/* Business Front: central warehouse (accepts wood and grain/wheat) */
 	{8, CT_WOOD, 8, MCT_GRAIN_WHEAT_MAIZE, false},
 };
 

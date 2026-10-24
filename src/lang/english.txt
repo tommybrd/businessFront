@@ -3320,10 +3320,14 @@ STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Company headqua
 
 # Business Front
 STR_BUSINESS_MENU_BUILD_BURGER                                  :Build a burger restaurant
+STR_BUSINESS_MENU_BUILD_WAREHOUSE                               :Build a central warehouse
 STR_BUSINESS_MENU_FINANCES                                      :Finances
 STR_BUSINESS_FUND_PRICE_FROM                                    :{BLACK}Price: from {CURRENCY_LONG}, plus the land
 STR_BUSINESS_FUND_PRICE_HERE                                    :{BLACK}Price here: {CURRENCY_LONG}
 STR_BUSINESS_FUND_PRICE_HINT                                    :{BLACK}Land is dearer in big towns and near the centre
+STR_BUSINESS_VIEW_WAREHOUSE_HOWTO                               :{BLACK}Deliveries and market purchases are handed to the trucks each month
+STR_BUSINESS_VIEW_WAREHOUSE_PURCHASES                           :{BLACK}Last month bought on the market (cheap): {CURRENCY_LONG}
+STR_BUSINESS_VIEW_COSTS_PLAIN                                   :{BLACK}Costs last month (purchases, rent): {CURRENCY_LONG}
 STR_BUSINESS_VIEW_STOCK                                         :{BLACK}In stock: {CARGO_LONG}
 STR_BUSINESS_VIEW_HEATED                                        :{BLACK}Heated: wood in stock
 STR_BUSINESS_VIEW_COLD                                          :{BLACK}No wood in stock: wood is bought on the market, dear
@@ -5666,6 +5670,7 @@ STR_INDUSTRY_NAME_BUBBLE_GENERATOR                              :Bubble Generato
 STR_INDUSTRY_NAME_TOFFEE_QUARRY                                 :Toffee Quarry
 STR_INDUSTRY_NAME_SUGAR_MINE                                    :Sugar Mine
 STR_INDUSTRY_NAME_BURGER_SHOP                                   :Burger Restaurant
+STR_INDUSTRY_NAME_WAREHOUSE_BIZ                                 :Central Warehouse
 
 ############ WARNING, using range 0x6000 for strings that are stored in the savegame
 ############ These strings may never get a new id, or savegames will break!

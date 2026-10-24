@@ -526,7 +526,7 @@ static CallBackFunction MenuClickTown(int index)
 
 static CallBackFunction ToolbarBusinessClick(Window *w)
 {
-	PopupMainToolbarMenu(w, WID_TN_BUSINESS, {STR_BUSINESS_MENU_BUILD_BURGER, STR_BUSINESS_MENU_FINANCES});
+	PopupMainToolbarMenu(w, WID_TN_BUSINESS, {STR_BUSINESS_MENU_BUILD_BURGER, STR_BUSINESS_MENU_BUILD_WAREHOUSE, STR_BUSINESS_MENU_FINANCES});
 	return CallBackFunction::None;
 }
 
@@ -538,8 +538,9 @@ static CallBackFunction ToolbarBusinessClick(Window *w)
 static CallBackFunction MenuClickBusiness(int index)
 {
 	switch (index) {
-		case 0: ShowBuildBusinessIndustryWindow(); break;
-		case 1: ShowCompanyFinances(_local_company); break;
+		case 0: ShowBuildBusinessIndustryWindow(IT_BURGER_SHOP); break;
+		case 1: ShowBuildBusinessIndustryWindow(IT_WAREHOUSE_BIZ); break;
+		case 2: ShowCompanyFinances(_local_company); break;
 	}
 	return CallBackFunction::None;
 }

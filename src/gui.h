@@ -18,6 +18,7 @@
 #include "transport_type.h"
 #include "story_type.h"
 #include "company_type.h"
+#include "industry_type.h"
 
 struct Window;
 
@@ -57,7 +58,7 @@ void ShowFoundTownWindow();
 void ShowIndustryDirectory();
 void ShowIndustryCargoesWindow();
 void ShowBuildIndustryWindow();
-void ShowBuildBusinessIndustryWindow();
+void ShowBuildBusinessIndustryWindow(IndustryType type);
 
 /* subsidy_gui.cpp */
 void ShowSubsidiesList();

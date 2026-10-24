@@ -3318,6 +3318,9 @@ STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Siège de la co
 STR_BUSINESS_FUND_PRICE_FROM                                    :{BLACK}Prix : à partir de {CURRENCY_LONG}, plus le foncier
 STR_BUSINESS_FUND_PRICE_HERE                                    :{BLACK}Prix ici : {CURRENCY_LONG}
 STR_BUSINESS_FUND_PRICE_HINT                                    :{BLACK}Le foncier est plus cher en grande ville et près du centre
+STR_BUSINESS_VIEW_WAREHOUSE_HOWTO                               :{BLACK}Livraisons et achats au marché sont remis aux camions chaque mois
+STR_BUSINESS_VIEW_WAREHOUSE_PURCHASES                           :{BLACK}Achats au marché le mois dernier (pas cher) : {CURRENCY_LONG}
+STR_BUSINESS_VIEW_COSTS_PLAIN                                   :{BLACK}Coûts le mois dernier (achats, loyer) : {CURRENCY_LONG}
 STR_BUSINESS_VIEW_STOCK                                         :{BLACK}En stock : {CARGO_LONG}
 STR_BUSINESS_VIEW_HEATED                                        :{BLACK}Chauffé : du bois en stock
 STR_BUSINESS_VIEW_COLD                                          :{BLACK}Pas de bois en stock : le bois est acheté au marché, cher
@@ -3329,6 +3332,7 @@ STR_BUSINESS_VIEW_REVENUE                                       :{BLACK}Chiffre 
 STR_BUSINESS_VIEW_COSTS                                         :{BLACK}Coûts : {CURRENCY_LONG} (ingrédients, achats au marché, loyer)
 STR_BUSINESS_VIEW_PROFIT                                        :{BLACK}Bénéfice : {CURRENCY_LONG} - marge {NUM}%
 STR_BUSINESS_MENU_BUILD_BURGER                                  :Construire un restaurant de burgers
+STR_BUSINESS_MENU_BUILD_WAREHOUSE                               :Construire une centrale d'achat
 STR_BUSINESS_MENU_FINANCES                                      :Finances
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Terrain appartenant à une compagnie
 
@@ -5657,6 +5661,7 @@ STR_INDUSTRY_NAME_BUBBLE_GENERATOR                              :{G=m}Générate
 STR_INDUSTRY_NAME_TOFFEE_QUARRY                                 :{G=f}Carrière de caramel
 STR_INDUSTRY_NAME_SUGAR_MINE                                    :{G=f}Mine de sucre
 STR_INDUSTRY_NAME_BURGER_SHOP                                   :{G=m}Restaurant de burgers
+STR_INDUSTRY_NAME_WAREHOUSE_BIZ                                 :{G=f}Centrale d'achat
 
 ############ WARNING, using range 0x6000 for strings that are stored in the savegame
 ############ These strings may never get a new id, or savegames will break!

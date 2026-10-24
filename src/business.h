@@ -28,6 +28,12 @@ static const uint16_t BIZ_WOOD_PER_MONTH = 10; ///< Wood burnt per month to heat
 static const Money BIZ_PURCHASE_PRICE_WOOD = 20; ///< Price of one unit of wood bought on the market when the stock is empty.
 static const Money BIZ_PURCHASE_PRICE_GRAIN = 20; ///< Price of one unit of grain bought on the market when the stock is empty.
 
+/** Central warehouse: buys on the market cheaper than a restaurant, and hands everything to trucks. */
+static const Money BIZ_WAREHOUSE_PRICE_WOOD = 12; ///< Market price of wood for the warehouse.
+static const Money BIZ_WAREHOUSE_PRICE_GRAIN = 12; ///< Market price of grain for the warehouse.
+static const uint16_t BIZ_WAREHOUSE_MIN_PURCHASE = 20; ///< Units of each cargo bought every month at least.
+static const uint16_t BIZ_WAREHOUSE_MAX_PURCHASE = 200; ///< Units of each cargo bought every month at most.
+
 /** Land and rent: the bigger the town, the dearer the place. */
 static const Money BIZ_LAND_PRICE_PER_INHABITANT = 10; ///< Land price per inhabitant of the nearest town, at the town centre.
 static const uint BIZ_LAND_PRICE_RADIUS = 32; ///< Beyond this distance from the centre the land is at its floor price.
@@ -36,6 +42,8 @@ static const Money BIZ_BASE_RENT = 100; ///< Monthly rent, fixed part.
 static const uint32_t BIZ_INHABITANTS_PER_RENT_UNIT = 10; ///< Monthly rent: + 1 per this many inhabitants.
 
 bool IsBusinessIndustryType(IndustryType type);
+bool IsRestaurantIndustryType(IndustryType type);
+bool IsWarehouseIndustryType(IndustryType type);
 Money BusinessConstructionCost(const IndustrySpec *spec, TileIndex tile);
 Money BusinessLandPrice(TileIndex tile);
 Money BusinessMonthlyRent(const Industry *i);

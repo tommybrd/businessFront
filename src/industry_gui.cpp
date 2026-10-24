@@ -808,13 +808,16 @@ void ShowBuildIndustryWindow()
 	new BuildIndustryWindow();
 }
 
-/** Business Front: open the fund window on the burger restaurant, ready to place it. */
-void ShowBuildBusinessIndustryWindow()
+/**
+ * Business Front: open the fund window on a business, ready to place it.
+ * @param type The business industry type (restaurant, warehouse).
+ */
+void ShowBuildBusinessIndustryWindow(IndustryType type)
 {
 	if (!Company::IsValidID(_local_company)) return;
 	CloseWindowById(WindowClass::BuildIndustry, 0);
 	BuildIndustryWindow *w = new BuildIndustryWindow();
-	w->SelectAndPlace(IT_BURGER_SHOP);
+	w->SelectAndPlace(type);
 }
 
 static void UpdateIndustryProduction(Industry *i);
