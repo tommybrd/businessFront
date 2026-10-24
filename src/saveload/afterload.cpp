@@ -3342,6 +3342,20 @@ bool AfterLoadGame()
 	/* Compute station catchment areas. This is needed here in case UpdateStationAcceptance is called below. */
 	Station::RecomputeCatchmentForAll();
 
+	if (IsSavegameVersionBefore(SaveLoadVersion::BusinessFront)) {
+		/* Business Front: yearly_expenses used to hold 3 x 13 values, it now holds 3 x 14.
+		 * The old values were loaded flat into the first 39 slots: re-layout them, newest year last. */
+		for (Company *c : Company::Iterate()) {
+			Money *flat = &c->yearly_expenses[0][ExpensesType::Construction];
+			for (int y = 2; y >= 0; y--) {
+				for (int e = 12; e >= 0; e--) {
+					flat[y * 14 + e] = flat[y * 13 + e];
+				}
+				flat[y * 14 + 13] = 0;
+			}
+		}
+	}
+
 	/* Station acceptance is some kind of cache */
 	if (IsSavegameVersionBefore(SaveLoadVersion::TownAcceptance)) {
 		for (Station *st : Station::Iterate()) UpdateStationAcceptance(st, false);

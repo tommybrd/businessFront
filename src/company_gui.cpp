@@ -63,6 +63,7 @@ static const std::initializer_list<ExpensesType> _expenses_list_revenue = {
 	ExpensesType::RoadVehRevenue,
 	ExpensesType::AircraftRevenue,
 	ExpensesType::ShipRevenue,
+	ExpensesType::BusinessRevenue,
 };
 
 /** List of operating expenses. */

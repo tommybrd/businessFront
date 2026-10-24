@@ -184,6 +184,7 @@ enum class ExpensesType : uint8_t {
 	ShipRevenue, ///< Revenue from ships.
 	LoanInterest, ///< Interest payments over the loan.
 	Other, ///< Other expenses.
+	BusinessRevenue, ///< Business Front: revenue from businesses (burger restaurants).
 	End, ///< End marker.
 	Begin = ExpensesType::Construction, ///< Begin marker.
 	Invalid = 0xFF, ///< Invalid expense type.

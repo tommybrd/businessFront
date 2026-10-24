@@ -23,6 +23,7 @@
 #include "viewport_func.h"
 #include "tilehighlight_func.h"
 #include "window_gui.h"
+#include "window_func.h"
 #include "zoom_func.h"
 #include "terraform_cmd.h"
 #include "object_cmd.h"
@@ -427,6 +428,18 @@ Window *ShowBuildObjectPicker()
 		return AllocateWindowDescFront<BuildObjectWindow>(_build_object_desc, 0);
 	}
 	return nullptr;
+}
+
+/**
+ * Business Front: show the object picker opened on the "Businesses" class.
+ * @return The allocated window or \c nullptr when no window was allocated.
+ */
+Window *ShowBuildBusinessPicker()
+{
+	_object_gui.sel_class = ObjectClass::Allocate("BIZN");
+	_object_gui.sel_type = 0;
+	CloseWindowById(WindowClass::BuildObject, 0);
+	return ShowBuildObjectPicker();
 }
 
 /** Reset all data of the object GUI. */

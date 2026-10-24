@@ -538,7 +538,8 @@ static const SaveLoad _company_desc[] = {
 
 	/* yearly expenses was changed to 64-bit in savegame version 2. */
 	SaveLoad::Array<VarFileType::I32, 3 * 13>("yearly_expenses", SLE_OBJECT_ADDRESS(CompanyProperties, yearly_expenses), SaveLoadVersion::MinVersion, SaveLoadVersion::VehicleCurrencyStationChanges),
-	SaveLoad::Array<VarFileType::I64, 3 * 13>("yearly_expenses", SLE_OBJECT_ADDRESS(CompanyProperties, yearly_expenses), SaveLoadVersion::VehicleCurrencyStationChanges),
+	SaveLoad::Array<VarFileType::I64, 3 * 13>("yearly_expenses", SLE_OBJECT_ADDRESS(CompanyProperties, yearly_expenses), SaveLoadVersion::VehicleCurrencyStationChanges, SaveLoadVersion::BusinessFront),
+	SaveLoad::Array<VarFileType::I64, 3 * 14>("yearly_expenses", SLE_OBJECT_ADDRESS(CompanyProperties, yearly_expenses), SaveLoadVersion::BusinessFront),
 
 	SaveLoad::Variable<VarFileType::Bool>("is_ai", SLE_OBJECT_ADDRESS(CompanyProperties, is_ai), SaveLoadVersion::VehicleCurrencyStationChanges),
 

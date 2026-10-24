@@ -522,6 +522,28 @@ static CallBackFunction MenuClickTown(int index)
 
 /* --- Subidies button menu --- */
 
+/* --- Business Front: businesses button menu --- */
+
+static CallBackFunction ToolbarBusinessClick(Window *w)
+{
+	PopupMainToolbarMenu(w, WID_TN_BUSINESS, {STR_BUSINESS_MENU_BUILD_BURGER, STR_BUSINESS_MENU_FINANCES});
+	return CallBackFunction::None;
+}
+
+/**
+ * Handle click on the entry in the Businesses menu.
+ * @param index Menu entry number.
+ * @return #CallBackFunction::None
+ */
+static CallBackFunction MenuClickBusiness(int index)
+{
+	switch (index) {
+		case 0: ShowBuildBusinessPicker(); break;
+		case 1: ShowCompanyFinances(_local_company); break;
+	}
+	return CallBackFunction::None;
+}
+
 static CallBackFunction ToolbarSubsidiesClick(Window *w)
 {
 	PopupMainToolbarMenu(w, WID_TN_SUBSIDIES, {STR_SUBSIDIES_MENU_SUBSIDIES});
@@ -1370,6 +1392,7 @@ static MenuClickedProc * const _menu_clicked_procs[] = {
 	MenuClickMusicWindow, // 27
 	MenuClickNewspaper,   // 28
 	MenuClickHelp,        // 29
+	MenuClickBusiness,    // 30
 };
 
 /** Full blown container to make it behave exactly as we want :) */
@@ -1520,7 +1543,44 @@ public:
 
 /** Container for the 'normal' main toolbar */
 class NWidgetMainToolbarContainer : public NWidgetToolbarContainer {
+	mutable std::vector<WidgetID> bf_arrangement; ///< Business Front: arrangement after hiding train/ship/aircraft buttons.
+
+	/**
+	 * Business Front: the game is road vehicles + businesses only. Hide the train, ship and aircraft
+	 * buttons of any arrangement and put the Businesses button right after the road vehicles one.
+	 */
+	const WidgetID *FilterArrangement(const WidgetID *arrangement, uint &arrangeable_count, uint &button_count) const
+	{
+		this->bf_arrangement.clear();
+		for (uint i = 0; i < arrangeable_count; i++) {
+			switch (arrangement[i]) {
+				case WID_TN_TRAINS:
+				case WID_TN_SHIPS:
+				case WID_TN_AIRCRAFT:
+				case WID_TN_RAILS:
+				case WID_TN_WATER:
+				case WID_TN_AIR:
+					break;
+				case WID_TN_ROADVEHS:
+					this->bf_arrangement.push_back(WID_TN_ROADVEHS);
+					this->bf_arrangement.push_back(WID_TN_BUSINESS);
+					break;
+				default:
+					this->bf_arrangement.push_back(arrangement[i]);
+					break;
+			}
+		}
+		arrangeable_count = button_count = static_cast<uint>(this->bf_arrangement.size());
+		return this->bf_arrangement.data();
+	}
+
 	const WidgetID *GetButtonArrangement(uint &width, uint &arrangeable_count, uint &button_count, uint &spacer_count) const override
+	{
+		const WidgetID *arrangement = this->GetOriginalButtonArrangement(width, arrangeable_count, button_count, spacer_count);
+		return this->FilterArrangement(arrangement, arrangeable_count, button_count);
+	}
+
+	const WidgetID *GetOriginalButtonArrangement(uint &width, uint &arrangeable_count, uint &button_count, uint &spacer_count) const
 	{
 		static const uint SMALLEST_ARRANGEMENT = 14;
 		static const uint BIGGEST_ARRANGEMENT  = 20;
@@ -1999,6 +2059,7 @@ static ToolbarButtonProc * const _toolbar_button_procs[] = {
 	ToolbarMusicClick,
 	ToolbarNewspaperClick,
 	ToolbarHelpClick,
+	ToolbarBusinessClick,
 	ToolbarSwitchClick,
 };
 
@@ -2026,7 +2087,7 @@ struct MainToolbarWindow : Window {
 		/* If spectator, disable all construction buttons
 		 * ie : Build road, rail, ships, airports and landscaping
 		 * Since enabled state is the default, just disable when needed */
-		this->SetWidgetsDisabledState(_local_company == COMPANY_SPECTATOR, WID_TN_RAILS, WID_TN_ROADS, WID_TN_TRAMS, WID_TN_WATER, WID_TN_AIR, WID_TN_LANDSCAPE);
+		this->SetWidgetsDisabledState(_local_company == COMPANY_SPECTATOR, WID_TN_RAILS, WID_TN_ROADS, WID_TN_TRAMS, WID_TN_WATER, WID_TN_AIR, WID_TN_LANDSCAPE, WID_TN_BUSINESS);
 		/* disable company list drop downs, if there are no companies */
 		this->SetWidgetsDisabledState(Company::GetNumItems() == 0, WID_TN_STATIONS, WID_TN_FINANCES, WID_TN_TRAINS, WID_TN_ROADVEHS, WID_TN_SHIPS, WID_TN_AIRCRAFT);
 
@@ -2217,6 +2278,7 @@ static constexpr std::tuple<WidgetID, WidgetType, SpriteID> _toolbar_button_spri
 	{WID_TN_MUSIC_SOUND,  WWT_IMGBTN,     SPR_IMG_MUSIC},
 	{WID_TN_MESSAGES,     WWT_IMGBTN,     SPR_IMG_MESSAGES},
 	{WID_TN_HELP,         WWT_IMGBTN,     SPR_IMG_QUERY},
+	{WID_TN_BUSINESS,     WWT_IMGBTN,     SPR_IMG_CARGOFLOW},
 	{WID_TN_SWITCH_BAR,   WWT_IMGBTN,     SPR_IMG_SWITCH_TOOLBAR},
 };
 

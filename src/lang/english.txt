@@ -382,7 +382,7 @@ STR_GOTO_ORDER_VIEW                                             :{BLACK}Orders
 STR_GOTO_ORDER_VIEW_TOOLTIP                                     :{BLACK}Open the order view
 
 # Tooltips for the main toolbar
-###length 31
+###length 32
 STR_TOOLBAR_TOOLTIP_PAUSE_GAME                                  :{BLACK}Pause game
 STR_TOOLBAR_TOOLTIP_FORWARD                                     :{BLACK}Fast forward the game
 STR_TOOLBAR_TOOLTIP_OPTIONS                                     :{BLACK}Options and settings
@@ -413,6 +413,7 @@ STR_TOOLBAR_TOOLTIP_LANDSCAPING                                 :{BLACK}Open lan
 STR_TOOLBAR_TOOLTIP_SHOW_SOUND_MUSIC_WINDOW                     :{BLACK}Open sound/music window
 STR_TOOLBAR_TOOLTIP_SHOW_LAST_MESSAGE_NEWS                      :{BLACK}Open last message/news report, messages history or delete all messages
 STR_TOOLBAR_TOOLTIP_LAND_BLOCK_INFORMATION                      :{BLACK}Open land information, screenshot menu, OpenTTD credits, or developer tools
+STR_TOOLBAR_TOOLTIP_BUSINESS                                    :{BLACK}Businesses: burger restaurants
 STR_TOOLBAR_TOOLTIP_SWITCH_TOOLBAR                              :{BLACK}Switch toolbars
 
 # Extra tooltips for the scenario editor toolbar
@@ -3320,6 +3321,8 @@ STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Company headqua
 STR_LAI_OBJECT_DESCRIPTION_BURGER_SHOP                          :Burger restaurant
 
 # Business Front
+STR_BUSINESS_MENU_BUILD_BURGER                                  :Build a burger restaurant
+STR_BUSINESS_MENU_FINANCES                                      :Finances
 STR_BUSINESS_INFO_SUMMARY                                       :{WHITE}Burger restaurant in {TOWN}
 STR_BUSINESS_INFO_DETAIL                                        :{WHITE}Price {CURRENCY_LONG} - Quality {NUM}/5 - Reputation {NUM}%{}Last month: {COMMA} burgers sold, profit {CURRENCY_LONG}
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Company-owned land
@@ -4008,7 +4011,7 @@ STR_FINANCES_OPERATING_EXPENSES_TITLE                           :{WHITE}Operatin
 STR_FINANCES_CAPITAL_EXPENSES_TITLE                             :{WHITE}Capital Expenses
 
 
-###length 13
+###length 14
 STR_FINANCES_SECTION_CONSTRUCTION                               :{GOLD}Construction
 STR_FINANCES_SECTION_NEW_VEHICLES                               :{GOLD}New Vehicles
 STR_FINANCES_SECTION_TRAIN_RUNNING_COSTS                        :{GOLD}Trains
@@ -4022,6 +4025,7 @@ STR_FINANCES_SECTION_AIRCRAFT_REVENUE                           :{GOLD}Aircraft
 STR_FINANCES_SECTION_SHIP_REVENUE                               :{GOLD}Ships
 STR_FINANCES_SECTION_LOAN_INTEREST                              :{GOLD}Loan Interest
 STR_FINANCES_SECTION_OTHER                                      :{GOLD}Other
+STR_FINANCES_SECTION_BUSINESS_REVENUE                           :{GOLD}Restaurants
 
 STR_FINANCES_TOTAL_CAPTION                                      :{WHITE}Total
 STR_FINANCES_NEGATIVE_INCOME                                    :-{CURRENCY_LONG}

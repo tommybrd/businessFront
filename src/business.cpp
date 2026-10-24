@@ -116,7 +116,7 @@ static void BusinessRunMonth(Object *o, uint32_t town_attractiveness)
 
 	Backup<CompanyID> cur_company(_current_company, owner);
 	/* A negative expense is an income. */
-	SubtractMoneyFromCompany(owner, CommandCost(ExpensesType::Other, -profit));
+	SubtractMoneyFromCompany(owner, CommandCost(ExpensesType::BusinessRevenue, -profit));
 	cur_company.Restore();
 }
 
