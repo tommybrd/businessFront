@@ -26,7 +26,14 @@ static const uint16_t BIZ_MAX_PRICE = 20;
 static const uint32_t BIZ_BURGERS_PER_GRAIN = 10; ///< One unit of grain/wheat makes this many burgers (bread).
 static const uint16_t BIZ_WOOD_PER_MONTH = 10; ///< Wood burnt per month to heat the restaurant.
 
+/** Land and rent: the bigger the town, the dearer the place. */
+static const Money BIZ_LAND_PRICE_PER_INHABITANT = 10; ///< Added to the construction cost per inhabitant of the nearest town.
+static const Money BIZ_BASE_RENT = 100; ///< Monthly rent, fixed part.
+static const uint32_t BIZ_INHABITANTS_PER_RENT_UNIT = 10; ///< Monthly rent: + 1 per this many inhabitants.
+
 bool IsBusinessIndustryType(IndustryType type);
+Money BusinessConstructionCost(const IndustrySpec *spec, TileIndex tile);
+Money BusinessMonthlyRent(const Industry *i);
 void InitBusinessIndustry(Industry *i);
 bool BusinessIsHeated(const Industry *i);
 uint16_t BusinessWoodStock(const Industry *i);

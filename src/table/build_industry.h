@@ -1516,7 +1516,7 @@ extern const IndustrySpec _origin_industry_specs[NEW_INDUSTRYOFFSET] = {
 	/* Business Front: burger restaurant. Never appears by itself (all chances 0): a company funds it.
 	 * Accepts wood (heating) and grain/wheat (bread); produces nothing, it sells burgers (see business.cpp). */
 	MI(_tile_table_burger_shop,                {},
-	   150,  0xFFFFFFFF,                       0, 0, 0, 0,    0, 0, 0, 0,        184,
+	     5,  0xFFFFFFFF,                       0, 0, 0, 0,    0, 0, 0, 0,        184,
 	   IT_INVALID,        IT_INVALID,          IT_INVALID,       IndustryCheck::None,
 	   CT_INVALID,     0, CT_INVALID,       0, 5,
 	   CT_WOOD,        0, MCT_GRAIN_WHEAT_MAIZE, 0, CT_INVALID,  0,

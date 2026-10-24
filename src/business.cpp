@@ -38,7 +38,30 @@
 #include "safeguards.h"
 
 static const uint32_t BIZ_BASE_RESISTANCE = 300; ///< Attractiveness units of "people who do not buy any burger".
-static const Money BIZ_MONTHLY_RENT = 200; ///< Fixed cost per month.
+
+/**
+ * Price of building a business here: base price of the industry plus the land, dearer in a big town.
+ * @param spec The business industry.
+ * @param tile Where it is built.
+ * @return The construction cost.
+ */
+Money BusinessConstructionCost(const IndustrySpec *spec, TileIndex tile)
+{
+	const Town *t = ClosestTownFromTile(tile, UINT_MAX);
+	uint32_t population = t == nullptr ? 0 : t->cache.population;
+	return spec->GetConstructionCost() + BIZ_LAND_PRICE_PER_INHABITANT * population;
+}
+
+/**
+ * Monthly rent of a business: fixed part plus a part growing with the town.
+ * @param i The business.
+ * @return The rent for one month.
+ */
+Money BusinessMonthlyRent(const Industry *i)
+{
+	uint32_t population = i->town == nullptr ? 0 : i->town->cache.population;
+	return BIZ_BASE_RENT + population / BIZ_INHABITANTS_PER_RENT_UNIT;
+}
 
 /**
  * Is this industry type a business run by a company?
@@ -169,7 +192,7 @@ static void BusinessRunMonth(Industry *i, uint32_t town_attractiveness)
 
 	Money revenue = (Money)sales * i->biz_price;
 	Money cost = (Money)sales * BusinessUnitCostTimesTwo(i->biz_quality) / 2;
-	Money profit = revenue - cost - BIZ_MONTHLY_RENT;
+	Money profit = revenue - cost - BusinessMonthlyRent(i);
 
 	i->biz_last_sales = ClampTo<uint32_t>(sales);
 	i->biz_last_profit = profit;

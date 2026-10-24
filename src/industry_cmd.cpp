@@ -2154,6 +2154,9 @@ CommandCost CmdBuildIndustry(DoCommandFlags flags, TileIndex tile, IndustryType 
 		AdvertiseIndustryOpening(ind);
 	}
 
+	/* Business Front: the price of a business depends on where it is (size of the nearest town). */
+	if (IsBusinessIndustryType(it)) return CommandCost(ExpensesType::Other, BusinessConstructionCost(indspec, tile));
+
 	return CommandCost(ExpensesType::Other, indspec->GetConstructionCost());
 }
 
