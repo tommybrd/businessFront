@@ -383,7 +383,7 @@ STR_GOTO_ORDER_VIEW                                             :{BLACK}Ordres
 STR_GOTO_ORDER_VIEW_TOOLTIP                                     :{BLACK}Ouvrir la fenêtre des ordres
 
 # Tooltips for the main toolbar
-###length 31
+###length 32
 STR_TOOLBAR_TOOLTIP_PAUSE_GAME                                  :{BLACK}Mettre le jeu en pause
 STR_TOOLBAR_TOOLTIP_FORWARD                                     :{BLACK}Avance rapide du jeu
 STR_TOOLBAR_TOOLTIP_OPTIONS                                     :{BLACK}Options et paramètres
@@ -414,6 +414,7 @@ STR_TOOLBAR_TOOLTIP_LANDSCAPING                                 :{BLACK}Ouvrir l
 STR_TOOLBAR_TOOLTIP_SHOW_SOUND_MUSIC_WINDOW                     :{BLACK}Ouvrir la fenêtre son et musique
 STR_TOOLBAR_TOOLTIP_SHOW_LAST_MESSAGE_NEWS                      :{BLACK}Ouvrir le dernier message/bulletin, l'historique des messages ou supprimer tous les messages
 STR_TOOLBAR_TOOLTIP_LAND_BLOCK_INFORMATION                      :{BLACK}Outils d'inspection du paysage, copies d'écran, à propos d'OpenTTD et outils pour développeurs
+STR_TOOLBAR_TOOLTIP_BUSINESS                                    :{BLACK}Commerces : restaurants de burgers
 STR_TOOLBAR_TOOLTIP_SWITCH_TOOLBAR                              :{BLACK}Changer de barre d'outils
 
 # Extra tooltips for the scenario editor toolbar
@@ -3085,6 +3086,7 @@ STR_OBJECT_BUILD_SIZE                                           :{BLACK}Taille{N
 
 STR_OBJECT_CLASS_LTHS                                           :Phares
 STR_OBJECT_CLASS_TRNS                                           :Transmetteurs
+STR_OBJECT_CLASS_BIZN                                           :Commerces
 
 # Tree planting window (last eight for SE only)
 STR_PLANT_TREE_CAPTION                                          :{WHITE}Arbres
@@ -3314,6 +3316,11 @@ STR_LAI_BRIDGE_DESCRIPTION_AQUEDUCT                             :Aqueduc
 STR_LAI_OBJECT_DESCRIPTION_TRANSMITTER                          :Transmetteur
 STR_LAI_OBJECT_DESCRIPTION_LIGHTHOUSE                           :Phare
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Siège de la compagnie
+STR_LAI_OBJECT_DESCRIPTION_BURGER_SHOP                          :Restaurant de burgers
+STR_BUSINESS_INFO_SUMMARY                                       :{WHITE}Restaurant de burgers à {TOWN}
+STR_BUSINESS_INFO_DETAIL                                        :{WHITE}Prix {CURRENCY_LONG} - Qualité {NUM}/5 - Réputation {NUM}%{}Le mois dernier : {COMMA} burgers vendus, bénéfice {CURRENCY_LONG}
+STR_BUSINESS_MENU_BUILD_BURGER                                  :Construire un restaurant de burgers
+STR_BUSINESS_MENU_FINANCES                                      :Finances
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Terrain appartenant à une compagnie
 
 # About OpenTTD window
@@ -4000,7 +4007,7 @@ STR_FINANCES_OPERATING_EXPENSES_TITLE                           :{WHITE}Dépense
 STR_FINANCES_CAPITAL_EXPENSES_TITLE                             :{WHITE}Dépenses en capitaux
 
 
-###length 13
+###length 14
 STR_FINANCES_SECTION_CONSTRUCTION                               :{GOLD}Construction
 STR_FINANCES_SECTION_NEW_VEHICLES                               :{GOLD}Nouveaux véhicules
 STR_FINANCES_SECTION_TRAIN_RUNNING_COSTS                        :{GOLD}Trains
@@ -4014,6 +4021,7 @@ STR_FINANCES_SECTION_AIRCRAFT_REVENUE                           :{GOLD}Aéronefs
 STR_FINANCES_SECTION_SHIP_REVENUE                               :{GOLD}Navires
 STR_FINANCES_SECTION_LOAN_INTEREST                              :{GOLD}Intérêts du prêt
 STR_FINANCES_SECTION_OTHER                                      :{GOLD}Autres
+STR_FINANCES_SECTION_BUSINESS_REVENUE                           :{GOLD}Restaurants
 
 STR_FINANCES_TOTAL_CAPTION                                      :{WHITE}Total
 STR_FINANCES_NEGATIVE_INCOME                                    :-{CURRENCY_LONG}

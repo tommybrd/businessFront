@@ -2261,6 +2261,7 @@ void InitializeLanguagePacks()
 	const LanguageMetadata *chosen_language   = nullptr; ///< Matching the language in the configuration file or the current locale
 	const LanguageMetadata *language_fallback = nullptr; ///< Using pt_PT for pt_BR locale when pt_BR is not available
 	const LanguageMetadata *en_GB_fallback    = _languages.data(); ///< Fallback when no locale-matching language has been found
+	const LanguageMetadata *fr_FR_fallback    = nullptr; ///< Business Front: French is the default of this fork
 
 	/* Find a proper language. */
 	for (const LanguageMetadata &lng : _languages) {
@@ -2274,6 +2275,7 @@ void InitializeLanguagePacks()
 
 		std::string_view iso_code = lng.isocode;
 		if (iso_code == "en_GB") en_GB_fallback = &lng;
+		if (iso_code == "fr_FR") fr_FR_fallback = &lng;
 
 		/* Only auto-pick finished translations */
 		if (!lng.IsReasonablyFinished()) continue;
@@ -2285,7 +2287,7 @@ void InitializeLanguagePacks()
 	/* We haven't found the language in the config nor the one in the locale.
 	 * Now we set it to one of the fallback languages */
 	if (chosen_language == nullptr) {
-		chosen_language = (language_fallback != nullptr) ? language_fallback : en_GB_fallback;
+		chosen_language = (language_fallback != nullptr) ? language_fallback : (fr_FR_fallback != nullptr) ? fr_FR_fallback : en_GB_fallback;
 	}
 
 	if (!ReadLanguagePack(chosen_language)) UserError("Can't read language pack '{}'", FS2OTTD(chosen_language->file.native()));
