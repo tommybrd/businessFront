@@ -469,6 +469,8 @@ static void DrawTile_Object(TileInfo *ti)
 		if (type == OBJECT_HQ) {
 			TileIndex diff = ti->tile - Object::GetByTile(ti->tile)->location.tile;
 			dts = &_object_hq[GetCompanyHQSize(ti->tile) << 2 | TileY(diff) << 1 | TileX(diff)];
+		} else if (type == OBJECT_BURGER_SHOP) {
+			dts = GetOriginalObjectSprites(spec, Object::GetByTile(ti->tile)->view);
 		} else {
 			dts = &_objects[type];
 		}
@@ -736,6 +738,19 @@ static void TileLoop_Object(TileIndex tile)
 
 
 /** @copydoc ClickTileProc */
+/**
+ * Sprites of an original (non-NewGRF) object, for one of its views.
+ * @param spec The object.
+ * @param view The view (look) wanted.
+ * @return The sprites to draw.
+ */
+const DrawTileSprites *GetOriginalObjectSprites(const ObjectSpec *spec, uint view)
+{
+	uint type = spec->grf_prop.local_id;
+	if (type == OBJECT_BURGER_SHOP) return &_object_burger_shop[std::min<uint>(view, lengthof(_object_burger_shop) - 1)];
+	return &_objects[type];
+}
+
 static bool ClickTile_Object(TileIndex tile)
 {
 	if (IsObjectType(tile, OBJECT_BURGER_SHOP)) {

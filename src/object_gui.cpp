@@ -98,8 +98,7 @@ public:
 	{
 		const auto *spec = this->GetSpec(cls_id, id);
 		if (!spec->grf_prop.HasGrfFile()) {
-			extern const DrawTileSpriteSpan _objects[];
-			const DrawTileSprites *dts = &_objects[spec->grf_prop.local_id];
+			const DrawTileSprites *dts = GetOriginalObjectSprites(spec, std::min<int>(_object_gui.sel_view, spec->views - 1));
 			DrawOrigTileSeqInGUI(x, y, dts, PAL_NONE);
 		} else {
 			DrawNewObjectTileInGUI(x, y, spec, std::min<int>(_object_gui.sel_view, spec->views - 1));
@@ -217,8 +216,7 @@ public:
 					int y = (ir.Height() + ScaleSpriteTrad(PREVIEW_HEIGHT)) / 2 - ScaleSpriteTrad(PREVIEW_BOTTOM);
 
 					if (!spec->grf_prop.HasGrfFile()) {
-						extern const DrawTileSpriteSpan _objects[];
-						const DrawTileSprites *dts = &_objects[spec->grf_prop.local_id];
+						const DrawTileSprites *dts = GetOriginalObjectSprites(spec, matrix->GetCurrentElement());
 						DrawOrigTileSeqInGUI(x, y, dts, PAL_NONE);
 					} else {
 						DrawNewObjectTileInGUI(x, y, spec, matrix->GetCurrentElement());
