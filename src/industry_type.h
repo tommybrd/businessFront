@@ -45,12 +45,12 @@ using IndustryAnimationTriggers = EnumBitSet<IndustryAnimationTrigger, uint8_t>;
 
 static const IndustryType NUM_INDUSTRYTYPES_PER_GRF = 128;            ///< maximum number of industry types per NewGRF; limited to 128 because bit 7 has a special meaning in some variables/callbacks (see MapNewGRFIndustryType).
 
-static const IndustryType NEW_INDUSTRYOFFSET     = 37;                ///< original number of industry types
+static const IndustryType NEW_INDUSTRYOFFSET     = 38;                ///< original number of industry types
 static const IndustryType NUM_INDUSTRYTYPES      = 240;               ///< total number of industry types, new and old; limited to 240 because we need some special ids like IT_INVALID, IT_AI_UNKNOWN, IT_AI_TOWN, ...
 static const IndustryType IT_INVALID             = 0xFF;
 
 static const IndustryGfx INDUSTRYTILE_NOANIM = UINT16_MAX; ///< Sentinel value to mark industry tiles as having no animation
-static const IndustryGfx  NEW_INDUSTRYTILEOFFSET = 175;               ///< original number of tiles
+static const IndustryGfx  NEW_INDUSTRYTILEOFFSET = 176;               ///< original number of tiles
 static const IndustryGfx  NUM_INDUSTRYTILES      = 512;               ///< total number of industry tiles, new and old
 static const IndustryGfx  INVALID_INDUSTRYTILE   = NUM_INDUSTRYTILES; ///< one above amount is considered invalid
 
@@ -77,6 +77,8 @@ static constexpr IndustryGfx GFX_OILWELL_ANIMATED_3 = 32;
 static constexpr IndustryGfx GFX_COPPER_MINE_TOWER_NOT_ANIMATED = 47;
 static constexpr IndustryGfx GFX_COPPER_MINE_TOWER_ANIMATED = 48;
 static constexpr IndustryGfx GFX_COPPER_MINE_CHIMNEY = 49;
+static constexpr IndustryGfx GFX_BURGER_SHOP = 175; ///< Business Front: burger restaurant tile.
+static constexpr IndustryType IT_BURGER_SHOP = 37; ///< Business Front: burger restaurant industry type.
 static constexpr IndustryGfx GFX_GOLD_MINE_TOWER_NOT_ANIMATED = 79;
 static constexpr IndustryGfx GFX_GOLD_MINE_TOWER_ANIMATED = 88;
 static constexpr IndustryGfx GFX_TOY_FACTORY = 143;

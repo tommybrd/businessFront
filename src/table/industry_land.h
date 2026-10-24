@@ -740,6 +740,11 @@ static const DrawBuildingsTileStruct _industry_draw_tile_data[NEW_INDUSTRYTILEOF
 	M(     0xf8d, PAL_NONE,     0x12a5 | (1 << PALETTE_MODIFIER_COLOUR), PAL_NONE,  0,  0, 16, 16,  50, 1),
 	M(     0xf8d, PAL_NONE,     0x12a5 | (1 << PALETTE_MODIFIER_COLOUR), PAL_NONE,  0,  0, 16, 16,  50, 1),
 	M(     0xf8d, PAL_NONE,     0x12a5 | (1 << PALETTE_MODIFIER_COLOUR), PAL_NONE,  0,  0, 16, 16,  50, 1),
+	/* Business Front: burger restaurant (GFX_BURGER_SHOP 175), reuses the "shops and offices" town building 0x0F */
+	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5b8,                   PAL_NONE,  3,  1, 11, 14,   6, 0),
+	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5b9,                   PAL_NONE,  3,  1, 11, 14,  28, 0),
+	M( SPR_FLAT_BARE_LAND,                   PAL_NONE,  0x5ba,                   PAL_NONE,  3,  1, 11, 14,  28, 0),
+	M(SPR_CONCRETE_GROUND,                   PAL_NONE,  0x5ba,                   PAL_NONE,  3,  1, 11, 14,  28, 0),
 };
 #undef M
 

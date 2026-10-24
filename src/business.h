@@ -5,14 +5,14 @@
  * See the GNU General Public License for more details. You should have received a copy of the GNU General Public License along with OpenTTD. If not, see <http://www.gnu.org/licenses/>.
  */
 
-/** @file business.h Business Front: companies run shops (burger restaurants) that earn money from the towns they are built in. */
+/** @file business.h Business Front: companies run businesses (burger restaurants) built as industries, supplied by trucks, earning money from their town. */
 
 #ifndef BUSINESS_H
 #define BUSINESS_H
 
-#include "object_base.h"
+#include "industry.h"
 
-/** Default parameters of a freshly built burger shop. */
+/** Default parameters of a freshly built burger restaurant. */
 static const uint16_t BIZ_DEFAULT_PRICE = 5; ///< Price of one burger.
 static const uint8_t BIZ_DEFAULT_QUALITY = 3; ///< Quality level (1..5).
 static const uint8_t BIZ_DEFAULT_REPUTATION = 50; ///< Reputation (0..100).
@@ -22,10 +22,17 @@ static const uint8_t BIZ_MAX_QUALITY = 5;
 static const uint16_t BIZ_MIN_PRICE = 1;
 static const uint16_t BIZ_MAX_PRICE = 20;
 
-bool IsBusinessObjectType(ObjectType type);
-void InitBusinessObject(Object *o);
-uint32_t BusinessPotentialCustomers(const Object *o);
-uint32_t BusinessAttractiveness(const Object *o);
-void BusinessShowInfo(const Object *o);
+/** Supply chain, phase 1. */
+static const uint32_t BIZ_BURGERS_PER_GRAIN = 10; ///< One unit of grain/wheat makes this many burgers (bread).
+static const uint16_t BIZ_WOOD_PER_MONTH = 10; ///< Wood burnt per month to heat the restaurant.
+
+bool IsBusinessIndustryType(IndustryType type);
+void InitBusinessIndustry(Industry *i);
+bool BusinessIsHeated(const Industry *i);
+uint16_t BusinessWoodStock(const Industry *i);
+uint16_t BusinessBreadStock(const Industry *i);
+uint32_t BusinessPotentialCustomers(const Industry *i);
+uint32_t BusinessAttractiveness(const Industry *i);
+std::vector<std::string> BusinessViewLines(const Industry *i);
 
 #endif /* BUSINESS_H */

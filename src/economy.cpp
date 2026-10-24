@@ -8,6 +8,7 @@
 /** @file economy.cpp Handling of the economy. */
 
 #include "stdafx.h"
+#include "business.h"
 #include <ranges>
 #include "company_func.h"
 #include "command_func.h"
@@ -1145,7 +1146,10 @@ static void TriggerIndustryProduction(Industry *i)
 
 	i->was_cargo_delivered = true;
 
-	if (cbm.Test(IndustryCallbackMask::ProductionCargoArrival) || cbm.Test(IndustryCallbackMask::Production256Ticks)) {
+	if (IsBusinessIndustryType(i->type)) {
+		/* Business Front: deliveries stay in stock (accepted[].waiting) and are consumed month by month. */
+		SetWindowDirty(WindowClass::IndustryView, i->index);
+	} else if (cbm.Test(IndustryCallbackMask::ProductionCargoArrival) || cbm.Test(IndustryCallbackMask::Production256Ticks)) {
 		if (cbm.Test(IndustryCallbackMask::ProductionCargoArrival)) {
 			IndustryProductionCallback(i, 0);
 		} else {

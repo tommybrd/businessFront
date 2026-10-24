@@ -486,6 +486,15 @@ static const std::vector<IndustryTileLayout> _tile_table_oil_well {
 	_tile_table_oil_well_1,
 };
 
+/* Business Front: burger restaurant, a single tile. */
+static const IndustryTileLayout _tile_table_burger_shop_0 {
+	{{0, 0}, GFX_BURGER_SHOP},
+};
+
+static const std::vector<IndustryTileLayout> _tile_table_burger_shop {
+	_tile_table_burger_shop_0,
+};
+
 static const IndustryTileLayout _tile_table_bank_0 {
 	{{0, 0}, 58},
 	{{1, 0}, 59},
@@ -1069,6 +1078,7 @@ enum IndustryTypes : uint8_t {
 	IT_BUBBLE_GENERATOR    =  34,
 	IT_TOFFEE_QUARRY       =  35,
 	IT_SUGAR_MINE          =  36,
+	IT_BURGER_RESTAURANT   =  37, ///< Business Front: burger restaurant (see IT_BURGER_SHOP in industry_type.h)
 	IT_END,
 };
 
@@ -1502,6 +1512,18 @@ extern const IndustrySpec _origin_industry_specs[NEW_INDUSTRYOFFSET] = {
 	   {},
 	   STR_INDUSTRY_NAME_SUGAR_MINE,                    STR_NEWS_INDUSTRY_CONSTRUCTION,
 	   STR_NEWS_INDUSTRY_CLOSURE_GENERAL,    STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_GENERAL,     STR_NEWS_INDUSTRY_PRODUCTION_DECREASE_GENERAL),
+
+	/* Business Front: burger restaurant. Never appears by itself (all chances 0): a company funds it.
+	 * Accepts wood (heating) and grain/wheat (bread); produces nothing, it sells burgers (see business.cpp). */
+	MI(_tile_table_burger_shop,                {},
+	   150,  0xFFFFFFFF,                       0, 0, 0, 0,    0, 0, 0, 0,        184,
+	   IT_INVALID,        IT_INVALID,          IT_INVALID,       IndustryCheck::None,
+	   CT_INVALID,     0, CT_INVALID,       0, 5,
+	   CT_WOOD,        0, MCT_GRAIN_WHEAT_MAIZE, 0, CT_INVALID,  0,
+	   INDUSTRYLIFE_BLACK_HOLE,                LandscapeTypes({LandscapeType::Temperate, LandscapeType::Arctic}),
+	   {},
+	   STR_INDUSTRY_NAME_BURGER_SHOP,                   STR_NEWS_INDUSTRY_CONSTRUCTION,
+	   STR_NEWS_INDUSTRY_CLOSURE_GENERAL,    STR_NEWS_INDUSTRY_PRODUCTION_INCREASE_GENERAL,     STR_NEWS_INDUSTRY_PRODUCTION_DECREASE_GENERAL),
 };
 #undef MI
 
@@ -1752,6 +1774,9 @@ static const IndustryTileSpec _origin_industry_tile_specs[NEW_INDUSTRYTILEOFFSET
 	{0, CT_INVALID, 0, CT_INVALID, false},
 	{0, CT_INVALID, 0, CT_INVALID, false},
 	{0, CT_INVALID, 0, CT_INVALID, false},
+
+	/* Business Front: burger restaurant (accepts wood and grain/wheat) */
+	{8, CT_WOOD, 8, MCT_GRAIN_WHEAT_MAIZE, false},
 };
 
 #endif  /* BUILD_INDUSTRY_H */

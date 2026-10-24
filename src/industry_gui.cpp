@@ -8,6 +8,7 @@
 /** @file industry_gui.cpp GUIs related to industries. */
 
 #include "stdafx.h"
+#include "business.h"
 #include <ranges>
 #include "error.h"
 #include "gui.h"
@@ -298,6 +299,21 @@ static WindowDesc _build_industry_desc(
 
 /** Build (fund or prospect) a new industry, */
 class BuildIndustryWindow : public Window {
+public:
+	/**
+	 * Business Front: select an industry type and start placing it.
+	 * @param type The industry type to build.
+	 */
+	void SelectAndPlace(IndustryType type)
+	{
+		if (std::ranges::find(this->list, type) == this->list.end()) return;
+		this->selected_type = type;
+		this->UpdateAvailability();
+		this->SetDirty();
+		if (this->enabled) HandlePlacePushButton(this, WID_DPI_FUND_WIDGET, SPR_CURSOR_INDUSTRY, HT_RECT);
+	}
+
+private:
 	IndustryType selected_type = IT_INVALID; ///< industry corresponding to the above index
 	std::vector<IndustryType> list{}; ///< List of industries.
 	bool enabled = false; ///< Availability state of the selected industry.
@@ -769,6 +785,15 @@ void ShowBuildIndustryWindow()
 	new BuildIndustryWindow();
 }
 
+/** Business Front: open the fund window on the burger restaurant, ready to place it. */
+void ShowBuildBusinessIndustryWindow()
+{
+	if (!Company::IsValidID(_local_company)) return;
+	CloseWindowById(WindowClass::BuildIndustry, 0);
+	BuildIndustryWindow *w = new BuildIndustryWindow();
+	w->SelectAndPlace(IT_BURGER_SHOP);
+}
+
 static void UpdateIndustryProduction(Industry *i);
 
 static inline bool IsProductionAlterable(const Industry *i)
@@ -914,6 +939,15 @@ public:
 
 			DrawString(ir.Indent(label_indent, rtl), this->GetAcceptedCargoString(a, suffix));
 			ir.top += GetCharacterHeight(FontSize::Normal);
+		}
+
+		/* Business Front: stocks, heating, offer and last month's figures of a restaurant. */
+		if (IsBusinessIndustryType(i->type)) {
+			ir.top += WidgetDimensions::scaled.vsep_wide;
+			for (const std::string &line : BusinessViewLines(i)) {
+				DrawString(ir, line);
+				ir.top += GetCharacterHeight(FontSize::Normal);
+			}
 		}
 
 		int line_height = this->editable == Editability::Rate ? this->cheat_line_height : GetCharacterHeight(FontSize::Normal);

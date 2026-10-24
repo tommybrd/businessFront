@@ -57,6 +57,7 @@ void ShowFoundTownWindow();
 void ShowIndustryDirectory();
 void ShowIndustryCargoesWindow();
 void ShowBuildIndustryWindow();
+void ShowBuildBusinessIndustryWindow();
 
 /* subsidy_gui.cpp */
 void ShowSubsidiesList();

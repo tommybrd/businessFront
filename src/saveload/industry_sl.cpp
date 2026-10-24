@@ -203,6 +203,12 @@ static const SaveLoad _industry_desc[] = {
 	SaveLoad::Reference<SLRefType::Storage>("psa", SLE_OBJECT_ADDRESS(Industry, psa), SaveLoadVersion::PersistentStoragePool),
 
 	SaveLoad::Variable<VarFileType::U16>("random", SLE_OBJECT_ADDRESS(Industry, random), SaveLoadVersion::NewGRFIndustryRandomTriggers),
+	SaveLoad::Variable<VarFileType::U16>("biz_price", SLE_OBJECT_ADDRESS(Industry, biz_price), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::U8>("biz_quality", SLE_OBJECT_ADDRESS(Industry, biz_quality), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::U8>("biz_reputation", SLE_OBJECT_ADDRESS(Industry, biz_reputation), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::Bool>("biz_heated", SLE_OBJECT_ADDRESS(Industry, biz_heated), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::U32>("biz_last_sales", SLE_OBJECT_ADDRESS(Industry, biz_last_sales), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::I64>("biz_last_profit", SLE_OBJECT_ADDRESS(Industry, biz_last_profit), SaveLoadVersion::BusinessFront),
 	SaveLoad::String("text", SLE_OBJECT_ADDRESS(Industry, text), StringValidationSetting::AllowControlCode, SaveLoadVersion::IndustryText),
 
 	SaveLoad::Variable<VarFileType::U64>("valid_history", SLE_OBJECT_ADDRESS(Industry, valid_history), SaveLoadVersion::IndustryNumValidHistory),

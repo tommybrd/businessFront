@@ -27,35 +27,11 @@ static const DrawTileSeqStruct _object_owned_land_seq[] = {
 	{   8,  8,  0,  1,  1,  6, {SPR_BOUGHT_LAND    | (1 << PALETTE_MODIFIER_COLOUR), PAL_NONE}},
 };
 
-/* Business Front: burger restaurant. Four looks, reusing original temperate town buildings
- * (shops and offices 0x0F / 0x0E, warehouse 0x12, shops and offices 2 0x1D). The player picks the look (view). */
-static const DrawTileSeqStruct _object_burger_shop_seq_0[] = {
-	{   0,  0,  0, 11, 14, 28, {0x5ba, PAL_NONE}},
-};
-static const DrawTileSeqStruct _object_burger_shop_seq_1[] = {
-	{   0,  0,  0, 14, 11, 53, {0x5b7, PAL_NONE}},
-};
-static const DrawTileSeqStruct _object_burger_shop_seq_2[] = {
-	{   0,  0,  0, 15, 12, 31, {0x5c3, PAL_NONE}},
-};
-static const DrawTileSeqStruct _object_burger_shop_seq_3[] = {
-	{   0,  0,  0, 16, 16, 55, {0x601, PAL_NONE}},
-};
-
-extern const DrawTileSpriteSpan _object_burger_shop[] = {
-	{ { SPR_CONCRETE_GROUND, PAL_NONE }, _object_burger_shop_seq_0 },
-	{ { SPR_CONCRETE_GROUND, PAL_NONE }, _object_burger_shop_seq_1 },
-	{ { SPR_CONCRETE_GROUND, PAL_NONE }, _object_burger_shop_seq_2 },
-	{ { 0x600,               PAL_NONE }, _object_burger_shop_seq_3 },
-};
-
 extern const DrawTileSpriteSpan _objects[] = {
 	{ { SPR_FLAT_2_THIRD_GRASS_TILE, PAL_NONE }, _object_transmitter_seq },
 	{ { SPR_FLAT_2_THIRD_GRASS_TILE, PAL_NONE }, _object_lighthouse_seq  },
 	{ { SPR_CONCRETE_GROUND,         PAL_NONE }, _object_statue_seq      },
 	{ { SPR_FLAT_BARE_LAND,          PAL_NONE }, _object_owned_land_seq  },
-	{ { SPR_FLAT_BARE_LAND,          PAL_NONE }, {}                      }, // OBJECT_HQ: drawn from _object_hq instead
-	{ { SPR_CONCRETE_GROUND,         PAL_NONE }, _object_burger_shop_seq_0 }, // OBJECT_BURGER_SHOP: see _object_burger_shop for the views
 };
 
 
@@ -131,8 +107,6 @@ static const DrawTileSpriteSpan _object_hq[] = {
 #undef TILE_SPRITE_LINE_NOTHING
 
 #define M(name, size, build_cost_multiplier, clear_cost_multiplier, height, introduction_date, climate, gen_amount, flags) {{ObjectClassID::Invalid(), 0}, StandardGRFFileProps{}, AnimationInfo<ObjectAnimationTriggers>{}, name, climate, size, build_cost_multiplier, clear_cost_multiplier, introduction_date, CalendarTime::MAX_DATE + 1, flags, ObjectCallbackMasks{}, height, 1, gen_amount, {}}
-/** Same as M, with a number of views (looks) the player can choose from. */
-#define MV(name, size, build_cost_multiplier, clear_cost_multiplier, height, introduction_date, climate, gen_amount, flags, views) {{ObjectClassID::Invalid(), 0}, StandardGRFFileProps{}, AnimationInfo<ObjectAnimationTriggers>{}, name, climate, size, build_cost_multiplier, clear_cost_multiplier, introduction_date, CalendarTime::MAX_DATE + 1, flags, ObjectCallbackMasks{}, height, views, gen_amount, {}}
 
 /** Climate temperate. */
 #define T LandscapeType::Temperate
@@ -149,11 +123,9 @@ extern const ObjectSpec _original_objects[] = {
 	M(STR_TOWN_BUILDING_NAME_STATUE_1,                 0x11,   0,   0,  5, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::CannotRemove, ObjectFlag::OnlyInGame, ObjectFlag::OnlyInScenedit})), // Yes, we disallow building this everywhere. Happens in "special" case!
 	M(STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND,   0x11,  10,  10,  0, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::Autoremove, ObjectFlag::OnlyInGame, ObjectFlag::ClearIncome, ObjectFlag::HasNoFoundation})), // Only non-silly use case is to use it when you cannot build a station, so disallow bridges
 	M(STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS, 0x22,   0,   0,  7, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::CannotRemove, ObjectFlag::OnlyInGame})),
-	MV(STR_LAI_OBJECT_DESCRIPTION_BURGER_SHOP,         0x11, 250,  50,  7, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::OnlyInGame}), 4), // Business Front
 };
 
 #undef M
-#undef MV
 #undef Y
 #undef S
 #undef A

@@ -3085,7 +3085,6 @@ STR_OBJECT_BUILD_SIZE                                           :{BLACK}Size: {G
 
 STR_OBJECT_CLASS_LTHS                                           :Lighthouses
 STR_OBJECT_CLASS_TRNS                                           :Transmitters
-STR_OBJECT_CLASS_BIZN                                           :Businesses
 
 # Tree planting window (last eight for SE only)
 STR_PLANT_TREE_CAPTION                                          :{WHITE}Trees
@@ -3318,13 +3317,16 @@ STR_LAI_BRIDGE_DESCRIPTION_AQUEDUCT                             :Aqueduct
 STR_LAI_OBJECT_DESCRIPTION_TRANSMITTER                          :Transmitter
 STR_LAI_OBJECT_DESCRIPTION_LIGHTHOUSE                           :Lighthouse
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Company headquarters
-STR_LAI_OBJECT_DESCRIPTION_BURGER_SHOP                          :Burger restaurant
 
 # Business Front
 STR_BUSINESS_MENU_BUILD_BURGER                                  :Build a burger restaurant
 STR_BUSINESS_MENU_FINANCES                                      :Finances
-STR_BUSINESS_INFO_SUMMARY                                       :{WHITE}Burger restaurant in {TOWN}
-STR_BUSINESS_INFO_DETAIL                                        :{WHITE}Price {CURRENCY_LONG} - Quality {NUM}/5 - Reputation {NUM}%{}Last month: {COMMA} burgers sold, profit {CURRENCY_LONG}
+STR_BUSINESS_VIEW_STOCK                                         :{BLACK}In stock: {CARGO_LONG}
+STR_BUSINESS_VIEW_HEATED                                        :{BLACK}Heated: wood in stock
+STR_BUSINESS_VIEW_COLD                                          :{BLACK}Not heated: no wood, half the customers stay away
+STR_BUSINESS_VIEW_BREAD                                         :{BLACK}Bread for {COMMA} burgers with the grain in stock
+STR_BUSINESS_VIEW_OFFER                                         :{BLACK}Price {CURRENCY_LONG} - Quality {NUM}/5 - Reputation {NUM}%
+STR_BUSINESS_VIEW_LAST_MONTH                                    :{BLACK}Last month: {COMMA} burgers sold, profit {CURRENCY_LONG}
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Company-owned land
 
 # About OpenTTD window
@@ -5656,6 +5658,7 @@ STR_INDUSTRY_NAME_FIZZY_DRINK_FACTORY                           :Fizzy Drink Fac
 STR_INDUSTRY_NAME_BUBBLE_GENERATOR                              :Bubble Generator
 STR_INDUSTRY_NAME_TOFFEE_QUARRY                                 :Toffee Quarry
 STR_INDUSTRY_NAME_SUGAR_MINE                                    :Sugar Mine
+STR_INDUSTRY_NAME_BURGER_SHOP                                   :Burger Restaurant
 
 ############ WARNING, using range 0x6000 for strings that are stored in the savegame
 ############ These strings may never get a new id, or savegames will break!

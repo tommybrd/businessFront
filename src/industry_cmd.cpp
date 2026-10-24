@@ -8,6 +8,7 @@
 /** @file industry_cmd.cpp Handling of industry tiles. */
 
 #include "stdafx.h"
+#include "business.h"
 #include "misc/history_type.hpp"
 #include "misc/history_func.hpp"
 #include "bridge_map.h"
@@ -930,6 +931,13 @@ static void TileLoop_Industry(TileIndex tile)
 		CreateEffectVehicleAbove(TileX(tile) * TILE_SIZE + 6, TileY(tile) * TILE_SIZE + 6, 43, EV_COPPER_MINE_SMOKE);
 		break;
 
+	case GFX_BURGER_SHOP:
+		/* Business Front: a heated restaurant (wood in stock) smokes. */
+		if (BusinessIsHeated(Industry::GetByTile(tile))) {
+			CreateEffectVehicleAbove(TileX(tile) * TILE_SIZE + 10, TileY(tile) * TILE_SIZE + 6, 30, EV_COPPER_MINE_SMOKE);
+		}
+		break;
+
 
 	case GFX_TOY_FACTORY: {
 			Industry *i = Industry::GetByTile(tile);
@@ -1812,6 +1820,7 @@ static void DoCreateNewIndustry(Industry *i, TileIndex tile, IndustryType type, 
 	i->was_cargo_delivered = false;
 	i->last_prod_year = TimerGameEconomy::year;
 	i->founder = founder;
+	InitBusinessIndustry(i);
 	i->ctlflags = {};
 
 	i->construction_date = TimerGameCalendar::date;

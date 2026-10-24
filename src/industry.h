@@ -126,6 +126,14 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 	mutable std::string cached_name{}; ///< NOSAVE: Cache of the resolved name of the industry
 
 	Owner founder = INVALID_OWNER; ///< Founder of the industry
+
+	/* Business Front: fields used by business industries (IT_BURGER_SHOP). */
+	uint16_t biz_price = 0; ///< Selling price of one burger (money units).
+	uint8_t biz_quality = 0; ///< Quality level 1..5.
+	uint8_t biz_reputation = 0; ///< Reputation 0..100.
+	bool biz_heated = false; ///< Had wood to burn last month.
+	uint32_t biz_last_sales = 0; ///< Burgers sold last month.
+	Money biz_last_profit = 0; ///< Profit (or loss) made last month.
 	TimerGameCalendar::Date construction_date{}; ///< Date of the construction of the industry
 	IndustryConstructionType construction_type{}; ///< Way the industry was constructed (@see IndustryConstructionType)
 	uint8_t selected_layout = 0; ///< Which tile layout was used when creating the industry

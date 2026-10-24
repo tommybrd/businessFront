@@ -538,7 +538,7 @@ static CallBackFunction ToolbarBusinessClick(Window *w)
 static CallBackFunction MenuClickBusiness(int index)
 {
 	switch (index) {
-		case 0: ShowBuildBusinessPicker(); break;
+		case 0: ShowBuildBusinessIndustryWindow(); break;
 		case 1: ShowCompanyFinances(_local_company); break;
 	}
 	return CallBackFunction::None;

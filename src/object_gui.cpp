@@ -23,7 +23,6 @@
 #include "viewport_func.h"
 #include "tilehighlight_func.h"
 #include "window_gui.h"
-#include "window_func.h"
 #include "zoom_func.h"
 #include "terraform_cmd.h"
 #include "object_cmd.h"
@@ -98,7 +97,8 @@ public:
 	{
 		const auto *spec = this->GetSpec(cls_id, id);
 		if (!spec->grf_prop.HasGrfFile()) {
-			const DrawTileSprites *dts = GetOriginalObjectSprites(spec, std::min<int>(_object_gui.sel_view, spec->views - 1));
+			extern const DrawTileSpriteSpan _objects[];
+			const DrawTileSprites *dts = &_objects[spec->grf_prop.local_id];
 			DrawOrigTileSeqInGUI(x, y, dts, PAL_NONE);
 		} else {
 			DrawNewObjectTileInGUI(x, y, spec, std::min<int>(_object_gui.sel_view, spec->views - 1));
@@ -216,7 +216,8 @@ public:
 					int y = (ir.Height() + ScaleSpriteTrad(PREVIEW_HEIGHT)) / 2 - ScaleSpriteTrad(PREVIEW_BOTTOM);
 
 					if (!spec->grf_prop.HasGrfFile()) {
-						const DrawTileSprites *dts = GetOriginalObjectSprites(spec, matrix->GetCurrentElement());
+						extern const DrawTileSpriteSpan _objects[];
+						const DrawTileSprites *dts = &_objects[spec->grf_prop.local_id];
 						DrawOrigTileSeqInGUI(x, y, dts, PAL_NONE);
 					} else {
 						DrawNewObjectTileInGUI(x, y, spec, matrix->GetCurrentElement());
@@ -426,18 +427,6 @@ Window *ShowBuildObjectPicker()
 		return AllocateWindowDescFront<BuildObjectWindow>(_build_object_desc, 0);
 	}
 	return nullptr;
-}
-
-/**
- * Business Front: show the object picker opened on the "Businesses" class.
- * @return The allocated window or \c nullptr when no window was allocated.
- */
-Window *ShowBuildBusinessPicker()
-{
-	_object_gui.sel_class = ObjectClass::Allocate("BIZN");
-	_object_gui.sel_type = 0;
-	CloseWindowById(WindowClass::BuildObject, 0);
-	return ShowBuildObjectPicker();
 }
 
 /** Reset all data of the object GUI. */
