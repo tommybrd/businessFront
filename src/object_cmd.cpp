@@ -26,6 +26,7 @@
 #include "company_gui.h"
 #include "cheat_type.h"
 #include "object.h"
+#include "business.h"
 #include "cargopacket.h"
 #include "core/random_func.hpp"
 #include "core/pool_func.hpp"
@@ -94,6 +95,7 @@ void BuildObject(ObjectType type, TileIndex tile, CompanyID owner, Town *town, u
 
 	TileArea ta(tile, GB(spec->size, HasBit(view, 0) ? 4 : 0, 4), GB(spec->size, HasBit(view, 0) ? 0 : 4, 4));
 	Object *o = Object::Create(type, town == nullptr ? CalcClosestTownFromTile(tile) : town, ta, TimerGameCalendar::date, view);
+	InitBusinessObject(o);
 
 	/* If nothing owns the object, the colour will be random. Otherwise
 	 * get the colour from the company's livery settings. */
@@ -736,6 +738,11 @@ static void TileLoop_Object(TileIndex tile)
 /** @copydoc ClickTileProc */
 static bool ClickTile_Object(TileIndex tile)
 {
+	if (IsObjectType(tile, OBJECT_BURGER_SHOP)) {
+		BusinessShowInfo(Object::GetByTile(tile));
+		return true;
+	}
+
 	if (!IsObjectType(tile, OBJECT_HQ)) return false;
 
 	ShowCompany(GetTileOwner(tile));
@@ -954,7 +961,7 @@ static void ChangeTileOwner_Object(TileIndex tile, Owner old_owner, Owner new_ow
 	bool do_clear = false;
 
 	ObjectType type = GetObjectType(tile);
-	if ((type == OBJECT_OWNED_LAND || type >= NEW_OBJECT_OFFSET) && new_owner != INVALID_OWNER) {
+	if ((type == OBJECT_OWNED_LAND || IsBusinessObjectType(type) || type >= NEW_OBJECT_OFFSET) && new_owner != INVALID_OWNER) {
 		SetTileOwner(tile, new_owner);
 		if (GetWaterClass(tile) == WaterClass::Canal) {
 			Company::Get(old_owner)->infrastructure.water--;

@@ -3084,6 +3084,7 @@ STR_OBJECT_BUILD_SIZE                                           :{BLACK}Size: {G
 
 STR_OBJECT_CLASS_LTHS                                           :Lighthouses
 STR_OBJECT_CLASS_TRNS                                           :Transmitters
+STR_OBJECT_CLASS_BIZN                                           :Businesses
 
 # Tree planting window (last eight for SE only)
 STR_PLANT_TREE_CAPTION                                          :{WHITE}Trees
@@ -3316,6 +3317,11 @@ STR_LAI_BRIDGE_DESCRIPTION_AQUEDUCT                             :Aqueduct
 STR_LAI_OBJECT_DESCRIPTION_TRANSMITTER                          :Transmitter
 STR_LAI_OBJECT_DESCRIPTION_LIGHTHOUSE                           :Lighthouse
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Company headquarters
+STR_LAI_OBJECT_DESCRIPTION_BURGER_SHOP                          :Burger restaurant
+
+# Business Front
+STR_BUSINESS_INFO_SUMMARY                                       :{WHITE}Burger restaurant in {TOWN}
+STR_BUSINESS_INFO_DETAIL                                        :{WHITE}Price {CURRENCY_LONG} - Quality {NUM}/5 - Reputation {NUM}%{}Last month: {COMMA} burgers sold, profit {CURRENCY_LONG}
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Company-owned land
 
 # About OpenTTD window

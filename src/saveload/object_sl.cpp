@@ -28,6 +28,11 @@ static const SaveLoad _object_desc[] = {
 	SaveLoad::Variable<VarFileType::U8>("colour", SLE_OBJECT_ADDRESS(Object, recolour_offset), SaveLoadVersion::IndustryPlatform),
 	SaveLoad::Variable<VarFileType::U8>("view", SLE_OBJECT_ADDRESS(Object, view), SaveLoadVersion::NewGRFObjectView),
 	SaveLoad::Variable<VarFileType::U16>("type", SLE_OBJECT_ADDRESS(Object, type), SaveLoadVersion::ObjectTypeToPool),
+	SaveLoad::Variable<VarFileType::U16>("biz_price", SLE_OBJECT_ADDRESS(Object, biz_price), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::U8>("biz_quality", SLE_OBJECT_ADDRESS(Object, biz_quality), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::U8>("biz_reputation", SLE_OBJECT_ADDRESS(Object, biz_reputation), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::U32>("biz_last_sales", SLE_OBJECT_ADDRESS(Object, biz_last_sales), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::I64>("biz_last_profit", SLE_OBJECT_ADDRESS(Object, biz_last_profit), SaveLoadVersion::BusinessFront),
 };
 
 struct OBJSChunkHandler : ChunkHandler {

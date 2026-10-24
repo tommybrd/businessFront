@@ -27,11 +27,18 @@ static const DrawTileSeqStruct _object_owned_land_seq[] = {
 	{   8,  8,  0,  1,  1,  6, {SPR_BOUGHT_LAND    | (1 << PALETTE_MODIFIER_COLOUR), PAL_NONE}},
 };
 
+/* Business Front: burger restaurant. Reuses the original town "shops and offices" building (house 0x0E), recoloured red. */
+static const DrawTileSeqStruct _object_burger_shop_seq[] = {
+	{   0,  0,  0, 14, 16, 35, {0x59c, PALETTE_TO_STRUCT_RED}},
+};
+
 extern const DrawTileSpriteSpan _objects[] = {
 	{ { SPR_FLAT_2_THIRD_GRASS_TILE, PAL_NONE }, _object_transmitter_seq },
 	{ { SPR_FLAT_2_THIRD_GRASS_TILE, PAL_NONE }, _object_lighthouse_seq  },
 	{ { SPR_CONCRETE_GROUND,         PAL_NONE }, _object_statue_seq      },
 	{ { SPR_FLAT_BARE_LAND,          PAL_NONE }, _object_owned_land_seq  },
+	{ { SPR_FLAT_BARE_LAND,          PAL_NONE }, {}                      }, // OBJECT_HQ: drawn from _object_hq instead
+	{ { 0x59d,                       PAL_NONE }, _object_burger_shop_seq },
 };
 
 
@@ -123,6 +130,7 @@ extern const ObjectSpec _original_objects[] = {
 	M(STR_TOWN_BUILDING_NAME_STATUE_1,                 0x11,   0,   0,  5, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::CannotRemove, ObjectFlag::OnlyInGame, ObjectFlag::OnlyInScenedit})), // Yes, we disallow building this everywhere. Happens in "special" case!
 	M(STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND,   0x11,  10,  10,  0, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::Autoremove, ObjectFlag::OnlyInGame, ObjectFlag::ClearIncome, ObjectFlag::HasNoFoundation})), // Only non-silly use case is to use it when you cannot build a station, so disallow bridges
 	M(STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS, 0x22,   0,   0,  7, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::CannotRemove, ObjectFlag::OnlyInGame})),
+	M(STR_LAI_OBJECT_DESCRIPTION_BURGER_SHOP,          0x11, 250,  50,  7, TimerGameCalendar::Date{}, LandscapeTypes({T,S,A,Y}),  0, ObjectFlags({ObjectFlag::OnlyInGame})), // Business Front
 };
 
 #undef M

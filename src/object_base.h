@@ -15,6 +15,7 @@
 #include "tilearea_orthogonal.h"
 #include "town_type.h"
 #include "timer/timer_game_calendar.h"
+#include "economy_type.h"
 
 using ObjectPool = Pool<Object, ObjectID, 64>;
 extern ObjectPool _object_pool;
@@ -27,6 +28,13 @@ struct Object : ObjectPool::PoolItem<&_object_pool> {
 	TimerGameCalendar::Date build_date{}; ///< Date of construction
 	uint8_t recolour_offset = 0; ///< Recolour offset of the object (basically the 2CC colour offset), for display purpose.
 	uint8_t view = 0; ///< The view setting for this object
+
+	/* Business Front: fields used by business objects (OBJECT_BURGER_SHOP). */
+	uint16_t biz_price = 0; ///< Selling price of one burger (money units).
+	uint8_t biz_quality = 0; ///< Quality level 1..5.
+	uint8_t biz_reputation = 0; ///< Reputation 0..100.
+	uint32_t biz_last_sales = 0; ///< Burgers sold last month.
+	Money biz_last_profit = 0; ///< Profit (or loss) made last month.
 
 	Object(ObjectID index) : ObjectPool::PoolItem<&_object_pool>(index) {}
 	Object(ObjectID index, ObjectType type, Town *town, TileArea location, TimerGameCalendar::Date build_date, uint8_t view) :
