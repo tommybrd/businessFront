@@ -134,6 +134,7 @@ struct Industry : IndustryPool::PoolItem<&_industry_pool> {
 	bool biz_heated = false; ///< Had wood to burn last month.
 	uint32_t biz_last_sales = 0; ///< Burgers sold last month.
 	Money biz_last_profit = 0; ///< Profit (or loss) made last month.
+	Money biz_last_purchases = 0; ///< Spent last month buying missing wood and grain on the market.
 	TimerGameCalendar::Date construction_date{}; ///< Date of the construction of the industry
 	IndustryConstructionType construction_type{}; ///< Way the industry was constructed (@see IndustryConstructionType)
 	uint8_t selected_layout = 0; ///< Which tile layout was used when creating the industry

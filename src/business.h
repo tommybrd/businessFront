@@ -25,6 +25,8 @@ static const uint16_t BIZ_MAX_PRICE = 20;
 /** Supply chain, phase 1. */
 static const uint32_t BIZ_BURGERS_PER_GRAIN = 10; ///< One unit of grain/wheat makes this many burgers (bread).
 static const uint16_t BIZ_WOOD_PER_MONTH = 10; ///< Wood burnt per month to heat the restaurant.
+static const Money BIZ_PURCHASE_PRICE_WOOD = 20; ///< Price of one unit of wood bought on the market when the stock is empty.
+static const Money BIZ_PURCHASE_PRICE_GRAIN = 20; ///< Price of one unit of grain bought on the market when the stock is empty.
 
 /** Land and rent: the bigger the town, the dearer the place. */
 static const Money BIZ_LAND_PRICE_PER_INHABITANT = 10; ///< Added to the construction cost per inhabitant of the nearest town.

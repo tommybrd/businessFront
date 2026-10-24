@@ -209,6 +209,7 @@ static const SaveLoad _industry_desc[] = {
 	SaveLoad::Variable<VarFileType::Bool>("biz_heated", SLE_OBJECT_ADDRESS(Industry, biz_heated), SaveLoadVersion::BusinessFront),
 	SaveLoad::Variable<VarFileType::U32>("biz_last_sales", SLE_OBJECT_ADDRESS(Industry, biz_last_sales), SaveLoadVersion::BusinessFront),
 	SaveLoad::Variable<VarFileType::I64>("biz_last_profit", SLE_OBJECT_ADDRESS(Industry, biz_last_profit), SaveLoadVersion::BusinessFront),
+	SaveLoad::Variable<VarFileType::I64>("biz_last_purchases", SLE_OBJECT_ADDRESS(Industry, biz_last_purchases), SaveLoadVersion::BusinessFront),
 	SaveLoad::String("text", SLE_OBJECT_ADDRESS(Industry, text), StringValidationSetting::AllowControlCode, SaveLoadVersion::IndustryText),
 
 	SaveLoad::Variable<VarFileType::U64>("valid_history", SLE_OBJECT_ADDRESS(Industry, valid_history), SaveLoadVersion::IndustryNumValidHistory),

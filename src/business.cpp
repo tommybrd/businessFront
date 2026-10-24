@@ -13,10 +13,11 @@
  *
  * Model (phase 1):
  *  - potential customers = town population / 2 per month;
- *  - attractiveness      = quality * reputation * 20 / price, halved when there is no wood to heat the place;
+ *  - attractiveness      = quality * reputation * 20 / price;
  *  - market share        = attractiveness / (sum of attractiveness of all restaurants in the town + base resistance);
- *  - sales               = min(customers * share, bread available = grain in stock * BIZ_BURGERS_PER_GRAIN);
- *  - profit              = sales * price - sales * unit cost(quality) - monthly rent, credited to the founder.
+ *  - sales               = customers * share;
+ *  - wood and grain come from the stock delivered by truck; what is missing is bought on the market, dear;
+ *  - profit              = sales * price - sales * unit cost(quality) - purchases - monthly rent, credited to the founder.
  */
 
 #include "stdafx.h"
@@ -86,6 +87,7 @@ void InitBusinessIndustry(Industry *i)
 	i->biz_heated = false;
 	i->biz_last_sales = 0;
 	i->biz_last_profit = 0;
+	i->biz_last_purchases = 0;
 }
 
 /**
@@ -145,17 +147,14 @@ uint32_t BusinessPotentialCustomers(const Industry *i)
 }
 
 /**
- * How attractive this restaurant is: quality and reputation pull customers in, price pushes them away,
- * a cold restaurant loses half of them.
+ * How attractive this restaurant is: quality and reputation pull customers in, price pushes them away.
  * @param i The restaurant.
  * @return Attractiveness (arbitrary units, higher is better).
  */
 uint32_t BusinessAttractiveness(const Industry *i)
 {
 	uint16_t price = std::max<uint16_t>(i->biz_price, BIZ_MIN_PRICE);
-	uint32_t attract = (uint32_t)i->biz_quality * i->biz_reputation * 20 / price;
-	if (!BusinessIsHeated(i)) attract /= 2;
-	return attract;
+	return (uint32_t)i->biz_quality * i->biz_reputation * 20 / price;
 }
 
 /**
@@ -174,25 +173,33 @@ static inline uint32_t BusinessUnitCostTimesTwo(uint8_t quality)
  */
 static void BusinessRunMonth(Industry *i, uint32_t town_attractiveness)
 {
-	/* Heating: burn wood if there is any. */
+	Money purchases = 0;
+
+	/* Heating: burn the wood delivered by truck; buy the missing wood on the market, dear. */
 	auto wood = BusinessStockSlot(i, true);
-	i->biz_heated = wood != std::end(i->accepted) && wood->waiting > 0;
-	if (i->biz_heated) wood->waiting -= std::min<uint16_t>(wood->waiting, BIZ_WOOD_PER_MONTH);
+	uint16_t wood_available = wood == std::end(i->accepted) ? 0 : wood->waiting;
+	uint16_t wood_used = std::min<uint16_t>(wood_available, BIZ_WOOD_PER_MONTH);
+	if (wood != std::end(i->accepted)) wood->waiting -= wood_used;
+	purchases += BIZ_PURCHASE_PRICE_WOOD * (BIZ_WOOD_PER_MONTH - wood_used);
+	i->biz_heated = true; // bought wood heats as well as delivered wood
 
 	/* Demand. */
 	uint32_t customers = BusinessPotentialCustomers(i);
 	uint32_t attract = BusinessAttractiveness(i);
 	uint64_t sales = (uint64_t)customers * attract / (town_attractiveness + BIZ_BASE_RESISTANCE);
 
-	/* Bread: no grain, no burger. */
+	/* Bread: use the grain delivered by truck; buy the missing grain on the market, dear. */
 	auto bread = BusinessStockSlot(i, false);
-	uint64_t bread_capacity = bread == std::end(i->accepted) ? 0 : (uint64_t)bread->waiting * BIZ_BURGERS_PER_GRAIN;
-	sales = std::min(sales, bread_capacity);
-	if (bread != std::end(i->accepted)) bread->waiting -= ClampTo<uint16_t>(CeilDiv(sales, BIZ_BURGERS_PER_GRAIN));
+	uint32_t grain_needed = ClampTo<uint32_t>(CeilDiv(sales, BIZ_BURGERS_PER_GRAIN));
+	uint16_t grain_available = bread == std::end(i->accepted) ? 0 : bread->waiting;
+	uint16_t grain_used = std::min<uint32_t>(grain_available, grain_needed);
+	if (bread != std::end(i->accepted)) bread->waiting -= grain_used;
+	purchases += BIZ_PURCHASE_PRICE_GRAIN * (grain_needed - grain_used);
 
 	Money revenue = (Money)sales * i->biz_price;
 	Money cost = (Money)sales * BusinessUnitCostTimesTwo(i->biz_quality) / 2;
-	Money profit = revenue - cost - BusinessMonthlyRent(i);
+	Money profit = revenue - cost - purchases - BusinessMonthlyRent(i);
+	i->biz_last_purchases = purchases;
 
 	i->biz_last_sales = ClampTo<uint32_t>(sales);
 	i->biz_last_profit = profit;
@@ -238,6 +245,7 @@ std::vector<std::string> BusinessViewLines(const Industry *i)
 	}
 	lines.push_back(GetString(BusinessIsHeated(i) ? STR_BUSINESS_VIEW_HEATED : STR_BUSINESS_VIEW_COLD));
 	lines.push_back(GetString(STR_BUSINESS_VIEW_BREAD, (uint64_t)BusinessBreadStock(i) * BIZ_BURGERS_PER_GRAIN));
+	lines.push_back(GetString(STR_BUSINESS_VIEW_PURCHASES, i->biz_last_purchases));
 	lines.push_back(GetString(STR_BUSINESS_VIEW_OFFER, (Money)i->biz_price, i->biz_quality, i->biz_reputation));
 	lines.push_back(GetString(STR_BUSINESS_VIEW_LAST_MONTH, i->biz_last_sales, i->biz_last_profit));
 	return lines;

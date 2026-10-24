@@ -3317,8 +3317,9 @@ STR_LAI_OBJECT_DESCRIPTION_LIGHTHOUSE                           :Phare
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Siège de la compagnie
 STR_BUSINESS_VIEW_STOCK                                         :{BLACK}En stock : {CARGO_LONG}
 STR_BUSINESS_VIEW_HEATED                                        :{BLACK}Chauffé : du bois en stock
-STR_BUSINESS_VIEW_COLD                                          :{BLACK}Pas chauffé : pas de bois, la moitié des clients fuient
-STR_BUSINESS_VIEW_BREAD                                         :{BLACK}Pain pour {COMMA} burgers avec les céréales en stock
+STR_BUSINESS_VIEW_COLD                                          :{BLACK}Pas de bois en stock : le bois est acheté au marché, cher
+STR_BUSINESS_VIEW_BREAD                                         :{BLACK}Pain pour {COMMA} burgers avec les céréales en stock, le reste est acheté cher
+STR_BUSINESS_VIEW_PURCHASES                                     :{BLACK}Achats au marché le mois dernier : {CURRENCY_LONG}
 STR_BUSINESS_VIEW_OFFER                                         :{BLACK}Prix {CURRENCY_LONG} - Qualité {NUM}/5 - Réputation {NUM}%
 STR_BUSINESS_VIEW_LAST_MONTH                                    :{BLACK}Le mois dernier : {COMMA} burgers vendus, bénéfice {CURRENCY_LONG}
 STR_BUSINESS_MENU_BUILD_BURGER                                  :Construire un restaurant de burgers
