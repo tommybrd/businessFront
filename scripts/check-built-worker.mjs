@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { sqliteBinding } from './local-save-db.mjs';
-import { createGame, openStore, advance, setRobotCount } from '../dist/engine.js';
+import { createGame, openStore, advance, setRobotCount, createWarehouseGame, advanceWarehouse } from '../dist/engine.js';
 import { makeSave } from '../dist/save-format.js';
 import { readFile, readdir } from 'node:fs/promises';
 const {default:worker}=await import('../dist/server/index.js');
@@ -28,3 +28,8 @@ const state=createGame(897);state.money=90000;setRobotCount(state,1);openStore(s
 const stored=await worker.fetch(new Request('https://example.test/api/save',{method:'PUT',headers:{'oai-authenticated-user-id':'build-check-only',Origin:'https://example.test','Content-Type':'application/json','X-Market-Front-Save':'1'},body:JSON.stringify({revision:0,ownerId:'build-check-only',snapshot:makeSave(state)})}),{DB:sqliteBinding(sqlite)});
 if(stored.status!==200)throw Error('Sauvegarde du Worker assemblé invalide : '+await stored.text());
 sqlite.close();console.log('API du Worker assemblé vérifiée avec clients, robots et SQL isolé.');
+
+const warehouseState=createWarehouseGame(765);advanceWarehouse(warehouseState,90);
+const warehouseDB=new DatabaseSync(':memory:');warehouseDB.exec(await readFile('drizzle/0000_loud_thunderbolt_ross.sql','utf8'));
+const warehouseResult=await worker.fetch(new Request('https://example.test/api/save',{method:'PUT',headers:{'oai-authenticated-user-id':'warehouse-build-check',Origin:'https://example.test','Content-Type':'application/json','X-Market-Front-Save':'1'},body:JSON.stringify({revision:0,ownerId:'warehouse-build-check',snapshot:makeSave(warehouseState)})}),{DB:sqliteBinding(warehouseDB)});
+if(warehouseResult.status!==200)throw Error('Sauvegarde logistique assemblée invalide : '+await warehouseResult.text());warehouseDB.close();console.log('Sauvegarde logistique v2 du Worker vérifiée.');

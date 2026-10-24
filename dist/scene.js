@@ -550,3 +550,5 @@ export function createStoreScene(canvas, state, onSelect) {
   }
   return { update, resetSimulation, setCheckoutSound: checkoutVisuals.setSound, focusDocks: () => { keyboardCamera.reset(); controls.target.set(5, 0, -10 - reserveBackExtension(state)); camera.position.set(23, 26, -33 - reserveBackExtension(state)); camera.zoom = 1.15; camera.updateProjectionMatrix(); controls.update(); }, resetCamera: () => { keyboardCamera.reset(); controls.reset(); } };
 }
+
+export {createWarehouseScene} from './warehouse-scene.js';

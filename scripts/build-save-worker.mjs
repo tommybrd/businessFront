@@ -10,8 +10,9 @@ const sw=(await readFile('worker/offline-sw.js','utf8')).replace('__MARKET_FRONT
 await writeFile('dist/sw.js',sw);assets['/sw.js']={type:types['.js'],body:sw};
 const hours=await readFile('dist/store-hours.js','utf8'),robots=await readFile('dist/restock-robots.js','utf8');
 const lane=(await readFile('dist/store-layout.js','utf8')).split('\n').find(line=>line.startsWith('export const isAutoCheckoutLane'));
+const warehouseFormat=await readFile('dist/warehouse-save.js','utf8');
 const format=(await readFile('dist/save-format.js','utf8')).replace(/^import .*;\n/gm,''),db=await readFile('worker/save-db.js','utf8');
 const worker=(await readFile('worker/index.js','utf8')).replace(/^import .*;\n/gm,'').replace("'__MARKET_FRONT_ASSETS__'",()=>JSON.stringify(assets)).replace('__MARKET_FRONT_VERSION__',version);
 await mkdir('dist/server',{recursive:true});await mkdir('dist/.openai',{recursive:true});
-await writeFile('dist/server/index.js',hours+'\n'+robots+'\n'+lane+'\n'+format+'\n'+db+'\n'+worker);await copyFile('.openai/hosting.json','dist/.openai/hosting.json');
+await writeFile('dist/server/index.js',warehouseFormat+'\n'+hours+'\n'+robots+'\n'+lane+'\n'+format+'\n'+db+'\n'+worker);await copyFile('.openai/hosting.json','dist/.openai/hosting.json');
 console.log(`Sauvegarde, mode hors ligne et ${Object.keys(assets).length} fichiers publics réunis dans le Worker.`);

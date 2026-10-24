@@ -1,69 +1,23 @@
 <!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#102b27">
-  <meta name="description" content="Prenez la direction de votre supermarché : organisez les équipes, approvisionnez les rayons et préparez les journées de rush.">
-  <link rel="manifest" href="./manifest.webmanifest">
-  <link rel="apple-touch-icon" href="./icon-180.png">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Market Front">
-  <title>Market Front — Direction du magasin</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23102b27'/%3E%3Cpath d='M6 11h20l-2 10H9L6 7H3' fill='none' stroke='%23b8ee81' stroke-width='2.5'/%3E%3Ccircle cx='11' cy='25' r='2' fill='%23b8ee81'/%3E%3Ccircle cx='23' cy='25' r='2' fill='%23b8ee81'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./style.css">
-  <link rel="stylesheet" href="./replenishment.css">
-  <link rel="stylesheet" href="./immersive.css">
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#172631">
+ <meta name="description" content="Pilotez votre centre logistique : stocks, commandes, robots, emballage et tournées de livraison.">
+ <title>Flux — Centre logistique</title><link rel="manifest" href="./manifest.webmanifest"><link rel="apple-touch-icon" href="./icon-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Flux">
+ <link rel="stylesheet" href="./warehouse.css"><link rel="icon" href="./icon-180.png">
 </head>
 <body>
-  <main class="game-world" aria-label="Supermarché et ses abords">
-    <canvas id="store-map" tabindex="0" role="img" aria-label="Magasin en 3D : cliquez sur les rayons, la réserve, les caisses ou le quai pour les gérer. ZQSD pour se déplacer, A et E pour tourner, molette pour zoomer."></canvas>
-  </main>
-  <header class="topbar hud-surface">
-    <div class="brand"><span class="brand-mark" aria-hidden="true">MF</span><div><h1>Market Front</h1><p>Directeur du magasin <span class="version">v0.13.1</span></p></div></div>
-    <div class="day-clock"><span id="day-label">Jour 1</span><strong id="clock">07:30</strong><span id="phase-label" class="phase">Préparation</span></div>
-    <button id="event-toggle" class="event-chip" aria-controls="journal-panel" aria-expanded="false"><span aria-hidden="true">◷</span><span id="event-title">Journée habituelle</span></button>
-    <div class="time-controls" role="group" aria-label="Vitesse du jeu"><button data-speed="0" class="active" aria-label="Pause" title="Pause — barre d’espace">Ⅱ</button><button data-speed="1">×1</button><button data-speed="3">×3</button><button data-speed="6">×6</button></div>
-    <button class="primary" id="main-action">Ouvrir le magasin</button>
-  </header>
-  <section class="hud-metrics hud-surface" aria-label="Indicateurs du magasin">
-    <button class="hud-metric" data-open="finances"><span>Trésorerie</span><strong id="money">8 500 €</strong></button>
-    <button class="hud-metric" data-open="finances"><span>Ventes</span><strong id="sales">0 €</strong></button>
-    <button class="hud-metric profit-metric" data-open="finances"><span>Résultat estimé</span><strong id="daily-profit">0 €</strong></button>
-    <button class="hud-metric" data-open="caisses"><span>Clients</span><strong id="customers">0</strong></button>
-    <button class="hud-metric" data-open="satisfaction"><span>Satisfaction</span><strong id="satisfaction" data-grade="a">A</strong></button>
-  </section>
-  <button id="stock-alert-status" class="stock-alert-status hud-surface" data-open="rayons" hidden aria-label="Voir les alertes de stock" aria-live="polite"></button>
-  <button id="delivery-status" class="delivery-status hud-surface" data-open="fournisseurs" hidden aria-label="Voir les commandes et livraisons en cours"></button>
-  <nav class="world-tools hud-surface" aria-label="Gestion du magasin">
-    <button data-open="rayons" title="Rayons"><span aria-hidden="true">▥</span><span>Rayons</span></button>
-    <button data-open="reserve" title="Réserve"><span aria-hidden="true">▤</span><span>Réserve</span></button>
-    <button data-open="caisses" title="Caisses"><span aria-hidden="true">€</span><span>Caisses</span></button>
-    <button data-open="equipes" title="Équipes"><span aria-hidden="true">♟</span><span>Équipes</span></button>
-    <button data-open="fournisseurs" title="Livraisons"><span aria-hidden="true">▱</span><span>Livraisons</span></button>
-    <button data-open="online" title="Drive et e-commerce"><span aria-hidden="true">▣</span><span>Drive / Web</span></button>
-    <button data-open="personnel" aria-expanded="false" title="Mon argent"><span aria-hidden="true">€</span><span>Mon argent</span></button>
-    <button data-open="finances" title="Finances"><span aria-hidden="true">▧</span><span>Finances</span></button>
-    <button id="layout-toggle" title="Aménager le magasin"><span aria-hidden="true">▦</span><span>Aménager</span></button>
-    <button id="save-toggle" title="Partie et sauvegarde" aria-controls="save-dialog"><span aria-hidden="true">▣</span><span id="save-mode-label">Partie</span></button>
-    <button id="journal-toggle" title="Journal" aria-controls="journal-panel" aria-expanded="false"><span aria-hidden="true">≡</span><span>Journal</span></button>
-  </nav>
-  <aside id="management-panel" class="management hud-surface" aria-label="Gestion du magasin" hidden>
-    <div class="panel-title"><div><span class="eyebrow" id="panel-context">DIRECTION DU MAGASIN</span><h2 id="panel-heading">Rayons</h2></div><button id="close-panel" class="icon-button" aria-label="Fermer la gestion">×</button></div>
-    <div class="tabs" role="tablist" aria-label="Gestion"><button id="tab-rayons" role="tab" aria-selected="true" aria-controls="management-content" data-tab="rayons">Rayons</button><button id="tab-satisfaction" role="tab" aria-selected="false" aria-controls="management-content" data-tab="satisfaction">Satisfaction</button><button id="tab-reserve" role="tab" aria-selected="false" aria-controls="management-content" data-tab="reserve">Réserve</button><button id="tab-caisses" role="tab" aria-selected="false" aria-controls="management-content" data-tab="caisses">Caisses</button><button id="tab-equipes" role="tab" aria-selected="false" aria-controls="management-content" data-tab="equipes">Équipes</button><button id="tab-fournisseurs" role="tab" aria-selected="false" aria-controls="management-content" data-tab="fournisseurs">Livraisons</button><button id="tab-online" role="tab" aria-selected="false" aria-controls="management-content" data-tab="online">Drive / Web</button><button id="tab-personnel" role="tab" aria-selected="false" aria-controls="management-content" data-tab="personnel">Mon argent</button><button id="tab-finances" role="tab" aria-selected="false" aria-controls="management-content" data-tab="finances">Finances</button></div>
-    <div id="management-content" role="tabpanel" aria-labelledby="tab-rayons"></div>
-  </aside>
-  <aside id="journal-panel" class="journal hud-surface" aria-label="Journal et calendrier du magasin" hidden>
-    <div class="journal-heading"><h2>Journal du magasin</h2><button id="close-journal" class="icon-button" aria-label="Fermer le journal">×</button></div>
-    <div class="event-box"><span class="eyebrow">AUJOURD’HUI</span><p id="event-hint"></p><div class="event-next" id="event-next"></div></div>
-    <ul id="log"></ul>
-  </aside>
-  <footer class="world-footer"><p id="store-status" class="hud-surface">Cliquez sur une zone du magasin pour la gérer.</p><div class="camera-controls hud-surface"><span>ZQSD : déplacer · A/E : tourner · Molette : zoomer</span><button id="reset-camera" class="tiny-button">Recentrer</button></div></footer>
-  <dialog id="save-dialog" aria-labelledby="save-title"><div class="summary-inner"><div class="save-heading"><h2 id="save-title">Votre partie</h2><button id="save-close" class="icon-button" aria-label="Fermer">×</button></div><p id="save-status" role="status" aria-live="polite">Chargement de la partie…</p><p class="panel-intro">Sauvegarde automatique sur cet appareil et sur votre compte. Hors ligne, la synchronisation attend le retour d’Internet. Le magasin reprend à vitesse ×1. Le temps pendant votre absence ne modifie pas la partie.</p><p id="offline-status" role="status" aria-live="polite"></p><div class="save-actions"><button id="save-flight">Préparer pour l’avion</button><button id="save-now">Sauvegarder maintenant</button><button id="save-reload">Recharger la sauvegarde</button><button id="save-local" hidden>Garder la partie de cet appareil</button><button id="save-recovery" hidden>Reprendre la copie de récupération</button><button id="save-previous">Reprendre la version précédente</button><button id="save-new">Nouvelle partie</button></div><p id="save-confirm-text" hidden>Remplacer la partie actuelle par un nouveau magasin ?</p><div id="save-confirm" class="save-actions" hidden><button id="save-confirm-new">Oui, recommencer</button><button id="save-cancel-new">Annuler</button></div><button id="save-return" class="primary">Retour au magasin</button></div></dialog>
-  <dialog id="layout-dialog" aria-labelledby="layout-title"><div class="layout-inner"><div class="save-heading"><h2 id="layout-title">Aménager le magasin</h2><button id="layout-close" class="icon-button" aria-label="Terminer l’aménagement">×</button></div><div class="layout-toolbar"><label for="layout-object">Équipement</label><select id="layout-object"></select><button id="layout-rotate">↻ Tourner</button></div><svg id="layout-map" role="img" aria-label="Plan du magasin : sélectionnez un équipement puis sa nouvelle position"></svg><p id="layout-message" role="status" aria-live="polite"></p><div class="layout-footer"><span id="layout-position" aria-live="polite"></span><button id="layout-done" class="primary">Terminer</button></div></div></dialog>
-  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
-  <dialog id="day-summary" aria-labelledby="summary-title"><div class="summary-inner"><span class="eyebrow">FERMETURE DU MAGASIN</span><h2 id="summary-title">Bilan de la journée</h2><div id="summary-body"></div><button id="summary-action" class="primary">Préparer le lendemain</button></div></dialog>
-  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
-  <script type="module" src="./game.js"></script>
+ <main class="warehouse-world"><canvas id="warehouse-map" tabindex="0" aria-label="Centre logistique en 3D : racks, préparation, emballage et quais de livraison."></canvas></main>
+ <header class="topbar surface"><div class="brand"><span class="brand-icon" aria-hidden="true">F<span>↗</span></span><div><h1>FLUX<span class="version">0.14</span></h1><p>Centre de distribution</p></div></div><div class="clock"><span id="day-label">JOUR 01</span><strong id="clock">06:00</strong><span id="shift-label">Prise de poste</span></div><div class="speeds" aria-label="Vitesse du jeu"><button data-speed="0" aria-label="Pause">Ⅱ</button><button data-speed="1">×1</button><button data-speed="3">×3</button><button data-speed="6">×6</button></div><button id="intake-toggle" class="subtle">Suspendre les commandes</button><button id="dispatch-now" class="primary">Expédier <span id="dispatch-count">0</span></button></header>
+ <section class="metrics surface" aria-label="Indicateurs"><button data-open="finance"><span>Trésorerie</span><strong id="money">25 000 €</strong></button><button data-open="orders"><span>Commandes actives</span><strong id="active-count">0</strong></button><button data-open="dispatch"><span>Colis livrés</span><strong id="delivered-count">0</strong></button><button data-open="orders"><span>Dans les délais</span><strong id="on-time">100 %</strong></button><button data-open="finance"><span>Résultat estimé</span><strong id="profit">0 €</strong></button><button data-open="orders"><span>Service</span><strong id="service-grade" class="grade">A</strong></button></section>
+ <aside class="flow surface" aria-label="Chaîne logistique"><div class="flow-head"><span class="eyebrow">OPÉRATIONS EN DIRECT</span><span id="flow-load">En attente</span></div><div class="flow-stages"><button data-open="orders"><strong id="flow-queue">0</strong><span>À préparer</span></button><i>›</i><button data-open="production"><strong id="flow-picking">0</strong><span>Prélèvement</span></button><i>›</i><button data-open="production"><strong id="flow-packing">0</strong><span>Emballage</span></button><i>›</i><button data-open="dispatch"><strong id="flow-ready">0</strong><span>Prêts</span></button><i>›</i><button data-open="dispatch"><strong id="flow-road">0</strong><span>En tournée</span></button></div><p id="operation-alert" hidden></p></aside>
+ <nav class="world-tools surface" aria-label="Pilotage"><button data-open="orders"><b aria-hidden="true">▤</b><span>Commandes</span></button><button data-open="stock"><b aria-hidden="true">▥</b><span>Stock</span></button><button data-open="inbound"><b aria-hidden="true">⇣</b><span>Réception</span></button><button data-open="production"><b aria-hidden="true">▣</b><span>Préparation</span></button><button data-open="dispatch"><b aria-hidden="true">↗</b><span>Tournées</span></button><button data-open="team"><b aria-hidden="true">♟</b><span>Équipes</span></button><button data-open="robots"><b aria-hidden="true">◉</b><span>Robots</span></button><button data-open="finance"><b aria-hidden="true">€</b><span>Finances</span></button><button id="arrange-toggle"><b aria-hidden="true">⊞</b><span>Agencer</span></button><button id="save-toggle" aria-controls="save-dialog"><b aria-hidden="true">▧</b><span id="save-mode-label">Partie</span></button></nav>
+ <aside id="management-panel" class="management surface" hidden><div class="panel-head"><div><span class="eyebrow" id="panel-eyebrow">CENTRE DE DISTRIBUTION</span><h2 id="panel-heading">Commandes</h2></div><button id="panel-close" class="icon" aria-label="Fermer">×</button></div><div id="management-content"></div></aside>
+ <aside id="opportunity" class="opportunity surface" hidden></aside>
+ <div id="layout-bar" class="layout-bar surface" hidden><span id="layout-message">Sélectionnez un rack ou un poste, puis touchez sa nouvelle place.</span><button id="layout-rotate">↻ Tourner</button><button id="layout-done" class="primary">Terminer</button></div>
+ <footer class="world-footer"><span class="surface" id="world-status">Réception · prélèvement · emballage · livraison</span><button id="reset-camera" class="surface">Recentrer la vue</button></footer>
+ <div id="notice" class="notice" hidden role="status"></div>
+ <dialog id="save-dialog" aria-labelledby="save-title"><div class="save-heading"><div><span class="eyebrow">VOTRE CENTRE LOGISTIQUE</span><h2 id="save-title">Partie & sauvegarde</h2></div><button id="save-close" class="icon" aria-label="Fermer">×</button></div><p id="save-status" aria-live="polite">Chargement de la partie…</p><p id="offline-status" aria-live="polite"></p><div class="save-actions"><button id="save-flight" class="primary">Préparer pour l’avion</button><button id="save-now">Sauvegarder maintenant</button><button id="save-reload">Recharger la sauvegarde</button><button id="save-local" hidden>Garder la partie de cet appareil</button><button id="save-recovery" hidden>Reprendre la copie de récupération</button><button id="save-previous">Reprendre la version précédente</button><button id="save-export">Exporter la partie</button><button id="save-new">Nouveau centre logistique</button></div><p id="migration-info" hidden></p><div id="save-confirm" hidden><p>Recommencer avec un nouveau centre logistique ?</p><button id="save-confirm-new">Oui, recommencer</button><button id="save-cancel-new">Annuler</button></div><button id="save-return" class="primary full">Retour aux opérations</button></dialog>
+ <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script><script type="module" src="./game.js"></script>
 </body>
 </html>

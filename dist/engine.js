@@ -949,3 +949,6 @@ export function advance(s, minutes) {
     }else minuteStep(s);
   }
 }
+
+// Active fulfillment game; retail simulation remains readable for archived saves.
+export * from './warehouse-engine.js';

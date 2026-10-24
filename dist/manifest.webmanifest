@@ -1,13 +1,13 @@
 {
   "id": "/",
-  "name": "Market Front",
-  "short_name": "Market Front",
+  "name": "Flux — Centre logistique",
+  "short_name": "Flux",
   "lang": "fr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#102b27",
-  "theme_color": "#102b27",
+  "background_color": "#172631",
+  "theme_color": "#172631",
   "icons": [
     {
       "src": "./icon-512.png",
