@@ -96,7 +96,19 @@ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
             set(REV_ISSTABLETAG 0)
         endif()
     else()
-        set(REV_VERSION "${REV_ISODATE}-${BRANCH}${HASHPREFIX}${SHORTHASH}")
+        # Business Front: version shown in game = commit date and time, Paris time, "DD.MM.YY.HH.MM".
+        set(ENV{TZ} "Europe/Paris")
+        execute_process(COMMAND ${GIT_EXECUTABLE} show -s --date=format-local:%d.%m.%y.%H.%M --pretty=format:%cd HEAD
+                        OUTPUT_VARIABLE BF_STAMP
+                        OUTPUT_STRIP_TRAILING_WHITESPACE
+                        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        )
+        set(ENV{TZ} "UTC0")
+        if(REV_MODIFIED EQUAL 0)
+            set(REV_VERSION "${BF_STAMP}")
+        else()
+            set(REV_VERSION "${BF_STAMP}-modified")
+        endif()
         set(REV_ISTAG 0)
         set(REV_ISSTABLETAG 0)
     endif()
