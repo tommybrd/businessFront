@@ -88,6 +88,8 @@ void InitBusinessIndustry(Industry *i)
 	i->biz_last_sales = 0;
 	i->biz_last_profit = 0;
 	i->biz_last_purchases = 0;
+	i->biz_last_revenue = 0;
+	i->biz_last_costs = 0;
 }
 
 /**
@@ -198,8 +200,11 @@ static void BusinessRunMonth(Industry *i, uint32_t town_attractiveness)
 
 	Money revenue = (Money)sales * i->biz_price;
 	Money cost = (Money)sales * BusinessUnitCostTimesTwo(i->biz_quality) / 2;
-	Money profit = revenue - cost - purchases - BusinessMonthlyRent(i);
+	Money costs = cost + purchases + BusinessMonthlyRent(i);
+	Money profit = revenue - costs;
 	i->biz_last_purchases = purchases;
+	i->biz_last_revenue = revenue;
+	i->biz_last_costs = costs;
 
 	i->biz_last_sales = ClampTo<uint32_t>(sales);
 	i->biz_last_profit = profit;
@@ -247,6 +252,10 @@ std::vector<std::string> BusinessViewLines(const Industry *i)
 	lines.push_back(GetString(STR_BUSINESS_VIEW_BREAD, (uint64_t)BusinessBreadStock(i) * BIZ_BURGERS_PER_GRAIN));
 	lines.push_back(GetString(STR_BUSINESS_VIEW_PURCHASES, i->biz_last_purchases));
 	lines.push_back(GetString(STR_BUSINESS_VIEW_OFFER, (Money)i->biz_price, i->biz_quality, i->biz_reputation));
-	lines.push_back(GetString(STR_BUSINESS_VIEW_LAST_MONTH, i->biz_last_sales, i->biz_last_profit));
+	lines.push_back(GetString(STR_BUSINESS_VIEW_LAST_MONTH, i->biz_last_sales));
+	lines.push_back(GetString(STR_BUSINESS_VIEW_REVENUE, i->biz_last_revenue));
+	lines.push_back(GetString(STR_BUSINESS_VIEW_COSTS, i->biz_last_costs));
+	int64_t margin = i->biz_last_revenue > 0 ? (int64_t)(i->biz_last_profit * 100 / i->biz_last_revenue) : (int64_t)0;
+	lines.push_back(GetString(STR_BUSINESS_VIEW_PROFIT, i->biz_last_profit, margin));
 	return lines;
 }

@@ -3327,7 +3327,10 @@ STR_BUSINESS_VIEW_COLD                                          :{BLACK}No wood 
 STR_BUSINESS_VIEW_BREAD                                         :{BLACK}Bread for {COMMA} burgers with the grain in stock, the rest is bought dear
 STR_BUSINESS_VIEW_PURCHASES                                     :{BLACK}Last month bought on the market: {CURRENCY_LONG}
 STR_BUSINESS_VIEW_OFFER                                         :{BLACK}Price {CURRENCY_LONG} - Quality {NUM}/5 - Reputation {NUM}%
-STR_BUSINESS_VIEW_LAST_MONTH                                    :{BLACK}Last month: {COMMA} burgers sold, profit {CURRENCY_LONG}
+STR_BUSINESS_VIEW_LAST_MONTH                                    :{BLACK}Last month: {COMMA} burgers sold
+STR_BUSINESS_VIEW_REVENUE                                       :{BLACK}Revenue: {CURRENCY_LONG}
+STR_BUSINESS_VIEW_COSTS                                         :{BLACK}Costs: {CURRENCY_LONG} (ingredients, market purchases, rent)
+STR_BUSINESS_VIEW_PROFIT                                        :{BLACK}Profit: {CURRENCY_LONG} - margin {NUM}%
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Company-owned land
 
 # About OpenTTD window

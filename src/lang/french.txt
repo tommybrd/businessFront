@@ -3321,7 +3321,10 @@ STR_BUSINESS_VIEW_COLD                                          :{BLACK}Pas de b
 STR_BUSINESS_VIEW_BREAD                                         :{BLACK}Pain pour {COMMA} burgers avec les céréales en stock, le reste est acheté cher
 STR_BUSINESS_VIEW_PURCHASES                                     :{BLACK}Achats au marché le mois dernier : {CURRENCY_LONG}
 STR_BUSINESS_VIEW_OFFER                                         :{BLACK}Prix {CURRENCY_LONG} - Qualité {NUM}/5 - Réputation {NUM}%
-STR_BUSINESS_VIEW_LAST_MONTH                                    :{BLACK}Le mois dernier : {COMMA} burgers vendus, bénéfice {CURRENCY_LONG}
+STR_BUSINESS_VIEW_LAST_MONTH                                    :{BLACK}Le mois dernier : {COMMA} burgers vendus
+STR_BUSINESS_VIEW_REVENUE                                       :{BLACK}Chiffre d'affaires : {CURRENCY_LONG}
+STR_BUSINESS_VIEW_COSTS                                         :{BLACK}Coûts : {CURRENCY_LONG} (ingrédients, achats au marché, loyer)
+STR_BUSINESS_VIEW_PROFIT                                        :{BLACK}Bénéfice : {CURRENCY_LONG} - marge {NUM}%
 STR_BUSINESS_MENU_BUILD_BURGER                                  :Construire un restaurant de burgers
 STR_BUSINESS_MENU_FINANCES                                      :Finances
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_OWNED_LAND                   :Terrain appartenant à une compagnie
