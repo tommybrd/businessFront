@@ -476,6 +476,8 @@ struct GameOptionsWindow : Window {
 				/* Add non-custom currencies; sorted naturally */
 				for (Currency i : EnumRange(Currency::End)) {
 					if (i == Currency::Custom) continue;
+					/* Business Front: only Euro and US Dollar are offered. */
+					if (i != Currency::EUR && i != Currency::USD) continue;
 					CurrencySpec &currency = _currency_specs[i];
 					if (currency.code.empty()) {
 						list.push_back(MakeDropDownListStringItem(currency.name, i, disabled.Test(i)));
@@ -485,9 +487,7 @@ struct GameOptionsWindow : Window {
 				}
 				std::sort(list.begin(), list.end(), DropDownListStringItem::NatSortFunc);
 
-				/* Append custom currency at the end */
-				list.push_back(MakeDropDownListDividerItem()); // separator line
-				list.push_back(MakeDropDownListStringItem(STR_GAME_OPTIONS_CURRENCY_CUSTOM, Currency::Custom, disabled.Test(Currency::Custom)));
+				/* Business Front: no custom currency. */
 				break;
 			}
 

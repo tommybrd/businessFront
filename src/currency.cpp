@@ -132,7 +132,7 @@ Currencies GetMaskOfAllowedCurrencies()
 		TimerGameCalendar::Year to_euro = _currency_specs[i].to_euro;
 
 		if (to_euro != CF_NOEURO && to_euro != CF_ISEURO && TimerGameCalendar::year >= to_euro) continue;
-		if (to_euro == CF_ISEURO && TimerGameCalendar::year < 2000) continue;
+		/* Business Front: the Euro is available whatever the year. */
 		mask.Set(i);
 	}
 	mask.Set(Currency::Custom); // always allow custom currency
