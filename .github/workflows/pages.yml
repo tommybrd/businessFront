@@ -26,6 +26,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Trust the checkout (container runs as a different user)
+      run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
     - name: Setup cache
       uses: actions/cache@v4
       with:
