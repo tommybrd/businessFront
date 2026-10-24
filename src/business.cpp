@@ -30,6 +30,7 @@
 #include "economy_func.h"
 #include "strings_func.h"
 #include "town.h"
+#include "map_func.h"
 #include "window_func.h"
 #include "timer/timer.h"
 #include "timer/timer_game_economy.h"
@@ -48,9 +49,23 @@ static const uint32_t BIZ_BASE_RESISTANCE = 300; ///< Attractiveness units of "p
  */
 Money BusinessConstructionCost(const IndustrySpec *spec, TileIndex tile)
 {
+	return spec->GetConstructionCost() + BusinessLandPrice(tile);
+}
+
+/**
+ * Price of the land for a business on this tile: grows with the size of the nearest town,
+ * shrinks with the distance to its centre (down to a floor).
+ * @param tile The tile.
+ * @return The land price.
+ */
+Money BusinessLandPrice(TileIndex tile)
+{
+	if (tile == INVALID_TILE || !IsValidTile(tile)) return 0;
 	const Town *t = ClosestTownFromTile(tile, UINT_MAX);
-	uint32_t population = t == nullptr ? 0 : t->cache.population;
-	return spec->GetConstructionCost() + BIZ_LAND_PRICE_PER_INHABITANT * population;
+	if (t == nullptr) return 0;
+	uint dist = std::min(DistanceManhattan(tile, t->xy), BIZ_LAND_PRICE_RADIUS);
+	uint pct = std::max(BIZ_LAND_PRICE_FLOOR_PCT, 100 - dist * (100 - BIZ_LAND_PRICE_FLOOR_PCT) / BIZ_LAND_PRICE_RADIUS);
+	return BIZ_LAND_PRICE_PER_INHABITANT * t->cache.population * pct / 100;
 }
 
 /**

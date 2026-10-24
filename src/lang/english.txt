@@ -3321,6 +3321,9 @@ STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Company headqua
 # Business Front
 STR_BUSINESS_MENU_BUILD_BURGER                                  :Build a burger restaurant
 STR_BUSINESS_MENU_FINANCES                                      :Finances
+STR_BUSINESS_FUND_PRICE_FROM                                    :{BLACK}Price: from {CURRENCY_LONG}, plus the land
+STR_BUSINESS_FUND_PRICE_HERE                                    :{BLACK}Price here: {CURRENCY_LONG}
+STR_BUSINESS_FUND_PRICE_HINT                                    :{BLACK}Land is dearer in big towns and near the centre
 STR_BUSINESS_VIEW_STOCK                                         :{BLACK}In stock: {CARGO_LONG}
 STR_BUSINESS_VIEW_HEATED                                        :{BLACK}Heated: wood in stock
 STR_BUSINESS_VIEW_COLD                                          :{BLACK}No wood in stock: wood is bought on the market, dear

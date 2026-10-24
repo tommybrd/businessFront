@@ -571,7 +571,24 @@ public:
 				const IndustrySpec *indsp = GetIndustrySpec(this->selected_type);
 
 				if (_game_mode != GameMode::Editor) {
-					DrawString(ir, GetString(STR_FUND_INDUSTRY_INDUSTRY_BUILD_COST, indsp->GetConstructionCost()));
+					if (IsBusinessIndustryType(this->selected_type)) {
+						/* Business Front: the price depends on the tile; show the price under the cursor while placing. */
+						if (this->IsWidgetLowered(WID_DPI_FUND_WIDGET)) {
+							Point pt = GetTileBelowCursor();
+							TileIndex tile = pt.x == -1 ? INVALID_TILE : TileVirtXY(pt.x, pt.y);
+							if (tile != INVALID_TILE) {
+								DrawString(ir, GetString(STR_BUSINESS_FUND_PRICE_HERE, indsp->GetConstructionCost() + BusinessLandPrice(tile)));
+							} else {
+								DrawString(ir, GetString(STR_BUSINESS_FUND_PRICE_FROM, indsp->GetConstructionCost()));
+							}
+						} else {
+							DrawString(ir, GetString(STR_BUSINESS_FUND_PRICE_FROM, indsp->GetConstructionCost()));
+						}
+						ir.top += GetCharacterHeight(FontSize::Normal);
+						DrawString(ir, STR_BUSINESS_FUND_PRICE_HINT);
+					} else {
+						DrawString(ir, GetString(STR_FUND_INDUSTRY_INDUSTRY_BUILD_COST, indsp->GetConstructionCost()));
+					}
 					ir.top += GetCharacterHeight(FontSize::Normal);
 				}
 
@@ -757,6 +774,12 @@ public:
 	void OnTimeout() override
 	{
 		this->RaiseButtons();
+	}
+
+	void OnRealtimeTick([[maybe_unused]] uint delta_ms) override
+	{
+		/* Business Front: the price under the cursor changes as the mouse moves. */
+		if (IsBusinessIndustryType(this->selected_type) && this->IsWidgetLowered(WID_DPI_FUND_WIDGET)) this->SetWidgetDirty(WID_DPI_INFOPANEL);
 	}
 
 	void OnPlaceObjectAbort() override

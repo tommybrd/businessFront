@@ -29,12 +29,15 @@ static const Money BIZ_PURCHASE_PRICE_WOOD = 20; ///< Price of one unit of wood 
 static const Money BIZ_PURCHASE_PRICE_GRAIN = 20; ///< Price of one unit of grain bought on the market when the stock is empty.
 
 /** Land and rent: the bigger the town, the dearer the place. */
-static const Money BIZ_LAND_PRICE_PER_INHABITANT = 10; ///< Added to the construction cost per inhabitant of the nearest town.
+static const Money BIZ_LAND_PRICE_PER_INHABITANT = 10; ///< Land price per inhabitant of the nearest town, at the town centre.
+static const uint BIZ_LAND_PRICE_RADIUS = 32; ///< Beyond this distance from the centre the land is at its floor price.
+static const uint BIZ_LAND_PRICE_FLOOR_PCT = 20; ///< Floor of the land price, in percent of the centre price.
 static const Money BIZ_BASE_RENT = 100; ///< Monthly rent, fixed part.
 static const uint32_t BIZ_INHABITANTS_PER_RENT_UNIT = 10; ///< Monthly rent: + 1 per this many inhabitants.
 
 bool IsBusinessIndustryType(IndustryType type);
 Money BusinessConstructionCost(const IndustrySpec *spec, TileIndex tile);
+Money BusinessLandPrice(TileIndex tile);
 Money BusinessMonthlyRent(const Industry *i);
 void InitBusinessIndustry(Industry *i);
 bool BusinessIsHeated(const Industry *i);

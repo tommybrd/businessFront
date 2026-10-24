@@ -3315,6 +3315,9 @@ STR_LAI_BRIDGE_DESCRIPTION_AQUEDUCT                             :Aqueduc
 STR_LAI_OBJECT_DESCRIPTION_TRANSMITTER                          :Transmetteur
 STR_LAI_OBJECT_DESCRIPTION_LIGHTHOUSE                           :Phare
 STR_LAI_OBJECT_DESCRIPTION_COMPANY_HEADQUARTERS                 :Siège de la compagnie
+STR_BUSINESS_FUND_PRICE_FROM                                    :{BLACK}Prix : à partir de {CURRENCY_LONG}, plus le foncier
+STR_BUSINESS_FUND_PRICE_HERE                                    :{BLACK}Prix ici : {CURRENCY_LONG}
+STR_BUSINESS_FUND_PRICE_HINT                                    :{BLACK}Le foncier est plus cher en grande ville et près du centre
 STR_BUSINESS_VIEW_STOCK                                         :{BLACK}En stock : {CARGO_LONG}
 STR_BUSINESS_VIEW_HEATED                                        :{BLACK}Chauffé : du bois en stock
 STR_BUSINESS_VIEW_COLD                                          :{BLACK}Pas de bois en stock : le bois est acheté au marché, cher
