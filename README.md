@@ -1,4 +1,4 @@
-# Flux · v0.14.0
+# Flux · v0.14.1
 
 Jeu de gestion d’un centre de distribution, en français, inspiré du fonctionnement d’un entrepôt e-commerce. La vue 3D représente le stock, les agents, les robots, les postes d’emballage, les colis et les véhicules réellement présents dans la simulation.
 
@@ -21,6 +21,8 @@ Les équipes comprennent réceptionnaires, préparateurs, emballeurs et chauffeu
 Les robots de prélèvement sont autonomes et coopèrent avec les employés sur les mêmes réservations de stock. Ils coûtent 18 000 € à l’achat puis 160 € de maintenance et 20 € d’électricité par jour, sans salaire. Une flotte peut compter 8 robots. Un robot retiré termine son chargement et son dépôt avant d’être désactivé.
 
 Agencer met le jeu en pause. Sélectionner un rack ou un poste, puis toucher sa nouvelle position ; Tourner change son orientation. Les positions occupées, sorties et accès bloqués sont refusés. Les chemins des missions en cours sont recalculés. Les repères et noms sont intégrés aux équipements du décor.
+
+Les employés et les robots parcourent leurs trajets en continu entre les minutes de simulation, en suivant les angles des allées. Les personnages tournent progressivement et marchent avec des jambes articulées ; leurs chariots restent au sol. Les camionnettes et camions de livraison avancent eux aussi en continu et manœuvrent progressivement pour se garer ou quitter le quai. La pause fige aussi leur posture. Cette animation ne modifie ni le stock, ni les durées des missions, ni le format des sauvegardes.
 
 ## Livraison et finances
 
