@@ -6,7 +6,7 @@ import {makeSave,readSave} from '../dist/save-format.js';
 import {createSaveManager} from '../dist/save-manager.js';
 function fixture(){const s=createWarehouseGame(456);s.orders=[];s.daily.accepted=0;s.acceptOrders=false;return s;}
 function conservation(s,bought=0){const stock=s.products.reduce((n,p)=>n+p.onHand,0),inOrders=s.orders.filter(o=>o.stage!=='delivered').reduce((n,o)=>n+o.lines.reduce((v,l)=>v+l.picked,0),0),inbound=s.shipments.reduce((n,t)=>n+t.remaining,0),cargo=s.workers.filter(w=>w.role==='receiving').reduce((n,w)=>n+w.cargo,0);assert.equal(stock+inOrders+inbound+cargo+s.soldUnits,s.startingUnits+bought);}
-function reconcile(s){const t=s.totals;assert.ok(Math.abs(s.money-(s.initialCash+t.revenue+t.bonus-t.purchases-t.transport-t.packaging-t.charges-t.investments))<.011);}
+function reconcile(s){const t=s.totals;assert.ok(Math.abs(s.money-(s.initialCash+t.revenue+t.bonus-t.purchases-t.transport-t.packaging-t.charges-t.investments-(t.marketing||0)+(t.borrowed||0)-(t.repaid||0)))<.011);}
 test('a real order is picked, packed, transported and paid once, preserving every article',()=>{
  const s=fixture(),initial=s.money,o=createWarehouseOrder(s,{lines:[{productId:'books',quantity:2},{productId:'tech',quantity:1}],deadline:warehouseNow(s)+360});
  advanceWarehouse(s,1);assert.equal(o.stage,'picking');assert.equal(s.products[1].reserved,2);assert.equal(s.money,initial);conservation(s);

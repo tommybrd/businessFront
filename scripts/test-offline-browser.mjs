@@ -40,10 +40,10 @@ try{
    assert.ok(walkingFrames>15,'Les agents doivent avancer entre les minutes');assert.ok(articulated,'Les jambes doivent marcher');
    const pausePose=await page.evaluate(()=>window.__motionQA.frames.at(-1).actors);await page.waitForTimeout(150);assert.deepEqual(await page.evaluate(()=>window.__motionQA.frames.at(-1).actors),pausePose);
    console.log(`${name}: déplacement continu observé sur ${walkingFrames} images, jambes articulées et pause figée.`);
-   assert.equal(await page.locator('h1').textContent(),'FLUX0.16.0');await page.locator('.world-tools [data-open="stock"]').click();
+   assert.equal(await page.locator('h1').textContent(),'FLUX0.25.0');await page.locator('.world-tools [data-open="stock"]').click();
    const product=page.locator('[data-product-id="tech"]');await product.locator('[data-quantity="24"]').click();const before=await page.locator('#money').textContent();await product.locator('[data-buy="express"]').click();await page.waitForFunction(value=>document.querySelector('#money').textContent!==value,before);
    await page.locator('.world-tools [data-open="robots"]').click();await page.locator('[data-robots="1"]').click();await page.locator('#panel-close').click();
-   await page.locator('[data-speed="6"]').click();await page.waitForFunction(()=>Number(document.querySelector('#delivered-count').textContent)>0,{timeout:45000});await page.locator('[data-speed="0"]').click();
+   await page.locator('[data-speed="10"]').click();await page.waitForFunction(()=>Number(document.querySelector('#delivered-count').textContent)>0,{timeout:45000});await page.locator('[data-speed="0"]').click();
    await page.locator('.world-tools [data-open="orders"]').click();await page.locator('[data-filter="all"]').click();await page.locator('[data-order-id]').first().waitFor();assert.ok(await page.locator('[data-order-id]').count()>0);await page.locator('#panel-close').click();
    await page.locator('.world-tools [data-open="finance"]').click();assert.equal(await page.locator('#management-panel').evaluate(e=>e.classList.contains('wide')),true);await page.locator('#panel-close').click();
    await page.locator('#save-toggle').click();await page.locator('#save-now').click();await page.waitForFunction(()=>document.querySelector('#save-toggle').title==='Sauvegardé');
