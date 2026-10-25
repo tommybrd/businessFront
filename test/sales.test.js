@@ -45,3 +45,15 @@ test('saves made before margins load with an equivalent setting and keep a runni
   if(pricing==='low')assert.deepEqual(loaded.promo,{discount:0,until:s.promoUntil});else assert.equal(loaded.promo,null);makeSave(loaded);
  }
 });
+
+test('the 28-day commercial calendar drives demand, express share and announcements',async()=>{
+ const {seasonEvent,upcomingEvents,SEASON_LENGTH}=await import('../dist/warehouse-engine.js');
+ assert.equal(seasonEvent(11).id,'blackfriday');assert.equal(seasonEvent(11+SEASON_LENGTH).id,'blackfriday');assert.equal(seasonEvent(1),null);assert.equal(seasonEvent(25).id,'lull');assert.equal(seasonEvent(20).id,'xmas');
+ const quiet=createWarehouseGame(7),busy=createWarehouseGame(7),slow=createWarehouseGame(7);busy.day=11;slow.day=25;
+ assert.equal(warehouseDemand(busy).factor/warehouseDemand(quiet).factor,2.6);assert.ok(Math.abs(warehouseDemand(slow).factor/warehouseDemand(quiet).factor-.7)<1e-9);
+ const count=day=>{const g=createWarehouseGame(31);g.day=day;g.minute=479;advanceWarehouse(g,600);return g.daily.accepted;};assert.ok(count(11)>count(8)*1.8,'Black Friday brings far more orders');assert.ok(count(25)<count(8));
+ const g=createWarehouseGame(8);g.day=9;const next=upcomingEvents(g,3);assert.deepEqual(next.map(e=>[e.id,e.inDays]),[['blackfriday',2],['cyber',3],['xmas',9]]);
+ const before=createWarehouseGame(8);before.day=8;before.minute=1310;advanceWarehouse(before,10);assert.equal(before.day,9);assert.ok(before.log.some(l=>l.text.startsWith('Dans 2 jours : 🛍️ Black Friday')),'announced two days ahead');
+ const h=createWarehouseGame(8);h.day=10;h.minute=1310;advanceWarehouse(h,10);assert.ok(h.log.some(l=>l.text.startsWith('Aujourd’hui : 🛍️ Black Friday')));
+ const xmas=createWarehouseGame(41);xmas.day=19;xmas.minute=479;advanceWarehouse(xmas,600);const share=o=>o.filter(x=>x.channel==='express').length/o.length;const normal=createWarehouseGame(41);normal.day=8;normal.minute=479;advanceWarehouse(normal,600);assert.ok(share(xmas.orders)>share(normal.orders));
+});
