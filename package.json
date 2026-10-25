@@ -1,6 +1,6 @@
 {
   "name": "market-front",
-  "version": "0.14.1",
+  "version": "0.15.0",
   "private": true,
   "type": "module",
   "description": "Jeu de gestion de centre logistique : commandes, stocks, préparation et livraison",

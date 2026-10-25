@@ -1,16 +1,16 @@
-# Flux · v0.14.1
+# Flux · v0.15.0
 
 Jeu de gestion d’un centre de distribution, en français, inspiré du fonctionnement d’un entrepôt e-commerce. La vue 3D représente le stock, les agents, les robots, les postes d’emballage, les colis et les véhicules réellement présents dans la simulation.
 
 ## Boucle de jeu
 
-Les commandes standard et express arrivent pendant la journée. Le joueur choisit son engagement commercial, ses priorités et la fréquence des tournées. Les préparateurs ou robots réservent les articles disponibles, se rendent aux racks, prélèvent les différentes familles et déposent le panier à l’emballage. Un agent et un poste libre sont nécessaires pour emballer. Les colis attendent ensuite au quai ; une camionnette et un chauffeur les livrent. Le revenu est encaissé à la livraison ; un retard réduit le paiement et la note de service.
+Les commandes standard et express arrivent pendant la journée. Le joueur choisit son positionnement commercial (équilibré, spécialiste de l’express ou gros volume), la commande à préparer en premier et la fréquence des tournées ; l’onglet Commandes explique chaque choix. Les préparateurs ou robots réservent les articles disponibles, se rendent aux racks, prélèvent les différentes familles et déposent le panier à l’emballage. Un agent et un poste libre sont nécessaires pour emballer. Les colis attendent ensuite au quai ; une camionnette et un chauffeur les livrent. Le revenu est encaissé à la livraison ; un retard réduit le paiement et la note de service.
 
-Le tableau de flux montre commandes à préparer, prélèvement, emballage, colis prêts et tournées. Les stocks manquants, retards et embouteillages d’emballage sont signalés. Le matin et la fin d’après-midi apportent des vagues de demandes. Des contrats facultatifs ajoutent des lots de commandes et une prime si toutes sont livrées dans les délais.
+Le tableau de flux montre commandes à préparer, prélèvement, emballage, colis prêts et tournées. Les stocks manquants, retards et embouteillages d’emballage sont signalés. Le matin et la fin d’après-midi apportent des vagues de demandes. Des commandes clients pro facultatives ajoutent des lots de colis express et une prime si toutes sont livrées dans les délais.
 
 ## Stocks et réception
 
-Six familles : accessoires tech, livres, maison, jeux et jouets, hygiène et beauté, vêtements. Les marchandises sont commandées par cartons de 24, jusqu’à 960 articles. La livraison standard arrive à 6 h 30 (le jour même si la commande précède ce passage, sinon le lendemain), l’express après 45 minutes avec frais majorés. Les marchandises payées restent valorisées pendant le transport.
+Six familles : accessoires tech, livres, maison, jeux et jouets, hygiène et beauté, vêtements. Les racks montrent les produits en vrac, reconnaissables par leur forme et leur couleur ; les préparateurs les transportent dans des bacs, et seuls les postes d’emballage les mettent en carton. Les marchandises sont commandées par cartons de 24, jusqu’à 960 articles. La livraison standard arrive à 6 h 30 (le jour même si la commande précède ce passage, sinon le lendemain), l’express après 45 minutes avec frais majorés. L’heure d’arrivée prévue s’affiche au moment de l’achat et dans Réception. Les marchandises payées restent valorisées pendant le transport.
 
 Les réceptionnaires transportent jusqu’à 48 articles par trajet depuis le camion vers le rack. Les réservations de déchargement et la place disponible empêchent les doublons et les débordements. Un rack plein bloque le restant de sa livraison. Chaque famille commence avec 240 places, extensibles jusqu’à 960. Les réservations des commandes, les articles attendus et les articles présents sont distingués.
 
