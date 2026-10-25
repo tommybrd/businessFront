@@ -1,0 +1,30 @@
+// Validation of restaurant saves (schema 3). Standalone: the save Worker bundles it without imports.
+function restaurantAssert(test){if(!test)throw new Error('Cette sauvegarde du restaurant est incomplète ou incompatible.');}
+export function validateRestaurantSave(record){
+ const s=record.state,valid=restaurantAssert,finite=n=>Number.isFinite(n),integer=(n,min=0,max=Number.MAX_SAFE_INTEGER)=>Number.isSafeInteger(n)&&n>=min&&n<=max,point=p=>Array.isArray(p)&&p.length===2&&p.every(finite);
+ const ingredients=['buns','beef','chicken','cheese','veggies','fries','drinks'],items=['classic','double','chicken','fries','drink'],roles=['cashier','grill','fryer','assembly','floor'],packaging=['boxes','cups','cartons','bags'];
+ const equipmentMax={grills:4,fryers:4,assembly:3,registers:3,kiosks:4,tables:12},equipmentMin={grills:1,fryers:1,assembly:1,registers:1,kiosks:0,tables:2};
+ valid(s?.kind==='restaurant'&&s.version===1&&integer(s.day,1)&&integer(s.minute,540,1425)&&[0,1,5,10,100].includes(s.speed)&&integer(s.seed)&&integer(s.nextId,1)&&integer(s.ticket,1));
+ for(const key of ['money','initialCash','dayStartCash','reputation','arrivalCredit'])valid(finite(s[key]));valid(s.reputation>=0&&s.reputation<=100);
+ valid(['balanced','fast','gourmet'].includes(s.format)&&integer(s.margin,65,92)&&integer(s.adBudget,0,600)&&s.adBudget%50===0&&typeof s.open==='boolean'&&typeof s.autoSupplies==='boolean'&&['fifo','deadline'].includes(s.priority));
+ valid(s.promo===null||s.promo&&[10,20,30].includes(s.promo.discount)&&finite(s.promo.until));
+ valid(s.equipment&&Object.keys(equipmentMax).every(k=>integer(s.equipment[k],equipmentMin[k],equipmentMax[k])));
+ valid(s.staff&&roles.every(r=>integer(s.staff[r],0,12)));
+ for(const key of ['workers','customers','queue','orders','tables','shipments','contracts','loans','history','log','metrics','ingredients'])valid(Array.isArray(s[key]));
+ valid(s.workers.length<=60&&s.customers.length<=120&&s.orders.length<=3000&&s.tables.length===s.equipment.tables&&s.metrics.length<=240&&s.loans.length<=20&&s.history.length<=60);
+ valid(s.ingredients.length===ingredients.length&&s.ingredients.every((i,k)=>i.id===ingredients[k]&&Array.isArray(i.lots)&&i.lots.every(l=>integer(l.qty)&&integer(l.expires))&&integer(i.ordered)&&integer(i.used)&&integer(i.wasted)));
+ valid(s.supplies&&packaging.every(k=>integer(s.supplies[k]))&&s.supplyRules&&typeof s.supplyRules==='object'&&Object.entries(s.supplyRules).every(([k,r])=>packaging.includes(k)&&integer(r.trigger,0,2000)&&integer(r.lots,1,10)));
+ valid(s.restock&&typeof s.restock==='object'&&Object.entries(s.restock).every(([k,r])=>ingredients.includes(k)&&typeof r.enabled==='boolean'&&typeof r.express==='boolean'&&integer(r.trigger,0,1000)&&integer(r.lots,1,20)));
+ for(const key of ['daily','totals']){valid(s[key]&&typeof s[key]==='object');for(const v of Object.values(s[key]))valid(finite(v)&&v>=0);}
+ const workerIds=new Set();for(const w of s.workers){valid(integer(w.id,1)&&!workerIds.has(w.id)&&roles.includes(w.role)&&typeof w.retiring==='boolean'&&typeof w.phase==='string'&&point(w.pos)&&Array.isArray(w.path)&&w.path.every(point)&&finite(w.remaining));workerIds.add(w.id);}
+ for(const r of roles)valid(s.workers.filter(w=>w.role===r&&!w.retiring).length===s.staff[r]);
+ const orderIds=new Set();for(const o of s.orders){valid(integer(o.id,1)&&!orderIds.has(o.id)&&typeof o.ref==='string'&&['kitchen','ready','served'].includes(o.stage)&&['dine','takeaway'].includes(o.channel)&&Array.isArray(o.lines)&&o.lines.length>0&&o.lines.every(l=>items.includes(l.item)&&integer(l.qty,1,40))&&finite(o.value)&&finite(o.created)&&finite(o.deadline));for(const k of ['grill','fry','assemble'])valid(o[k]&&['todo','active','done'].includes(o[k].state));orderIds.add(o.id);}
+ const customerIds=new Set();for(const c of s.customers){valid(integer(c.id,1)&&!customerIds.has(c.id)&&integer(c.size,1,4)&&['dine','takeaway'].includes(c.channel)&&typeof c.phase==='string'&&point(c.pos)&&Array.isArray(c.path)&&c.path.every(point));if(c.order!==null)valid(orderIds.has(c.order));customerIds.add(c.id);}
+ valid(s.queue.every(id=>customerIds.has(id)));
+ for(const t of s.tables)valid(['free','occupied','dirty'].includes(t.state)&&(t.guest===null||customerIds.has(t.guest)));
+ for(const t of s.shipments)valid(ingredients.includes(t.ingredient)&&integer(t.units,1)&&finite(t.eta)&&typeof t.express==='boolean');
+ for(const c of s.contracts)valid(integer(c.id,1)&&['offered','accepted','expired','completed','failed'].includes(c.status)&&items.includes(c.item)&&integer(c.menus,1,40)&&finite(c.due));
+ for(const l of s.loans)valid(integer(l.id,1)&&[5000,10000,25000,50000].includes(l.amount)&&[10,20,30].includes(l.days)&&integer(l.daysLeft,0,30)&&['interest','principalLeft','interestLeft'].every(k=>finite(l[k])&&l[k]>=0));
+ for(const m of s.metrics)valid(['h','customers','served','late','walkouts','revenue','cogs','waitSum'].every(k=>finite(m[k])&&m[k]>=0));
+ return record;
+}

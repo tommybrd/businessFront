@@ -1,9 +1,9 @@
-# Flux — Centre logistique
+# Flux Burger — Restaurant
 
-Jeu de gestion de centre logistique e-commerce en français. Le joueur pilote les commandes, le stock, les équipes et les livraisons, dans une vue 3D du centre. Le supermarché précédent est conservé comme archive de sauvegarde.
+Jeu de gestion d’un restaurant de burgers en français. Le joueur pilote la clientèle, la cuisine, les ingrédients, les équipes et les finances, dans une vue 3D du restaurant. Le centre logistique et le supermarché précédents sont conservés comme archives de sauvegarde.
 
-- Préserver la séparation entre simulation (`dist/engine.js`), interface (`dist/game.js`) et scène 3D (`dist/scene.js`).
-- Les animations représentent les stocks, commandes et affectations de la simulation ; éviter des indicateurs fictifs.
+- Préserver la séparation entre simulation (`dist/restaurant-engine.js`), interface (`dist/game.js`) et scène 3D (`dist/restaurant-scene.js`).
+- Les animations représentent les stocks, commandes, clients et affectations de la simulation ; éviter des indicateurs fictifs.
 - Garder l’interface utilisable sur ordinateur et téléphone, avec les stocks accessibles sans sélectionner un objet 3D.
 - Exécuter `npm run check` et `npm test` après une modification de la simulation. Exécuter `npm run build` si les modules 3D ou les dépendances changent.
 - La destination de déploiement est celle de `.openai/hosting.json`. Préserver son identifiant et le dépôt Git existant.

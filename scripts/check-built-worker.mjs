@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { sqliteBinding } from './local-save-db.mjs';
 import { createGame, openStore, advance, setRobotCount, createWarehouseGame, advanceWarehouse } from '../dist/engine.js';
 import { makeSave } from '../dist/save-format.js';
+import { createRestaurantGame, advanceRestaurant, migrateRestaurantGame } from '../dist/restaurant-engine.js';
 import { readFile, readdir } from 'node:fs/promises';
 const {default:worker}=await import('../dist/server/index.js');
 if(typeof worker.fetch!=='function')throw Error('Worker sans gestionnaire de requêtes.');
@@ -33,3 +34,8 @@ const warehouseState=createWarehouseGame(765);advanceWarehouse(warehouseState,90
 const warehouseDB=new DatabaseSync(':memory:');warehouseDB.exec(await readFile('drizzle/0000_loud_thunderbolt_ross.sql','utf8'));
 const warehouseResult=await worker.fetch(new Request('https://example.test/api/save',{method:'PUT',headers:{'oai-authenticated-user-id':'warehouse-build-check',Origin:'https://example.test','Content-Type':'application/json','X-Market-Front-Save':'1'},body:JSON.stringify({revision:0,ownerId:'warehouse-build-check',snapshot:makeSave(warehouseState)})}),{DB:sqliteBinding(warehouseDB)});
 if(warehouseResult.status!==200)throw Error('Sauvegarde logistique assemblée invalide : '+await warehouseResult.text());warehouseDB.close();console.log('Sauvegarde logistique v2 du Worker vérifiée.');
+
+const restaurantState=migrateRestaurantGame(makeSave(warehouseState),{stockValue:0});advanceRestaurant(restaurantState,240);
+const restaurantDB=new DatabaseSync(':memory:');restaurantDB.exec(await readFile('drizzle/0000_loud_thunderbolt_ross.sql','utf8'));
+const restaurantResult=await worker.fetch(new Request('https://example.test/api/save',{method:'PUT',headers:{'oai-authenticated-user-id':'restaurant-build-check',Origin:'https://example.test','Content-Type':'application/json','X-Market-Front-Save':'1'},body:JSON.stringify({revision:0,ownerId:'restaurant-build-check',snapshot:makeSave(restaurantState)})}),{DB:sqliteBinding(restaurantDB)});
+if(restaurantResult.status!==200)throw Error('Sauvegarde restaurant assemblée invalide : '+await restaurantResult.text());restaurantDB.close();console.log('Sauvegarde restaurant v3 du Worker vérifiée, avec l’archive logistique.');

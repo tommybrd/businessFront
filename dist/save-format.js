@@ -1,4 +1,5 @@
 import {validateWarehouseSave} from './warehouse-save.js';
+import {validateRestaurantSave} from './restaurant-save.js';
 import {validStoreHours} from './store-hours.js';
 import {RESTOCK_ROBOT,robotWorkers,humanRestockers} from './restock-robots.js';
 import {isAutoCheckoutLane} from './store-layout.js';
@@ -14,7 +15,7 @@ function saveTree(value, depth=0) {
   for(const[key,item]of Object.entries(value)){saveAssert(!['__proto__','prototype','constructor'].includes(key));saveTree(item,depth+1);}
 }
 export function validateSave(snapshot) {
-  saveTree(snapshot);if(snapshot?.schemaVersion===2){validateWarehouseSave(snapshot);if(snapshot.state.legacyArchive){saveAssert(snapshot.state.legacyArchive.schemaVersion===1);validateSave(snapshot.state.legacyArchive);}return snapshot;}
+  saveTree(snapshot);if(snapshot?.schemaVersion===3){validateRestaurantSave(snapshot);saveAssert(snapshot.preferences&&typeof snapshot.preferences.checkoutSound==='boolean');if(snapshot.state.legacyArchive){saveAssert([1,2].includes(snapshot.state.legacyArchive.schemaVersion));validateSave(snapshot.state.legacyArchive);}return snapshot;}if(snapshot?.schemaVersion===2){validateWarehouseSave(snapshot);if(snapshot.state.legacyArchive){saveAssert(snapshot.state.legacyArchive.schemaVersion===1);validateSave(snapshot.state.legacyArchive);}return snapshot;}
   saveAssert(snapshot?.schemaVersion===SAVE_VERSION);
   const s=snapshot.state;saveAssert(s && Number.isSafeInteger(s.day) && s.day>0 && Number.isSafeInteger(s.minute) && s.minute>=0 && s.minute<=1380 && Number.isFinite(s.money));
   saveAssert(['preparation','open','closed','bankrupt'].includes(s.phase));
@@ -68,7 +69,7 @@ export function validateSave(snapshot) {
   return snapshot;
 }
 export function makeSave(state, preferences={checkoutSound:true}) {
-  const snapshot=JSON.parse(JSON.stringify({schemaVersion:state.kind==='fulfillment'?2:SAVE_VERSION,state,preferences}));snapshot.state.speed=0;
+  const snapshot=JSON.parse(JSON.stringify({schemaVersion:state.kind==='restaurant'?3:state.kind==='fulfillment'?2:SAVE_VERSION,state,preferences}));snapshot.state.speed=0;
   validateSave(snapshot);return snapshot;
 }
 export function readSave(payload) {
