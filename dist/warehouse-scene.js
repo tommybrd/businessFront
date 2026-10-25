@@ -25,7 +25,9 @@ export function createWarehouseScene(canvas,state,onSelect,onPlace=()=>{}){
  // Main traffic aisle is painted onto the floor, rather than floating labels.
  box(yard,31,.025,.1,0,.006,7.1,'#ddad45',false);box(yard,31,.025,.1,0,.006,10.6,'#ddad45',false);
  for(let x=-15;x<15;x+=1)box(yard,.6,.025,.08,x,.01,7.6,'#e8b34c',false);
- for(const [x,color]of [[-12,'#75acaa'],[11,'#dca651']]){box(yard,7,.04,3,x,.02,10,'#a8b2b6',false);for(let z=8.8;z<11.4;z+=.55)box(yard,6.4,.025,.14,x,.05,z,color,false);box(yard,7,.8,.28,x,.4,12,'#536572');box(yard,7.3,.2,3,x,3.5,12.5,'#435361');for(const side of [-1,1])box(yard,.2,3.7,.2,x+side*3.65,1.7,11.8,'#536572');}
+ // Dock canopies are see-through so pallet jacks and parcels stay visible underneath.
+ const glassRoof=new THREE.MeshStandardMaterial({color:'#8fa6b6',transparent:true,opacity:.28,depthWrite:false,roughness:.3,metalness:.1});
+ for(const [x,color]of [[-12,'#75acaa'],[11,'#dca651']]){box(yard,7,.04,3,x,.02,10,'#a8b2b6',false);for(let z=8.8;z<11.4;z+=.55)box(yard,6.4,.025,.14,x,.05,z,color,false);box(yard,7,.8,.28,x,.4,12,'#536572');{const roof=box(yard,7.3,.2,3,x,3.5,12.5,'#435361',false);roof.material=glassRoof;}for(const side of [-1,1])box(yard,.2,3.7,.2,x+side*3.65,1.7,11.8,'#536572');}
  label(yard,'RÉCEPTION',-12,2.65,11.85,4.1,'#d5f0ef');label(yard,'EXPÉDITION',11,2.65,11.85,4.1,'#f5dfae');
  const conveyor=tag(new THREE.Group(),{tab:'production'});scene.add(conveyor);box(conveyor,2.6,.65,7.3,4.4,.4,2.8,'#415564');box(conveyor,2.25,.1,7.3,4.4,.78,2.8,'#344047');for(let z=-.5;z<=6.3;z+=.4)box(conveyor,2.2,.04,.12,4.4,.86,z,'#91a0a9');for(const x of [3.35,5.45])box(conveyor,.08,.45,7.5,x,.85,2.8,'#e8af3f');
  const staging=new THREE.Group();scene.add(staging);for(let x=6.5;x<=13;x+=3.2){box(staging,3,.04,2.3,x,.025,7.2,'#b7bdbe');for(let z=6.1;z<=8.3;z+=.5)box(staging,2.9,.02,.08,x,.05,z,'#ddad45',false);}

@@ -1,4 +1,4 @@
-# Flux · v0.25.0
+# Flux · v0.25.1
 
 Jeu de gestion d’un centre de distribution, en français, inspiré du fonctionnement d’un entrepôt e-commerce. La vue 3D représente le stock, les agents, les robots, les postes d’emballage, les colis et les véhicules réellement présents dans la simulation.
 
@@ -12,7 +12,7 @@ Un bandeau à droite résume les colis prêts au départ et en livraison (nombre
 
 Six familles : accessoires tech, livres, maison, jeux et jouets, hygiène et beauté, vêtements. Les racks montrent les produits en vrac, reconnaissables par leur forme et leur couleur ; les préparateurs les transportent dans des bacs, et seuls les postes d’emballage les mettent en carton. Les marchandises sont commandées par cartons de 24, jusqu’à 960 articles. La livraison standard arrive à 6 h 30 (le jour même si la commande précède ce passage, sinon le lendemain), l’express après 45 minutes avec frais majorés. L’heure d’arrivée prévue s’affiche au moment de l’achat et dans Réception. Le tableau « Réassort fournisseurs », en haut de l’onglet Stock, règle le réassort automatique (⟳) de tous les produits ; chaque produit peut avoir son réassort : un seuil, une quantité par cartons de 24 et un mode (camion du matin ou express) ; la commande part quand disponibles + attendus passent sous le seuil, une seule fois par manque, et se limite à la place libre du rack. Les emballages ont aussi un seuil et un nombre de lots réglables. Les marchandises payées restent valorisées pendant le transport.
 
-Les réceptionnaires déchargent le camion à la palette avec un transpalette : jusqu’à 10 cartons de 24 (240 articles) par trajet, chargés en 4 minutes, puis rangés carton par carton au rack (une demi-minute par carton). Les réservations de déchargement et la place disponible empêchent les doublons et les débordements. Un rack plein bloque le restant de sa livraison. Chaque famille commence avec 240 places, extensibles jusqu’à 960. Les réservations des commandes, les articles attendus et les articles présents sont distingués.
+Les auvents de réception et d’expédition sont transparents pour laisser voir les chargements. Les réceptionnaires déchargent le camion à la palette avec un transpalette : jusqu’à 10 cartons de 24 (240 articles) par trajet, chargés en 4 minutes, puis rangés carton par carton au rack (une demi-minute par carton). Les réservations de déchargement et la place disponible empêchent les doublons et les débordements. Un rack plein bloque le restant de sa livraison. Chaque famille commence avec 240 places, extensibles jusqu’à 960. Les réservations des commandes, les articles attendus et les articles présents sont distingués.
 
 ## Équipes, robots et équipements
 
