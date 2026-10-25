@@ -2,7 +2,8 @@ export const WAREHOUSE_BOUNDS={minX:-16,maxX:16,minZ:-9,maxZ:11};
 export function warehouseFixture(s,key){
  const saved=s.layout[key];if(saved)return saved;
  if(key.startsWith('rack:')){const i=s.products.findIndex(p=>p.id===key.slice(5));return {x:i<3?-10:-3,z:-6+(i%3)*5,rotation:0};}
- return {x:8,z:-4+Number(key.split(':')[1])*4.5,rotation:0};
+ // Packing benches fill two columns of four, nearest the conveyor first.
+ const i=Number(key.split(':')[1]);return {x:i<4?8:12.6,z:[-6.5,-3,.5,4][i%4],rotation:0};
 }
 export function warehouseFixtures(s){return [...s.products.map(p=>'rack:'+p.id),...Array.from({length:s.benches},(_,i)=>'pack:'+i)];}
 export function warehouseFootprint(s,key){const p=warehouseFixture(s,key),w=key.startsWith('rack:')?4.8:3.2,d=key.startsWith('rack:')?1.6:1.7;return {...p,w:p.rotation%Math.PI?d:w,d:p.rotation%Math.PI?w:d};}

@@ -4,7 +4,7 @@ const shortestAngle=angle=>Math.atan2(Math.sin(angle),Math.cos(angle));
 // Render the known route between simulation minutes, without modifying the save.
 // Sampling the polyline preserves aisle corners instead of cutting through racks.
 export function sampleWorkerRoute(worker,fraction=0){
- const speed=worker.robot?5:3;
+ const speed=worker.speed??(worker.robot?5:3);
  let distance=Math.max(0,Math.min(1,fraction))*speed,x=worker.pos[0],z=worker.pos[1],heading=null;
  if(worker.phase==='driving')return {x,z,heading};
  for(let i=0;i<worker.path.length;i++){
@@ -34,7 +34,7 @@ export function updateWorkerMotion(motion,worker,fraction,elapsedMinutes){
  if(elapsedMinutes>0){
   const blend=1-Math.exp(-18*elapsedMinutes);
   // Relocations after editing/loading are not steps in a walking animation.
-  const walking=distance>EPSILON&&distance<=(worker.robot?5:3)*elapsedMinutes+.001;
+  const walking=distance>EPSILON&&distance<=(worker.speed??(worker.robot?5:3))*elapsedMinutes+.001;
   if(walking)motion.stride+=distance*Math.PI*2/1.15;
   motion.walk+=(Number(walking)-motion.walk)*blend;
   if(next.heading!==null)motion.heading+=shortestAngle(next.heading-motion.heading)*blend;

@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {createWarehouseGame,advanceWarehouse,buyWarehouseSupply,setWarehouseStaff,setWarehouseRobots,createWarehouseOrder,conveyorFull,CONVEYOR_CAPACITY,PALLET_UNITS,toggleWarehouseRush,bookWarehouseCourier,courierCost,WH_COURIER,cartonType,buyWarehousePackaging,packagingQuote,missingPackaging,setWarehousePolicy,migrateWarehouseGame,PACKAGING_START,setWarehouseRestock,restockRule,setWarehouseSupplyRule,supplyRule,DELIVERY_PROMISES} from '../dist/warehouse-engine.js';
+import {createWarehouseGame,advanceWarehouse,buyWarehouseSupply,setWarehouseStaff,setWarehouseRobots,createWarehouseOrder,conveyorFull,CONVEYOR_CAPACITY,PALLET_UNITS,toggleWarehouseRush,bookWarehouseCourier,courierCost,WH_COURIER,cartonType,buyWarehousePackaging,packagingQuote,missingPackaging,setWarehousePolicy,migrateWarehouseGame,PACKAGING_START,setWarehouseRestock,restockRule,setWarehouseSupplyRule,supplyRule,DELIVERY_PROMISES,upgradeWarehouse,warehouseAccess,warehouseRoute,WH_LIMITS,setWarehousePalletJack,PALLET_JACKS,warehouseCosts} from '../dist/warehouse-engine.js';
 import {makeSave} from '../dist/save-format.js';
+import {warehouseWalkable} from '../dist/warehouse-routing.js';
 
 test('receivers move a whole pallet, shelve it over several minutes and add the stock once',()=>{
  const s=createWarehouseGame(21);s.acceptOrders=false;s.orders=[];setWarehouseStaff(s,'picking',0);const p=s.products.find(p=>p.id==='books');p.capacity=960;buyWarehouseSupply(s,'books',480,true);
@@ -82,4 +83,26 @@ test('orders are promised in 48 h, 24 h or express 6 h, with matching deadlines,
  assert.equal(next.value-std.value,DELIVERY_PROMISES.next.fee);assert.equal(exp.value-std.value,DELIVERY_PROMISES.express.fee);
  const g=createWarehouseGame(82);g.minute=479;advanceWarehouse(g,600);const mix=ch=>g.orders.filter(o=>o.channel===ch&&!o.contractId).length;
  assert.ok(mix('standard')>mix('next')&&mix('next')>0&&mix('express')>0,`${mix('standard')} / ${mix('next')} / ${mix('express')}`);makeSave(g);
+});
+
+test('a centre at full scale: eight reachable benches, large teams and fleet, still fast and consistent',()=>{
+ const s=createWarehouseGame(101);s.money=1e7;for(let i=1;i<WH_LIMITS.benches;i++)upgradeWarehouse(s,'bench');for(let i=1;i<WH_LIMITS.vans;i++)upgradeWarehouse(s,'van');
+ assert.throws(()=>upgradeWarehouse(s,'bench'));assert.throws(()=>upgradeWarehouse(s,'van'));
+ for(let i=0;i<WH_LIMITS.benches;i++){const a=warehouseAccess(s,'pack:'+i);assert.ok(warehouseWalkable(s,...a),'bench '+i+' reachable');assert.ok(warehouseRoute(s,[6,-.4],a),'route to bench '+i);}
+ setWarehouseStaff(s,'picking',WH_LIMITS.staff);setWarehouseStaff(s,'packing',16);setWarehouseStaff(s,'drivers',8);setWarehouseRobots(s,WH_LIMITS.robots);setWarehousePolicy(s,'adBudget',1000);
+ const p=s.products[0];upgradeWarehouse(s,'rack',p.id);for(let c=p.capacity;c<WH_LIMITS.rackCapacity;c+=240)upgradeWarehouse(s,'rack',p.id);assert.equal(p.capacity,WH_LIMITS.rackCapacity);
+ const start=performance.now();advanceWarehouse(s,1440);const took=performance.now()-start;
+ assert.ok(took<20000,`one busy day in ${Math.round(took)} ms`);assert.ok(s.daily.delivered+s.history[0].delivered>100);assert.ok(new Set(s.workers.filter(w=>w.role==='packing'&&w.phase==='packing').map(w=>w.bench)).size<=WH_LIMITS.benches);makeSave(s);
+});
+
+test('pallet jack models: bought once, switchable, with their capacity, speed, loading time and running cost',()=>{
+ const s=createWarehouseGame(111);s.money=60000;s.initialCash=60000;s.acceptOrders=false;s.orders=[];setWarehouseStaff(s,'picking',0);const p=s.products.find(p=>p.id==='home');p.capacity=1920;
+ assert.equal(s.palletJack,'manual');const cash=s.money,costs=warehouseCosts(s).equipment;
+ setWarehousePalletJack(s,'rider');assert.equal(s.money,cash-PALLET_JACKS.rider.price);assert.equal(warehouseCosts(s).equipment,costs+PALLET_JACKS.rider.daily);
+ const r=s.workers.find(w=>w.role==='receiving');assert.equal(r.speed,PALLET_JACKS.rider.speed);
+ buyWarehouseSupply(s,'home',960,true);let trip=0,loading=0;for(let m=0;m<120&&trip===0;m++){advanceWarehouse(s,1);if(r.phase==='loading')loading++;trip=Math.max(trip,r.cargo);}
+ assert.equal(trip,480,'two pallets per trip');assert.equal(loading,PALLET_JACKS.rider.load);makeSave(s);
+ const before=s.money;setWarehousePalletJack(s,'manual');setWarehousePalletJack(s,'rider');assert.equal(s.money,before,'owned models switch for free');assert.equal(r.speed,PALLET_JACKS.rider.speed);
+ const old=createWarehouseGame(113);old.palletJack='double';old.ownedJacks=['manual','double'];const loaded=migrateWarehouseGame({schemaVersion:2,state:old});assert.equal(loaded.palletJack,'rider');assert.deepEqual(loaded.ownedJacks,['manual','rider']);
+ const poor=createWarehouseGame(112);poor.money=100;const copy=structuredClone(poor);assert.throws(()=>setWarehousePalletJack(poor,'electric'),/insuffisante/);assert.deepEqual(poor,copy);assert.throws(()=>setWarehousePalletJack(poor,'forklift'));
 });
