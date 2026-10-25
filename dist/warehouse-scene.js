@@ -5,6 +5,11 @@ import {warehouseFixture,warehouseAccess,warehouseNow,packingMinutes,shelvingMin
 // Parcel size follows the carton the engine picks for the order's content.
 const CARTONS={S:[.42,.3,.34],M:[.58,.42,.46],L:[.74,.52,.58]};
 export const cartonSize=o=>CARTONS[cartonType(o)];
+// Dock bays: vehicles reverse in with their rear against the dock, cab toward the road (heading 0 faces the road).
+const ROAD_Z=17.2,RECEPTION_BAYS=[-14.2,-9.8],VAN_BAYS=[6.1,9.4,12.7,16],COURIER_BAY={x:18.6,z:13.9,heading:0};
+const vanBay=i=>({x:VAN_BAYS[i%4],z:i<4?14.6:19.6,heading:i<4?0:Math.PI}),ease=t=>{t=Math.min(1,Math.max(0,t));return t*t*(3-2*t);},lerp=(a,b,t)=>a+(b-a)*Math.min(1,Math.max(0,t));
+// From a pull-forward point on the road, back into the bay while the nose swings round.
+const reverseIn=(px,bay,t,fromHeading)=>{const e=ease(t);return {x:lerp(px,bay.x,e),z:lerp(ROAD_Z,bay.z,e),heading:fromHeading+(bay.heading-fromHeading)*e,visible:true};};
 import {createWorkerMotion,updateWorkerMotion,followVehicle} from './warehouse-motion.js';
 export function createWarehouseScene(canvas,state,onSelect,onPlace=()=>{}){
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.setClearColor('#b3bec6');renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -28,6 +33,9 @@ export function createWarehouseScene(canvas,state,onSelect,onPlace=()=>{}){
  // Dock canopies are see-through so pallet jacks and parcels stay visible underneath.
  const glassRoof=new THREE.MeshStandardMaterial({color:'#8fa6b6',transparent:true,opacity:.28,depthWrite:false,roughness:.3,metalness:.1});
  for(const [x,color]of [[-12,'#75acaa'],[11,'#dca651']]){box(yard,7,.04,3,x,.02,10,'#a8b2b6',false);for(let z=8.8;z<11.4;z+=.55)box(yard,6.4,.025,.14,x,.05,z,color,false);box(yard,7,.8,.28,x,.4,12,'#536572');{const roof=box(yard,7.3,.2,3,x,3.5,12.5,'#435361',false);roof.material=glassRoof;}for(const side of [-1,1])box(yard,.2,3.7,.2,x+side*3.65,1.7,11.8,'#536572');}
+ // Painted dock bays on the yard asphalt, each with a wheel stop against the dock.
+ const bayMark=(x,z0,z1,width,color,dockAtEnd=false)=>{const dock=dockAtEnd?z1:z0;for(const side of [-1,1])box(yard,.09,.012,z1-z0,x+side*width/2,-.198,(z0+z1)/2,color,false);box(yard,width,.012,.09,x,-.198,dock,color,false);box(yard,width*.6,.12,.18,x,-.15,dock+(dockAtEnd?-.25:.25),'#d69f39');};
+ for(const x of RECEPTION_BAYS)bayMark(x,12.3,18.6,3,'#e8eef2');VAN_BAYS.forEach(x=>{bayMark(x,12.3,16.4,2.8,'#e8eef2');bayMark(x,17.9,21.4,2.8,'#c3ccd2',true);});bayMark(COURIER_BAY.x,12.3,15.3,2.2,'#d0603a');
  label(yard,'RÉCEPTION',-12,2.65,11.85,4.1,'#d5f0ef');label(yard,'EXPÉDITION',11,2.65,11.85,4.1,'#f5dfae');
  const conveyor=tag(new THREE.Group(),{tab:'production'});scene.add(conveyor);box(conveyor,2.6,.65,7.3,4.4,.4,2.8,'#415564');box(conveyor,2.25,.1,7.3,4.4,.78,2.8,'#344047');for(let z=-.5;z<=6.3;z+=.4)box(conveyor,2.2,.04,.12,4.4,.86,z,'#91a0a9');for(const x of [3.35,5.45])box(conveyor,.08,.45,7.5,x,.85,2.8,'#e8af3f');
  const staging=new THREE.Group();scene.add(staging);for(let x=6.5;x<=13;x+=3.2){box(staging,3,.04,2.3,x,.025,7.2,'#b7bdbe');for(let z=6.1;z<=8.3;z+=.5)box(staging,2.9,.02,.08,x,.05,z,'#ddad45',false);}
@@ -101,16 +109,22 @@ export function createWarehouseScene(canvas,state,onSelect,onPlace=()=>{}){
    if(!g){g=waitingBins.find(g=>g.userData.orderId===null);g.userData.orderId=o.id;g.userData.x=x;g.userData.z=elapsedMinutes?6.2:z;g.userData.goods.material=mat(state.products.find(p=>p.id===o.lines[0].productId).color);}
    const step=2.5*elapsedMinutes,u=g.userData;u.z+=Math.max(-step,Math.min(step,z-u.z));u.x+=Math.max(-step,Math.min(step,x-u.x));g.visible=true;g.position.set(u.x,0,u.z);});
   const ready=state.orders.filter(o=>o.stage==='ready');parcels.forEach((g,i)=>{g.visible=i<ready.length;if(!ready[i])return;const [x,y,z]=cartonSize(ready[i]);g.scale.set(x/.58,y/.42,z/.46);g.position.set(6.1+(i%6)*1.05,Math.floor(i/18)*.62-.09*y/.42,6.3+Math.floor(i%18/6)*.65);});
-  for(const v of state.vans){if(!vans.has(v.id)){const g=tag(vehicle('#3f6984'),{tab:'dispatch',vanId:v.id});scene.add(g);vans.set(v.id,g);}const g=vans.get(v.id),index=state.vans.indexOf(v),remaining=Math.max(0,v.remaining-fraction);let x=10+(index%4)*3.3,z=index<4?14.5:20.5,heading=Math.PI,visible=true,speed=0;
-   if(v.phase==='outbound'){const progress=1-remaining/v.duration;x=10+progress*35;z=17;heading=Math.PI/2;visible=progress<.36;speed=35/v.duration;}else if(v.phase==='returning'){const progress=1-remaining/20;x=-30+progress*40;z=17;heading=Math.PI/2;visible=progress>.5;speed=2;}
-   const drive=g.userData.drive=followVehicle(g.userData.drive,{x,z,heading,visible},elapsedMinutes,speed);g.visible=visible;g.position.set(drive.x,0,drive.z);g.rotation.y=drive.heading;}
-  for(const t of state.shipments){if(t.remaining<=0&&!state.workers.some(w=>w.shipment===t.id))continue;if(!inbounds.has(t.id)){const g=tag(vehicle(t.express?'#b2c9c7':'#668995',!t.express),{tab:'inbound'});scene.add(g);inbounds.set(t.id,g);}const g=inbounds.get(t.id),index=state.shipments.filter(a=>a.remaining>0).indexOf(t),eta=t.eta-warehouseNow(state)-fraction,visible=eta<20;const drive=g.userData.drive=followVehicle(g.userData.drive,{x:eta>0?-32+(1-eta/20)*20:-12-Math.max(0,index)*3.1,z:eta>0?17:15,heading:eta>0?Math.PI/2:Math.PI,visible},elapsedMinutes,1);g.visible=visible;g.position.set(drive.x,0,drive.z);g.rotation.y=drive.heading;}
+  for(const v of state.vans){if(!vans.has(v.id)){const g=tag(vehicle('#3f6984'),{tab:'dispatch',vanId:v.id});scene.add(g);vans.set(v.id,g);}const g=vans.get(v.id),index=state.vans.indexOf(v),remaining=Math.max(0,v.remaining-fraction),b=vanBay(index);let target={...b,visible:true};
+   // Vans leave their bay forwards, then come back along the road, pass their bay and reverse into it.
+   if(v.phase==='outbound'){const out=v.duration-remaining;if(out<2.5){const e=ease(out/2.5);target={x:lerp(b.x,b.x+3,e),z:lerp(b.z,ROAD_Z,e),heading:lerp(b.heading,Math.PI/2,e),visible:true};}else{const x=b.x+3+(out-2.5)*6;target={x,z:ROAD_Z,heading:Math.PI/2,visible:x<24};}}
+   else if(v.phase==='returning'){const r=20-remaining;target=r<18?{x:lerp(-24,b.x+5,Math.max(0,(r-8)/10)),z:ROAD_Z,heading:Math.PI/2,visible:r>8}:reverseIn(b.x+5,b,(r-18)/2,Math.PI/2);}
+   const drive=g.userData.drive=followVehicle(g.userData.drive,target,elapsedMinutes,40);g.visible=target.visible;g.position.set(drive.x,0,drive.z);g.rotation.y=drive.heading;}
+  // Supplier trucks take the first free reception bay in arrival order; extra trucks wait on the road.
+  const docking=state.shipments.filter(t=>t.remaining>0||state.workers.some(w=>w.shipment===t.id)).sort((a,b)=>a.eta-b.eta||a.id-b.id);
+  for(const t of docking){if(!inbounds.has(t.id)){const g=tag(vehicle(t.express?'#b2c9c7':'#668995',!t.express),{tab:'inbound'});scene.add(g);inbounds.set(t.id,g);}const g=inbounds.get(t.id),k=docking.indexOf(t),eta=t.eta-warehouseNow(state)-fraction,bayX=RECEPTION_BAYS[k],b={x:bayX,z:t.express?14.6:15.6,heading:0};
+   const target=bayX===undefined?{x:-24-(k-RECEPTION_BAYS.length)*7,z:ROAD_Z,heading:Math.PI/2,visible:eta<20}:eta>2?{x:lerp(-34,bayX+7,1-(eta-2)/18),z:ROAD_Z,heading:Math.PI/2,visible:eta<20}:eta>0?reverseIn(bayX+7,b,1-eta/2,Math.PI/2):{...b,visible:true};
+   const drive=g.userData.drive=followVehicle(g.userData.drive,target,elapsedMinutes,40);g.visible=target.visible;g.position.set(drive.x,0,drive.z);g.rotation.y=drive.heading;}
   for(const id of [...inbounds.keys()])if(!state.shipments.some(t=>t.id===id&&(t.remaining>0||state.workers.some(w=>w.shipment===id))))remove(inbounds,id);
   // Courier: a small van comes from the road, parks at the shipping dock, loads the parcel and leaves.
   const clockNow=warehouseNow(state)+fraction,riding=state.orders.filter(o=>o.courier&&o.stage==='in_transit'&&Number.isFinite(o.courierEta));
-  for(const o of riding){const t=clockNow-(o.courierEta-WH_COURIER.minutes);if(!couriers.has(o.id)){const g=tag(vehicle('#d0603a',false,'COURSIER'),{tab:'dispatch'});g.scale.setScalar(.72);const parcel=box(scene,.5,.38,.42,15.6,.2,12.9,'#bd9060');g.userData.parcel=parcel;scene.add(g);couriers.set(o.id,g);}
-   const g=couriers.get(o.id),[cx,cy,cz]=cartonSize(o);let target;if(t<1.5)target={x:40-22.5*t/1.5,z:17,heading:-Math.PI/2,visible:true};else if(t<4)target={x:17.5,z:14.5,heading:Math.PI,visible:true};else target={x:17.5+(t-4)*7.5,z:17,heading:Math.PI/2,visible:t<8};
-   const drive=g.userData.drive=followVehicle(g.userData.drive,target,elapsedMinutes,15);g.visible=target.visible;g.position.set(drive.x,0,drive.z);g.rotation.y=drive.heading;g.userData.parcel.visible=t<3;g.userData.parcel.scale.set(cx/.5,cy/.38,cz/.42);}
+  for(const o of riding){const t=clockNow-(o.courierEta-WH_COURIER.minutes);if(!couriers.has(o.id)){const g=tag(vehicle('#d0603a',false,'COURSIER'),{tab:'dispatch'});g.scale.setScalar(.72);const parcel=box(scene,.5,.38,.42,COURIER_BAY.x-1.6,.2,12.8,'#bd9060');g.userData.parcel=parcel;scene.add(g);couriers.set(o.id,g);}
+   const g=couriers.get(o.id),[cx,cy,cz]=cartonSize(o);const b=COURIER_BAY;let target;if(t<1.2)target={x:lerp(30,b.x-5,t/1.2),z:ROAD_Z,heading:-Math.PI/2,visible:true};else if(t<2)target=reverseIn(b.x-5,b,(t-1.2)/.8,-Math.PI/2);else if(t<4)target={...b,visible:true};else if(t<4.8){const e=ease((t-4)/.8);target={x:lerp(b.x,b.x+3,e),z:lerp(b.z,ROAD_Z,e),heading:lerp(0,Math.PI/2,e),visible:true};}else{const x=b.x+3+(t-4.8)*10;target={x,z:ROAD_Z,heading:Math.PI/2,visible:x<24};}
+   const drive=g.userData.drive=followVehicle(g.userData.drive,target,elapsedMinutes,40);g.visible=target.visible;g.position.set(drive.x,0,drive.z);g.rotation.y=drive.heading;g.userData.parcel.visible=t<3;g.userData.parcel.scale.set(cx/.5,cy/.38,cz/.42);}
   for(const id of [...couriers.keys()])if(!riding.some(o=>o.id===id))remove(couriers,id);
   if(selectedKey){const f=warehouseFixture(state,selectedKey);selectedRing.position.set(f.x,.08,f.z);selectedRing.scale.setScalar(selectedKey.startsWith('rack:')?2.7:1.8);selectedRing.visible=arranged;}else selectedRing.visible=false;
  }
