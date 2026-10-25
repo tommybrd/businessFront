@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {OrbitControls} from './vendor/OrbitControls.js';
 import {createKeyboardCameraControls} from './camera-controls.js';
-import {warehouseFixture,warehouseAccess,warehouseNow} from './warehouse-engine.js';
+import {warehouseFixture,warehouseAccess,warehouseNow,packingMinutes} from './warehouse-engine.js';
 import {createWorkerMotion,updateWorkerMotion,followVehicle} from './warehouse-motion.js';
 export function createWarehouseScene(canvas,state,onSelect,onPlace=()=>{}){
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.5));renderer.setClearColor('#b3bec6');renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -39,7 +39,9 @@ export function createWarehouseScene(canvas,state,onSelect,onPlace=()=>{}){
   else if(p.id==='toys'){box(b,.4,.26,.3,-.08,.13,-.05,p.color);box(b,.24,.18,.24,.18,.35,.05,'#efc35a');const ball=new THREE.Mesh(new THREE.SphereGeometry(.11,12,10),mat('#6aa5d8'));ball.position.set(.2,.11,.15);ball.castShadow=true;b.add(ball);}
   else if(p.id==='beauty')for(let k=0;k<4;k++){const x=-.24+k*.16;cyl(.055,.26,x,.13,k%2?.1:-.08,k%2?p.color:shade(.15));cyl(.03,.07,x,.3,k%2?.1:-.08,'#e8e4ef');}
   else for(let k=0;k<4;k++)box(b,.5,.08,.42,(k%2)*.04-.02,.05+k*.09,0,k%2?p.color:shade(-.12));}
- function makeBench(index){const g=tag(new THREE.Group(),{tab:'production',fixture:'pack:'+index});scene.add(g);box(g,3.2,.16,1.7,0,1.1,0,'#c8ba9a');for(const x of [-1.3,1.3])for(const z of [-.6,.6])box(g,.1,1.1,.1,x,.5,z,'#556b7a');box(g,.55,.7,.1,-1.1,1.55,-.6,'#263946');box(g,.45,.5,.03,-1.1,1.57,-.53,'#88b4b8');box(g,.65,.12,.45,.9,1.25,-.1,'#d5b38c');const carton=box(g,.7,.55,.6,0,1.46,.1,'#bb8d5b');g.userData.carton=carton;return g;}
+ function makeBench(index){const g=tag(new THREE.Group(),{tab:'production',fixture:'pack:'+index});scene.add(g);box(g,3.2,.16,1.7,0,1.1,0,'#c8ba9a');for(const x of [-1.3,1.3])for(const z of [-.6,.6])box(g,.1,1.1,.1,x,.5,z,'#556b7a');box(g,.55,.7,.1,-1.1,1.55,-.6,'#263946');box(g,.45,.5,.03,-1.1,1.57,-.53,'#88b4b8');box(g,.65,.12,.45,.9,1.25,-.1,'#d5b38c');const carton=box(g,.7,.55,.6,0,1.46,.1,'#bb8d5b'),flaps=new THREE.Group(),lid=box(g,.72,.04,.62,0,1.755,.1,'#c99a66'),tape=box(g,.12,.012,.64,0,1.78,.1,'#e9d9a6',false),tote=new THREE.Group();
+  for(const side of [-1,1]){const flap=box(flaps,.02,.3,.6,side*.4,1.86,.1,'#c99a66');flap.rotation.z=side*-.55;}g.add(flaps);box(tote,.55,.3,.42,0,0,0,'#5f8197');const goods=box(tote,.42,.18,.3,0,.12,0,'#c49b6e');tote.position.set(.9,1.46,-.1);g.add(tote);
+  Object.assign(g.userData,{carton,flaps,lid,tape,tote,goods});return g;}
  function makeActor(w){const g=tag(new THREE.Group(),{tab:w.robot?'robots':'team',workerId:w.id});scene.add(g);if(w.robot){box(g,1.05,.32,.9,0,.3,0,'#e6a239');box(g,1.12,.12,.96,0,.15,0,'#34434e');box(g,.95,.13,.8,0,.54,0,'#64747f');box(g,.15,.38,.15,0,.65,-.3,'#263c48');box(g,.11,.08,.11,0,.86,-.3,'#84d8d3');}else{
    const body=new THREE.Group(),legs=[],arms=[];g.add(body);g.userData.gait={body,legs,arms,pushing:['picking','receiving'].includes(w.role)};
    box(body,.38,.6,.25,0,1.05,0,'#426c89');box(body,.43,.4,.29,0,1.15,0,w.role==='picking'?'#dca745':w.role==='receiving'?'#6db6ae':'#97b2c5');box(body,.28,.29,.28,0,1.52,0,'#d3a58b');box(body,.35,.08,.32,0,1.71,0,'#d9b651');
@@ -51,17 +53,30 @@ export function createWarehouseScene(canvas,state,onSelect,onPlace=()=>{}){
  function remove(map,id){const g=map.get(id);if(!g)return;g.traverse(o=>{o.geometry?.dispose();if(o.material?.map){o.material.map.dispose();o.material.dispose();}});scene.remove(g);map.delete(id);const i=clickables.indexOf(g);if(i>=0)clickables.splice(i,1);}
  function sync(fraction=0,elapsedMinutes=0){
   for(const p of state.products){if(!racks.has(p.id))racks.set(p.id,makeRack(p));const g=racks.get(p.id),f=warehouseFixture(state,'rack:'+p.id);g.position.set(f.x,0,f.z);g.rotation.y=f.rotation;const visible=Math.ceil(p.onHand/p.capacity*24);g.userData.slots.forEach((slot,i)=>slot.visible=i<visible);}
-  for(let i=0;i<state.benches;i++){if(!benches.has(i))benches.set(i,makeBench(i));const g=benches.get(i),p=warehouseFixture(state,'pack:'+i);g.position.set(p.x,0,p.z);g.rotation.y=p.rotation;g.userData.carton.visible=state.orders.some(o=>o.stage==='packing'&&o.bench===i);}
+  for(let i=0;i<state.benches;i++){if(!benches.has(i))benches.set(i,makeBench(i));const g=benches.get(i),p=warehouseFixture(state,'pack:'+i);g.position.set(p.x,0,p.z);g.rotation.y=p.rotation;
+   // The bench shows the packing steps of its packer: form the carton, transfer the items, close the flaps, tape.
+   const packer=state.workers.find(w=>w.role==='packing'&&w.phase==='packing'&&w.bench===i),o=packer&&state.orders.find(o=>o.id===packer.job),progress=o?Math.min(1,Math.max(0,1-(packer.remaining-fraction)/packingMinutes(o))):0,u=g.userData,height=.15+.85*Math.min(1,progress/.25);
+   u.carton.visible=Boolean(o);u.carton.scale.y=height;u.carton.position.y=1.18+.275*height;u.flaps.visible=Boolean(o)&&progress>=.25&&progress<.6;u.lid.visible=Boolean(o)&&progress>=.6;u.tape.visible=Boolean(o)&&progress>=.82;
+   u.tote.visible=Boolean(o)&&progress<.55;if(o){u.goods.material=mat(state.products.find(p=>p.id===o.lines[0].productId).color);u.goods.scale.y=Math.max(.05,1-Math.max(0,progress-.25)/.3);}
+  }
   for(const id of [...benches.keys()])if(id>=state.benches)remove(benches,id);
   for(const w of state.workers){
    if(!actors.has(w.id))actors.set(w.id,makeActor(w));const g=actors.get(w.id);
    g.userData.motion??=createWorkerMotion(w,fraction);const motion=updateWorkerMotion(g.userData.motion,w,fraction,elapsedMinutes);
    g.position.set(motion.x,0,motion.z);g.rotation.y=motion.heading;g.visible=w.phase!=='driving';
-   const gait=g.userData.gait;if(gait){const swing=Math.sin(motion.stride)*motion.walk;gait.legs.forEach((leg,i)=>leg.rotation.x=swing*(i?-.42:.42));gait.arms.forEach((arm,i)=>arm.rotation.x=gait.pushing?-.35:swing*(i?.3:-.3));gait.body.position.y=(1-Math.cos(motion.stride*2))*.012*motion.walk;}
-   g.userData.load.visible=w.cargo>0;g.userData.load.children.forEach((b,i)=>b.visible=i<Math.ceil(Math.min(1,w.cargo/12)*4));
+   if(w.role==='packing'&&w.phase==='packing'){const bench=warehouseFixture(state,'pack:'+w.bench),turn=Math.atan2(bench.x-motion.x,bench.z-motion.z)-motion.heading;motion.heading+=Math.atan2(Math.sin(turn),Math.cos(turn))*(1-Math.exp(-6*elapsedMinutes));g.rotation.y=motion.heading;}
+   const carrying=w.role==='packing'&&(w.phase==='to_staging'||w.phase==='to_bench'&&w.cargo>0),gait=g.userData.gait;
+   if(gait){const swing=Math.sin(motion.stride)*motion.walk;gait.work=(gait.work??0)+elapsedMinutes*9;gait.legs.forEach((leg,i)=>leg.rotation.x=swing*(i?-.42:.42));gait.arms.forEach((arm,i)=>arm.rotation.x=gait.pushing?-.35:carrying?-1.05:w.phase==='packing'?-.75+Math.sin(gait.work+i*1.7)*.3:swing*(i?.3:-.3));gait.body.position.y=(1-Math.cos(motion.stride*2))*.012*motion.walk;}
+   // Packers hold the tote on the way to their bench, then the closed parcel on the way to shipping.
+   const load=g.userData.load;if(w.role==='packing'){load.visible=carrying;load.position.set(.23,.02,-.14);load.children.forEach((b,i)=>{b.visible=i===0;if(!i)b.material=mat(w.phase==='to_staging'?'#bc915f':'#5f8197');});}else{load.visible=w.cargo>0;load.children.forEach((b,i)=>b.visible=i<Math.ceil(Math.min(1,w.cargo/12)*4));}
   }
   for(const id of [...actors.keys()])if(!state.workers.some(w=>w.id===id))remove(actors,id);
-  const waiting=state.orders.filter(o=>o.stage==='await_pack');waitingBins.forEach((g,i)=>{g.visible=i<waiting.length;g.position.set(4.4+(i>=6?.53:-.53),0,6-(i%6)*1.05);if(waiting[i])g.userData.goods.material=mat(state.products.find(p=>p.id===waiting[i].lines[0].productId).color);});
+  // Totes ride the conveyor from the pickers' drop point to the packers' end, at belt speed.
+  const waiting=state.orders.filter(o=>o.stage==='await_pack').slice(0,waitingBins.length),ids=new Set(waiting.map(o=>o.id));
+  for(const g of waitingBins)if(!ids.has(g.userData.orderId)){g.userData.orderId=null;g.visible=false;}
+  waiting.forEach((o,i)=>{let g=waitingBins.find(g=>g.userData.orderId===o.id),x=4.4+(i<6?.53:-.53),z=-.3+(i%6)*1.05;
+   if(!g){g=waitingBins.find(g=>g.userData.orderId===null);g.userData.orderId=o.id;g.userData.x=x;g.userData.z=elapsedMinutes?6.2:z;g.userData.goods.material=mat(state.products.find(p=>p.id===o.lines[0].productId).color);}
+   const step=2.5*elapsedMinutes,u=g.userData;u.z+=Math.max(-step,Math.min(step,z-u.z));u.x+=Math.max(-step,Math.min(step,x-u.x));g.visible=true;g.position.set(u.x,0,u.z);});
   const ready=state.orders.filter(o=>o.stage==='ready');parcels.forEach((g,i)=>{g.visible=i<ready.length;g.position.set(6.1+(i%6)*1.05,Math.floor(i/18)*.45,6.3+Math.floor(i%18/6)*.65);});
   for(const v of state.vans){if(!vans.has(v.id)){const g=tag(vehicle('#3f6984'),{tab:'dispatch',vanId:v.id});scene.add(g);vans.set(v.id,g);}const g=vans.get(v.id),index=state.vans.indexOf(v),remaining=Math.max(0,v.remaining-fraction);let x=10+index*3.3,z=14.5,heading=Math.PI,visible=true,speed=0;
    if(v.phase==='outbound'){const progress=1-remaining/v.duration;x=10+progress*35;z=17;heading=Math.PI/2;visible=progress<.36;speed=35/v.duration;}else if(v.phase==='returning'){const progress=1-remaining/20;x=-30+progress*40;z=17;heading=Math.PI/2;visible=progress>.5;speed=2;}

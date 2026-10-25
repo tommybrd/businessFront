@@ -1,12 +1,12 @@
-# Flux · v0.15.0
+# Flux · v0.16.0
 
 Jeu de gestion d’un centre de distribution, en français, inspiré du fonctionnement d’un entrepôt e-commerce. La vue 3D représente le stock, les agents, les robots, les postes d’emballage, les colis et les véhicules réellement présents dans la simulation.
 
 ## Boucle de jeu
 
-Les commandes standard et express arrivent pendant la journée. Le joueur choisit son positionnement commercial (équilibré, spécialiste de l’express ou gros volume), la commande à préparer en premier et la fréquence des tournées ; l’onglet Commandes explique chaque choix. Les préparateurs ou robots réservent les articles disponibles, se rendent aux racks, prélèvent les différentes familles et déposent le panier à l’emballage. Un agent et un poste libre sont nécessaires pour emballer. Les colis attendent ensuite au quai ; une camionnette et un chauffeur les livrent. Le revenu est encaissé à la livraison ; un retard réduit le paiement et la note de service.
+Les commandes standard et express arrivent pendant la journée. Le joueur choisit son positionnement commercial (équilibré, spécialiste de l’express ou gros volume), la commande à préparer en premier et la fréquence des tournées ; l’onglet Commandes explique chaque choix. Les préparateurs ou robots réservent les articles disponibles, se rendent aux racks, prélèvent les différentes familles et déposent le panier à l’emballage. Un agent et un poste libre sont nécessaires pour emballer : l’emballeur prend le bac au bout du tapis roulant, le porte à son poste, forme le carton, y transfère les articles, ferme les rabats et scotche, puis dépose le colis dans la zone d’expédition. Les colis attendent ensuite au quai ; une camionnette et un chauffeur les livrent. Le revenu est encaissé à la livraison ; un retard réduit le paiement et la note de service.
 
-Le tableau de flux montre commandes à préparer, prélèvement, emballage, colis prêts et tournées. Les stocks manquants, retards et embouteillages d’emballage sont signalés. Le matin et la fin d’après-midi apportent des vagues de demandes. Des commandes clients pro facultatives ajoutent des lots de colis express et une prime si toutes sont livrées dans les délais.
+Un bandeau à droite liste toutes les commandes non livrées, des plus urgentes aux moins urgentes, avec leur étape et le temps restant. Le tableau de flux montre commandes à préparer, prélèvement, emballage, colis prêts et tournées. Les stocks manquants, retards et embouteillages d’emballage sont signalés. Le matin et la fin d’après-midi apportent des vagues de demandes. Des commandes clients pro facultatives ajoutent des lots de colis express et une prime si toutes sont livrées dans les délais.
 
 ## Stocks et réception
 
