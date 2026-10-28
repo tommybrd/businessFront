@@ -7,3 +7,4 @@
 
 [data-open=finance]{position:relative}.pay-chip{position:absolute;left:8px;top:-6px;padding:3px 9px;border-radius:999px;background:#1f7a4a;color:#fff;font-size:12px;font-weight:800;white-space:nowrap;pointer-events:none;z-index:6;animation:pay-drop 1.6s ease-in forwards}@keyframes pay-drop{0%{opacity:0;transform:translateY(-14px)}15%{opacity:1;transform:translateY(0)}70%{opacity:1;transform:translateY(10px)}100%{opacity:0;transform:translateY(26px) scale(.8)}}#money.paid{animation:pay-pulse .6s ease-out}@keyframes pay-pulse{0%{color:#5fd393;transform:scale(1.12)}100%{transform:scale(1)}}#money{display:inline-block}
 @media(prefers-reduced-motion:reduce){.pay-chip{animation-duration:.01s}#money.paid{animation:none}}
+.advice{display:block;width:100%;margin-top:8px;padding:8px 10px;border:1px solid #efb74f66;border-radius:8px;background:#efb74f1f;color:#f5d48f;font-size:12px;font-weight:700;text-align:left;cursor:pointer}.advice:hover{background:#efb74f33}

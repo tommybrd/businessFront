@@ -149,3 +149,20 @@ test('the server pours drinks, takes cans and ice creams, fetches fries and burg
  const old=R.createRestaurantGame(5);delete old.staff.server;old.workers=old.workers.filter(w=>w.role!=='server');old.ingredients=old.ingredients.slice(0,7);delete old.supplies.pots;readSave(JSON.stringify(makeSave(old)));
  const loaded=R.migrateRestaurantGame({schemaVersion:3,state:old});assert.equal(loaded.staff.server,1);assert.equal(loaded.ingredients.length,9);assert.ok(loaded.supplies.pots>0);readSave(JSON.stringify(makeSave(loaded)));
 });
+
+test('ordering kiosks suggest a dessert or fries and part of the guests accept, adding to the bill',()=>{
+ const s=R.createRestaurantGame(8);s.money=s.initialCash=s.dayStartCash=50000;R.buyRestaurantEquipment(s,'kiosks');R.buyRestaurantEquipment(s,'kiosks');R.advanceRestaurant(s,R.OPENING.open+180-s.minute);
+ const kiosk=s.orders.filter(o=>o.till?.kind==='kiosk'),upsold=kiosk.filter(o=>o.upsell>0);assert.ok(kiosk.length>5&&upsold.length>0,`${kiosk.length} commandes borne, ${upsold.length} avec ajout`);
+ assert.ok(s.orders.filter(o=>o.till?.kind==='register').every(o=>!o.upsell),'cashiers do not upsell');assert.ok(Math.abs(s.daily.upsell-upsold.reduce((n,o)=>n+o.upsell,0))<.01);reconcile(s);
+});
+
+test('the drive: cars order at the board, pay, collect their bag at the window and loop back to the street',()=>{
+ const s=R.createRestaurantGame(3);s.money=s.initialCash=s.dayStartCash=60000;assert.throws(()=>R.setRestaurantPolicy(s,'driveOpen',true),/drive/);
+ R.buyRestaurantEquipment(s,'drive');R.setRestaurantPolicy(s,'driveOpen',true);R.advanceRestaurant(s,R.OPENING.open+60-s.minute);assert.equal(s.cars.length,0,'no car without a drive crew member');
+ R.setRestaurantStaff(s,'drive',1);const phases=new Set();let maxD=0;for(let m=0;m<120;m++){R.advanceRestaurant(s,1);for(const c of s.cars){phases.add(c.phase);maxD=Math.max(maxD,c.d);}}
+ const drive=s.orders.filter(o=>o.channel==='drive');assert.ok(drive.length>5,`${drive.length} commandes drive`);assert.ok(drive.some(o=>o.stage==='served'&&!o.refunded),'bags handed out at the window');
+ for(const p of ['to_speaker','ordering','to_window','window'])assert.ok(phases.has(p),p);assert.ok(s.cars.length<=R.DRIVE_CARS);assert.ok(drive.every(o=>o.till.kind==='drive'&&o.lines.some(l=>R.BURGERS.includes(l.item))));
+ const crew=s.workers.find(w=>w.role==='drive');assert.ok(crew);reconcile(s);readSave(JSON.stringify(makeSave(s)));
+ R.advanceRestaurant(s,R.OPENING.close-s.minute);assert.equal(s.cars.length,0,'the lane is empty after closing');
+ const old=R.createRestaurantGame(5);delete old.equipment.drive;delete old.staff.drive;delete old.cars;delete old.driveOpen;delete old.driveCredit;readSave(JSON.stringify(makeSave(old)));const loaded=R.migrateRestaurantGame({schemaVersion:3,state:old});assert.equal(loaded.equipment.drive,0);assert.equal(loaded.staff.drive,0);assert.deepEqual(loaded.cars,[]);R.advanceRestaurant(loaded,30);readSave(JSON.stringify(makeSave(loaded)));
+});

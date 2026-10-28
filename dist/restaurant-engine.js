@@ -31,8 +31,8 @@ export const MENU={
 export const BURGERS=['classic','double','chicken'];
 export const PACKAGING={boxes:{name:'Boîtes burger',short:'Boîtes',cost:.12,lot:200},cups:{name:'Gobelets',short:'Gobelets',cost:.06,lot:250},cartons:{name:'Cornets à frites',short:'Cornets',cost:.04,lot:250},bags:{name:'Sacs à emporter',short:'Sacs',cost:.08,lot:200},pots:{name:'Pots à glace',short:'Pots',cost:.05,lot:200}};
 export const PACKAGING_START={boxes:300,cups:300,cartons:300,bags:200,pots:200},PACKAGING_REORDER={boxes:40,cups:40,cartons:40,bags:30,pots:30};
-export const ROLES={cashier:{name:'Caisse',wage:95,icon:'🧾'},grill:{name:'Grill',wage:110,icon:'🔥'},fryer:{name:'Friteuse',wage:100,icon:'🍟'},assembly:{name:'Assemblage',wage:100,icon:'🍔'},server:{name:'Serveur',wage:95,icon:'🛎️'},floor:{name:'Salle',wage:90,icon:'🧽'}};
-export const EQUIPMENT={grills:{name:'Grill',price:4000,max:4,energy:14,min:1},fryers:{name:'Friteuse',price:2500,max:4,energy:10,min:1},assembly:{name:'Poste d’assemblage',price:1200,max:3,energy:2,min:1},registers:{name:'Caisse',price:1500,max:3,energy:1,min:1},kiosks:{name:'Borne de commande',price:6000,max:4,energy:6,min:0},tables:{name:'Table de 4',price:400,max:12,energy:0,min:2}};
+export const ROLES={cashier:{name:'Caisse',wage:95,icon:'🧾'},grill:{name:'Grill',wage:110,icon:'🔥'},fryer:{name:'Friteuse',wage:100,icon:'🍟'},assembly:{name:'Assemblage',wage:100,icon:'🍔'},server:{name:'Serveur',wage:95,icon:'🛎️'},drive:{name:'Drive',wage:95,icon:'🚗'},floor:{name:'Salle',wage:90,icon:'🧽'}};
+export const EQUIPMENT={grills:{name:'Grill',price:4000,max:4,energy:14,min:1},fryers:{name:'Friteuse',price:2500,max:4,energy:10,min:1},assembly:{name:'Poste d’assemblage',price:1200,max:3,energy:2,min:1},registers:{name:'Caisse',price:1500,max:3,energy:1,min:1},kiosks:{name:'Borne de commande',price:6000,max:4,energy:6,min:0},tables:{name:'Table de 4',price:400,max:12,energy:0,min:2},drive:{name:'Drive',price:18000,max:1,energy:4,min:0}};
 export const RES_LIMITS={staff:12,customers:90};
 export const FORMATS={balanced:{name:'Équilibré',rate:1,takeaway:.45,patience:0},fast:{name:'Restauration rapide',rate:1.25,takeaway:.6,patience:-2},gourmet:{name:'Burger gourmet',rate:.75,takeaway:.3,patience:4}};
 export const SERVICE_TARGET=8,GRILL_MINUTES=4,FRY_MINUTES=3,CLEAN_MINUTES=2;
@@ -43,7 +43,12 @@ export const LAYOUT={door:[-3,9.6],outside:[-3,13.5],street:[-20,13.5],pass:[0,-
  register:i=>[-7+i*2.6,.6],cashier:i=>[-7+i*2.6,-.4],registerFront:i=>[-7+i*2.6,1.8],kiosk:i=>[1.6+i*1.9,2],kioskFront:i=>[1.6+i*1.9,2.9],
  queue:k=>[-5.5+(k>=8?2:0),3.4+(k%8)*.8],
  table:i=>i<6?[-14.2+(i%2)*3.6,4.4+Math.floor(i/2)*2.4]:[9.2+(i%2)*3.6,6.6+Math.floor((i-6)/2)*1.6],
- cleaner:[-12,-2]};
+ cleaner:[-12,-2],
+ // Drive: cars come off the street, order at the menu board, collect at the window in the right wall, then loop back to the street.
+ drivePath:[[26,14.6],[18.6,14.6],[18.6,-8.4],[23.2,-8.4],[23.2,13],[26,13]],driveBoard:[17.4,10.5],driveWindow:[16.5,-2.5],driveCrew:[15.7,-2.5],driveShelf:[5.6,-1.95]};
+const routeLegs=LAYOUT.drivePath.slice(1).map((p,i)=>Math.hypot(p[0]-LAYOUT.drivePath[i][0],p[1]-LAYOUT.drivePath[i][1]));
+export const DRIVE_LENGTH=routeLegs.reduce((a,b)=>a+b,0),DRIVE_SPEAKER=routeLegs[0]+14.6-10.5,DRIVE_PICKUP=routeLegs[0]+14.6+2.5,DRIVE_GAP=3.4,DRIVE_CARS=7,CAR_SPEED=40,DRIVE_SHARE=.45;
+export function drivePoint(d){let left=Math.max(0,Math.min(DRIVE_LENGTH,d));for(let i=0;i<routeLegs.length;i++){const a=LAYOUT.drivePath[i],b=LAYOUT.drivePath[i+1];if(left<=routeLegs[i]||i===routeLegs.length-1){const t=routeLegs[i]?Math.min(1,left/routeLegs[i]):0;return {x:a[0]+(b[0]-a[0])*t,z:a[1]+(b[1]-a[1])*t,heading:Math.atan2(b[0]-a[0],b[1]-a[1])};}left-=routeLegs[i];}}
 
 export const SEASON_LENGTH=28,SEASON_EVENTS=[
  {id:'match',name:'Soirée de match',icon:'⚽',start:3,days:1,demand:1.8},
@@ -57,7 +62,7 @@ export function upcomingEvents(s,count=4){const list=[];for(let d=s.day;d<s.day+
 
 export const PROMO_DISCOUNTS=[10,20,30],PROMO_DURATIONS=[180,1440,4320],PROMO_SETUP=60,PROMO_VISIBILITY=1.2;
 export const LOAN_AMOUNTS=[5000,10000,25000,50000],LOAN_TERMS={10:.04,20:.07,30:.1},LOAN_LIMIT=100000;
-const freshDay=()=>({customers:0,served:0,onTime:0,late:0,walkouts:0,stockouts:0,revenue:0,refunds:0,cogs:0,waste:0,purchases:0,delivery:0,packaging:0,marketing:0,bonus:0,charges:0,wagesAccrued:0,waitSum:0,discarded:0});
+const freshDay=()=>({upsell:0,customers:0,served:0,onTime:0,late:0,walkouts:0,stockouts:0,revenue:0,refunds:0,cogs:0,waste:0,purchases:0,delivery:0,packaging:0,marketing:0,bonus:0,charges:0,wagesAccrued:0,waitSum:0,discarded:0});
 
 const itemCost=id=>Object.entries(MENU[id].recipe).reduce((n,[k,q])=>n+q*INGREDIENTS.find(i=>i.id===k).cost,0)+(MENU[id].box?PACKAGING.boxes.cost:0)+(MENU[id].carton?PACKAGING.cartons.cost:0)+(MENU[id].cup?PACKAGING.cups.cost:0)+(MENU[id].pot?PACKAGING.pots.cost:0);
 // Market margin of a typical order at base prices; the margin slider scales every price by the same factor.
@@ -76,7 +81,7 @@ export const rushCurve=m=>m<OPENING.open||m>=OPENING.lastEntry?0:m<720?.25:m<840
 
 export function createRestaurantGame(seed=4207){
  const s={kind:'restaurant',version:1,seed:seed>>>0,day:1,minute:OPENING.prep,speed:0,nextId:1,ticket:1,money:30000,initialCash:30000,dayStartCash:30000,reputation:80,format:'balanced',margin:PRICING.marketMargin,adBudget:0,promo:null,open:true,priority:'fifo',
-  equipment:{grills:1,fryers:1,assembly:1,registers:1,kiosks:0,tables:6},staff:{cashier:1,grill:1,fryer:1,assembly:1,server:1,floor:1},
+  equipment:{grills:1,fryers:1,assembly:1,registers:1,kiosks:0,tables:6,drive:0},staff:{cashier:1,grill:1,fryer:1,assembly:1,server:1,drive:0,floor:1},driveOpen:false,cars:[],driveCredit:0,
   ingredients:INGREDIENTS.map(i=>({id:i.id,lots:[{qty:i.initial-(BINS[i.id]??0),expires:1+i.shelf}],ordered:0,used:0,wasted:0})),kitchen:{bins:{...BINS},batches:[],holding:[],cookAhead:'normal'},supplies:{...PACKAGING_START},autoSupplies:true,supplyRules:{},restock:{},
   workers:[],customers:[],queue:[],orders:[],tables:[],shipments:[],contracts:[],loans:[],history:[],log:[],metrics:[],daily:freshDay(),
   totals:{revenue:0,refunds:0,cogs:0,waste:0,purchases:0,delivery:0,packaging:0,marketing:0,bonus:0,charges:0,investments:0,borrowed:0,repaid:0},arrivalCredit:0};
@@ -84,7 +89,7 @@ export function createRestaurantGame(seed=4207){
  createContracts(s);log(s,'Ouverture du restaurant : la cuisine se prépare, les portes ouvrent à 11 h.');return s;
 }
 function worker(s,role){const i=s.workers.filter(w=>w.role===role).length,home=homeOf(role,i);return {id:s.nextId++,role,retiring:false,phase:'idle',job:null,station:null,pos:[...home],path:[],target:null,remaining:0,speed:8};}
-function homeOf(role,i){return role==='cashier'?LAYOUT.cashier(i%3):role==='grill'?LAYOUT.grillCook(i%4):role==='fryer'?LAYOUT.fryCook(i%4):role==='assembly'?LAYOUT.assembler(i%3):role==='server'?LAYOUT.server(i%3):[LAYOUT.cleaner[0]+i*.8,LAYOUT.cleaner[1]];}
+function homeOf(role,i){return role==='drive'?[LAYOUT.driveCrew[0],LAYOUT.driveCrew[1]+i*.9]:role==='cashier'?LAYOUT.cashier(i%3):role==='grill'?LAYOUT.grillCook(i%4):role==='fryer'?LAYOUT.fryCook(i%4):role==='assembly'?LAYOUT.assembler(i%3):role==='server'?LAYOUT.server(i%3):[LAYOUT.cleaner[0]+i*.8,LAYOUT.cleaner[1]];}
 function syncTables(s){while(s.tables.length<s.equipment.tables)s.tables.push({state:'free',guest:null});while(s.tables.length>s.equipment.tables&&s.tables.at(-1).state==='free')s.tables.pop();}
 function go(w,target,phase){w.target=[...target];w.path=[[...target]];if(phase)w.phase=phase;}
 // Walk with a distance budget and return what is left, so a short errand and the next one can share the same minute.
@@ -138,9 +143,12 @@ function stepQueue(s){
  while(spots.length&&s.queue.length){const id=s.queue.shift(),c=s.customers.find(c=>c.id===id),spot=spots.shift();c.spot=spot;c.phase='to_order';c.path=[spot.kind==='register'?LAYOUT.registerFront(spot.index):LAYOUT.kioskFront(spot.index)];}
 }
 
-function placeOrder(s,c){let lines=chooseLines(s,c.size);if(!available(s,lines))lines=trimToStock(s,lines);
+// The kiosk suggests a dessert or fries on every screen; part of the guests accept.
+function upsell(s,lines,size){const extra=[];for(let p=0;p<size;p++){const r=random(s);if(r<.3)extra.push('sundae');else if(r<.42)extra.push('fries');else if(r<.5)extra.push('can');}
+ const more=lines.map(l=>({...l}));for(const item of extra){const l=more.find(l=>l.item===item);if(l)l.qty++;else more.push({item,qty:1});}return available(s,more)?{lines:more,extra}:{lines,extra:[]};}
+function placeOrder(s,c){let lines=chooseLines(s,c.size),extra=[];if(c.spot?.kind==='kiosk')({lines,extra}=upsell(s,lines,c.size));if(!available(s,lines)){lines=trimToStock(s,lines);extra=[];}
  if(!lines.some(l=>BURGERS.includes(l.item))){s.daily.stockouts++;s.reputation=Math.max(0,s.reputation-1);log(s,'Rupture : un client repart sans burger.','warning');leave(s,c);return;}
- const o=createRestaurantOrder(s,lines,{customer:c.id,channel:c.channel,till:c.spot});c.order=o.id;c.spot=null;c.phase='to_wait';const slot=LAYOUT.waitArea[s.customers.filter(x=>x.phase==='waiting'||x.phase==='to_wait').length%LAYOUT.waitArea.length];c.path=[slot];}
+ const o=createRestaurantOrder(s,lines,{customer:c.id,channel:c.channel,till:c.spot});if(extra.length){o.upsell=money(extra.reduce((n,i)=>n+itemPrice(s,i),0));s.daily.upsell=money((s.daily.upsell||0)+o.upsell);}c.order=o.id;c.spot=null;c.phase='to_wait';const slot=LAYOUT.waitArea[s.customers.filter(x=>x.phase==='waiting'||x.phase==='to_wait').length%LAYOUT.waitArea.length];c.path=[slot];}
 function leave(s,c){if(c.table!==null){const t=s.tables[c.table];if(t){t.state='dirty';t.guest=null;}c.table=null;}c.spot=null;c.phase='leaving';c.path=[[...LAYOUT.door],[...LAYOUT.outside],[...LAYOUT.street]];}
 
 function stepCustomers(s){const t=now(s);
@@ -162,7 +170,7 @@ function stepCustomers(s){const t=now(s);
 function serve(s,o){if(!o||o.stage==='served')return;o.stage='served';o.servedAt=now(s);const wait=o.servedAt-o.created,late=o.servedAt>o.deadline,m=metric(s);s.daily.served++;s.daily[late?'late':'onTime']++;s.daily.waitSum+=wait;m.served++;m.waitSum+=wait;if(late)m.late++;s.reputation=Math.max(0,Math.min(100,s.reputation+(late?-.8:.15)));
  if(o.group){const c=s.contracts.find(c=>c.id===o.group);if(c){c.status=late?'failed':'completed';if(!late){s.money=money(s.money+c.bonus);s.daily.bonus+=c.bonus;s.totals.bonus+=c.bonus;log(s,`Commande de groupe réussie : ${c.name} · prime ${c.bonus} €.`,'success');}else log(s,`Commande de groupe en retard : ${c.name}.`,'warning');}}}
 
-const packagingFor=o=>({boxes:orderCount(o,'box'),cups:orderCount(o,'cup'),cartons:0,pots:orderCount(o,'pot'),bags:o.channel==='takeaway'?Math.max(1,Math.ceil(orderItems(o)/6)):0});
+const packagingFor=o=>({boxes:orderCount(o,'box'),cups:orderCount(o,'cup'),cartons:0,pots:orderCount(o,'pot'),bags:o.channel!=='dine'?Math.max(1,Math.ceil(orderItems(o)/6)):0});
 export function missingPackaging(s){const need=new Set();if(!s.supplies.cartons&&s.kitchen?.holding.some(h=>h.kind==='fries'&&!h.portioned))need.add('cartons');for(const o of s.orders)if(o.stage==='kitchen'&&o.assemble.state==='todo'&&o.grill.state==='done')for(const [k,q] of Object.entries(packagingFor(o)))if(q>s.supplies[k])need.add(k);return [...need];}
 // Grills and fryers cook several tickets at once up to their capacity; each needs its own cook. Assembly is one ticket per station.
 export const STATION_CAPACITY={grill:8,fry:6};
@@ -230,9 +238,36 @@ export function serviceStops(o){const front=(p,dz=.85)=>[p[0],p[1]+dz],stops=[];
  for(const [stop,key,place] of [['drink','drink','drinkMachine'],['can','can','canFridge'],['sundae','ice','iceMachine']])if(orderCount(o,key))stops.push({stop,at:front(LAYOUT[place]),count:orderCount(o,key)});
  if(orderCount(o,'fries'))stops.push({stop:'fries',at:[LAYOUT.fryHolding[0],LAYOUT.fryHolding[1]+.8],via:[[2.1,-2]],count:orderCount(o,'fries')});
  if(orderCount(o,'box'))stops.push({stop:'burgers',at:[...LAYOUT.landing(o.assemble.station??0)],count:orderCount(o,'box')});
- stops.push({stop:o.channel==='dine'?'tray':'bag',at:[...LAYOUT.server(o.pack.slot??0)],count:1});return stops;}
+ stops.push({stop:o.channel==='dine'?'tray':'bag',at:o.channel==='drive'?[...LAYOUT.driveShelf]:[...LAYOUT.server(o.pack.slot??0)],count:1});return stops;}
 export function assemblySteps(o){const steps=[{step:'toast',burger:-1}];let b=0;for(const l of o.lines)if(BUILD[l.item])for(let q=0;q<l.qty;q++,b++)for(const step of BUILD[l.item])steps.push({step,burger:b,item:l.item});
  return b?steps:[];}
+// Drive: cars move along the lane keeping their distance, order at the board while a drive crew member is on headset, pay, and collect at the window.
+export const driveActive=s=>s.equipment.drive>0&&s.driveOpen&&s.workers.some(w=>w.role==='drive'&&!w.retiring);
+function spawnCar(s){if(s.cars.length>=DRIVE_CARS||s.cars.some(c=>c.d<DRIVE_GAP)){s.daily.walkouts++;metric(s).walkouts++;return;}
+ const size=random(s)<.55?1:random(s)<.6?2:random(s)<.6?3:4;s.cars.push({id:s.nextId++,size,phase:'to_speaker',d:0,prev:0,remaining:0,order:null,look:Math.floor(random(s)*6),arrived:now(s)});s.daily.customers++;metric(s).customers++;}
+function stepCars(s){const crew=s.workers.some(w=>w.role==='drive'&&!w.retiring),cars=[...s.cars].sort((a,b)=>b.d-a.d);
+ cars.forEach((c,i)=>{c.prev=c.d;const limit=i?cars[i-1].d-DRIVE_GAP:Infinity,move=stop=>{c.d=Math.max(c.d,Math.min(c.d+CAR_SPEED,stop,limit));return c.d>=stop-1e-6;};
+  if(c.phase==='to_speaker'&&move(DRIVE_SPEAKER)){c.phase='ordering';c.remaining=1+Math.floor(c.size/3);}
+  else if(c.phase==='ordering'&&crew&&--c.remaining<=0){let lines=chooseLines(s,c.size);if(!available(s,lines))lines=trimToStock(s,lines);
+   if(!lines.some(l=>BURGERS.includes(l.item))){s.daily.stockouts++;s.reputation=Math.max(0,s.reputation-1);log(s,'Rupture : une voiture du drive repart sans commande.','warning');c.phase='leaving';}
+   else{const o=createRestaurantOrder(s,lines,{channel:'drive',till:{kind:'drive',index:0}});c.order=o.id;c.phase='to_window';}}
+  else if(c.phase==='to_window'&&move(DRIVE_PICKUP))c.phase='window';
+  else if(c.phase==='window'&&s.orders.find(o=>o.id===c.order)?.stage==='served')c.phase='leaving';
+  if(c.phase==='leaving'&&move(DRIVE_LENGTH+DRIVE_GAP))s.cars=s.cars.filter(x=>x!==c);});}
+function stepDriveCrew(s){const crew=s.workers.filter(w=>w.role==='drive');
+ for(const [n,w] of crew.entries()){w.speed=SERVER_SPEED;let budget=SERVER_SPEED;const trail=[[...w.pos]],home=[LAYOUT.driveCrew[0],LAYOUT.driveCrew[1]+n*.9];
+  for(let guard=0;guard<6;guard++){budget=walkBudget(w,budget,trail);if(w.path.length||budget<=0)break;
+   const o=w.job!==null?s.orders.find(o=>o.id===w.job&&o.stage!=='served'):null;if(!o){w.job=null;w.load=null;}
+   if(o&&w.load){// Back at the window with the bag: hand it over once the car is there.
+    const car=s.cars.find(c=>c.order===o.id);if(o.stage==='served'||!car){w.job=null;w.load=null;continue;}if(car.phase!=='window'){w.phase='waiting';break;}
+    budget-=SERVE_SECONDS.bag*w.speed/60;trail.push([...w.pos,7,Math.round(SERVE_SECONDS.bag*w.speed/60*100)/100]);serve(s,o);w.job=null;w.load=null;w.phase='idle';continue;}
+   if(o){w.load='bag';w.phase='serving';w.path=[[8,-1.95],[...home]];continue;}
+   if(w.retiring)break;const taken=new Set(crew.map(x=>x.job)),next=[...s.cars].sort((a,b)=>b.d-a.d).map(c=>s.orders.find(o=>o.id===c.order&&o.stage!=='served')).filter(Boolean).filter(o=>!taken.has(o.id))[0];
+   // Bags go out in the order of the lane, so the car at the window is never blocked by the one behind.
+   if(next&&next.stage!=='ready'){w.phase=s.cars.some(c=>c.phase==='ordering')?'working':'idle';if(Math.hypot(w.pos[0]-home[0],w.pos[1]-home[1])>.01){go(w,home);continue;}break;}
+   if(next){w.job=next.id;w.load=null;w.phase='serving';w.path=[[8,-1.95],[...LAYOUT.driveShelf]];continue;}
+   w.phase=s.cars.some(c=>c.phase==='ordering')?'working':'idle';if(Math.hypot(w.pos[0]-home[0],w.pos[1]-home[1])>.01){go(w,home);continue;}break;}
+  w.trail=trail.length>1?trail:null;}}
 function stepServers(s,tickets){const servers=s.workers.filter(w=>w.role==='server');
  for(const w of servers){w.speed=SERVER_SPEED;let budget=SERVER_SPEED;const trail=[[...w.pos]];
   for(let guard=0;guard<8;guard++){budget=walkBudget(w,budget,trail);if(w.path.length||budget<=0)break;
@@ -261,7 +296,7 @@ function stepKitchen(s){
    while(seconds>0&&a.progress<steps.length){const i=Math.floor(a.progress),need=STEP_SECONDS[steps[i].step]*(1-(a.progress-i));if(seconds>=need-1e-9){seconds-=need;a.progress=i+1;}else{a.progress=i+(a.progress-i)+seconds/STEP_SECONDS[steps[i].step];seconds=0;}}
    a.remaining=Math.ceil(stepsLeft(steps,a.progress)/60);if(a.progress>=steps.length){a.state='done';a.remaining=0;w.phase='idle';w.job=null;}}
   if(w.phase!=='working'&&!w.path.length){const home=LAYOUT.assembler(Math.min(w.station??0,s.equipment.assembly-1));if(Math.hypot(w.pos[0]-home[0],w.pos[1]-home[1])>.01)go(w,home);}}
- stepServers(s,tickets);
+ stepServers(s,tickets);stepDriveCrew(s);
  for(const o of s.orders)if(o.stage==='kitchen'&&['grill','fry','assemble','pack'].every(k=>o[k].state==='done')){o.stage='ready';o.readyAt=now(s);}}
 
 function stepStaff(s){
@@ -281,7 +316,8 @@ export function setRestaurantPolicy(s,key,value){
  else if(key==='cookAhead'&&COOK_AHEAD[value])s.kitchen.cookAhead=value;
  else if(key==='margin'&&Number.isInteger(Number(value))&&Number(value)>=PRICING.minMargin&&Number(value)<=PRICING.maxMargin)s.margin=Number(value);
  else if(key==='adBudget'&&Number.isInteger(Number(value))&&Number(value)>=0&&Number(value)<=PRICING.maxAdBudget&&Number(value)%50===0)s.adBudget=Number(value);
- else if(['open','autoSupplies'].includes(key)&&typeof value==='boolean')s[key]=value;else throw Error('Réglage invalide.');}
+ else if(['open','autoSupplies'].includes(key)&&typeof value==='boolean')s[key]=value;
+ else if(key==='driveOpen'&&typeof value==='boolean'){if(value&&!s.equipment.drive)throw Error('Installez d’abord le drive.');s.driveOpen=value;log(s,value?'Drive ouvert : les voitures peuvent commander au haut-parleur.':'Drive fermé.');}else throw Error('Réglage invalide.');}
 export function toggleRestaurantRush(s,id){const o=s.orders.find(o=>o.id===id);if(!o||o.stage!=='kitchen')throw Error('Cette commande n’est plus en cuisine.');o.rush=!o.rush;}
 
 // Ingredient purchases: delivered at 9 h (if ordered before 8 h 30, else the next morning) or within the hour in express.
@@ -329,7 +365,7 @@ function payLoans(s){for(const l of s.loans){const {principal,interest}=loanShar
 function closeDay(s){
  // Guests still inside leave; unfinished orders are refunded.
  for(const o of s.orders)if(o.stage!=='served'){o.stage='served';o.refunded=true;o.servedAt=now(s);s.money=money(s.money-o.value);s.daily.refunds=money(s.daily.refunds+o.value);s.totals.refunds=money(s.totals.refunds+o.value);}
- s.customers=[];s.queue=[];s.tables.forEach(t=>{t.state='free';t.guest=null;});for(const w of s.workers){w.phase='idle';w.job=null;w.path=[];w.pos=[...homeOf(w.role,s.workers.filter(x=>x.role===w.role).indexOf(w))];}
+ s.customers=[];s.queue=[];s.cars=[];s.driveCredit=0;s.tables.forEach(t=>{t.state='free';t.guest=null;});for(const w of s.workers){w.phase='idle';w.job=null;w.path=[];w.pos=[...homeOf(w.role,s.workers.filter(x=>x.role===w.role).indexOf(w))];}
  // At closing, cooked patties are thrown away and the raw bins go back to the cold room for the night.
  for(const w of s.workers)if(w.carry?.raw)dropCarry(s,w);
  for(const p of COOKED){wastePatties(s,p,held(s,p)+grilling(s,p)+carried(s,p),'fermeture');if(s.kitchen.bins[p]){s.ingredients.find(i=>i.id===p).lots.push({qty:s.kitchen.bins[p],expires:s.day+1});s.kitchen.bins[p]=0;}}s.kitchen.holding=[];s.kitchen.batches=[];for(const w of s.workers){w.carry=null;w.plan=null;}
@@ -342,7 +378,8 @@ function closeDay(s){
 export function advanceRestaurant(s,minutes){if(!Number.isInteger(minutes)||minutes<0||minutes>2880)throw Error('Durée invalide.');for(let n=0;n<minutes;n++){
  s.minute++;s.daily.wagesAccrued=(s.daily.wagesAccrued||0)+s.workers.reduce((t,w)=>t+ROLES[w.role].wage,0)/(OPENING.close-OPENING.prep);
  if(s.open){s.arrivalCredit+=rushCurve(s.minute)*.55*restaurantDemand(s).factor*(.85+random(s)*.3);while(s.arrivalCredit>=1){s.arrivalCredit--;spawnGroup(s);}}
- stepContracts(s);stepCustomers(s);stepQueue(s);stepKitchen(s);stepStaff(s);stepDeliveries(s);restockIngredients(s);restockPackaging(s);spendAdvertising(s);
+ if(s.open&&driveActive(s)){s.driveCredit=(s.driveCredit||0)+rushCurve(s.minute)*.55*DRIVE_SHARE*restaurantDemand(s).factor*(.85+random(s)*.3);while(s.driveCredit>=1){s.driveCredit--;spawnCar(s);}}
+ stepContracts(s);stepCars(s);stepCustomers(s);stepQueue(s);stepKitchen(s);stepStaff(s);stepDeliveries(s);restockIngredients(s);restockPackaging(s);spendAdvertising(s);
  if(s.promo&&!promoActive(s)){s.promo=null;log(s,'Fin de la promotion.');}
  if(s.minute===720)log(s,'Coup de feu du midi.');if(s.minute===1140)log(s,'Service du soir.');if(s.minute===OPENING.open)log(s,'Portes ouvertes.');
  if(s.minute>=OPENING.close)closeDay(s);}}
@@ -353,7 +390,8 @@ export function migrateRestaurantGame(record,{warehouseState,stockValue:previous
   // Drinks, cans, ice creams and the server role arrived after the first restaurant saves.
   for(const def of INGREDIENTS)if(!s.ingredients.some(i=>i.id===def.id))s.ingredients.push({id:def.id,lots:[{qty:def.initial,expires:s.day+def.shelf}],ordered:0,used:0,wasted:0});s.supplies.pots??=PACKAGING_START.pots;
   if(s.staff.server===undefined){s.staff={cashier:s.staff.cashier,grill:s.staff.grill,fryer:s.staff.fryer,assembly:s.staff.assembly,server:1,floor:s.staff.floor};s.workers.push(worker(s,'server'));}
-  for(const o of s.orders)o.pack??={state:o.stage==='kitchen'?'todo':'done',worker:null};return s;}
+  for(const o of s.orders)o.pack??={state:o.stage==='kitchen'?'todo':'done',worker:null};
+  s.equipment.drive??=0;if(s.staff.drive===undefined){const {floor,...rest}=s.staff;s.staff={...rest,drive:0,floor};}s.driveOpen??=false;s.cars??=[];s.driveCredit??=0;return s;}
  const old=warehouseState??record.state,s=createRestaurantGame(old.seed);const debt=(old.loans||[]).reduce((n,l)=>n+l.principalLeft,0),net=money(old.money+previousStock-debt),support=money(Math.max(0,30000-net));
  s.money=money(net+support);s.initialCash=s.money;s.dayStartCash=s.money;s.legacyArchive=record.schemaVersion===2?structuredClone(record):{schemaVersion:2,state:structuredClone(old),preferences:{checkoutSound:true}};s.transition={cash:old.money,assets:money(previousStock),debt:money(debt),support,day:old.day};
  log(s,`Reconversion en restaurant : ancien centre archivé, capital de départ ${s.money.toLocaleString('fr-FR')} €.`);return s;}
