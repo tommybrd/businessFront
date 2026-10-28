@@ -103,3 +103,49 @@ test('the 28-day calendar and the concept change how many guests come',()=>{
  assert.ok(Math.abs(R.restaurantDemand(match).factor/R.restaurantDemand(calm).factor-1.8)<1e-9);assert.ok(R.restaurantDemand(fast).factor>R.restaurantDemand(calm).factor);
  const groups=day=>{const g=R.createRestaurantGame(16);g.day=day;return runDay(g).customers;};assert.ok(groups(26)>groups(1)*1.4,'Journée du burger, salle pleine');assert.ok(groups(19)<groups(1),'vacances');
 });
+
+test('fries: potatoes through the cutter into the cut-fries bin, fryer basket, heat-lamp station, cartons, 7 minutes before waste',()=>{
+ const s=R.createRestaurantGame(9);s.open=false;s.minute=700;R.setRestaurantPolicy(s,'cookAhead','order');const cook=s.workers.find(w=>w.role==='fryer'),bin=s.kitchen.bins.fries,cartons=s.supplies.cartons,trails=[];
+ const o=R.createRestaurantOrder(s,[{item:'classic',qty:1},{item:'fries',qty:3}],{channel:'dine'});assert.equal(R.kitchenStatus(s).fries.waiting,3);
+ for(let m=0;m<10;m++){R.advanceRestaurant(s,1);if(cook.trail)trails.push(cook.trail);}
+ const visits=trails.flat(),near=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1])<.6;
+ assert.ok(visits.some(p=>near(p,[R.LAYOUT.freezer[0],R.LAYOUT.freezer[1]+1.1])),'goes to the freezer bin');assert.ok(visits.some(p=>near(p,[R.LAYOUT.fryHolding[0],R.LAYOUT.fryHolding[1]-.8])),'brings the fries to the heat lamp');
+ assert.ok(visits.some(p=>p[2]===3)&&visits.some(p=>p[2]===4),'carries frozen then fried');assert.equal(o.fry.state,'done');assert.equal(s.kitchen.bins.fries,bin-3);
+ assert.equal(s.supplies.cartons,cartons-3,'one carton per portion, used when the fries are portioned');assert.equal(R.friesLoose(s),0);assert.equal(R.friesReady(s),0,'the three cartons went to the ticket');
+ s.kitchen.bins.fries=5;const potatoes=s.ingredients.find(i=>i.id==='fries').lots.reduce((n,l)=>n+l.qty,0),cut=[],phases=new Set();
+ for(let m=0;m<8;m++){R.advanceRestaurant(s,1);phases.add(cook.phase);if(cook.trail)cut.push(...cook.trail);}
+ assert.ok(phases.has('cutting'),'the sack goes through the cutter');assert.ok(cut.some(p=>p[2]===5),'carries a potato sack');assert.ok(cut.some(p=>near(p,[R.LAYOUT.cutter[0]-.2,R.LAYOUT.cutter[1]+1.1])),'stands at the cutter');
+ assert.equal(s.kitchen.bins.fries,5+R.SACK,'the cut fries fill the big bin');assert.equal(potatoes-s.ingredients.find(i=>i.id==='fries').lots.reduce((n,l)=>n+l.qty,0),R.SACK);
+ s.kitchen.holding.push({kind:'fries',qty:4,cookedAt:(s.day-1)*1440+s.minute});const before=s.daily.discarded;R.advanceRestaurant(s,R.FRY_HOLD_MINUTES+1);assert.equal(s.daily.discarded-before,4,'soggy fries are thrown away after 7 minutes');makeSave(s);
+ const old=R.createRestaurantGame(5);delete old.kitchen.bins.fries;R.createRestaurantOrder(old,[{item:'fries',qty:1},{item:'classic',qty:1}]);const loaded=R.migrateRestaurantGame({schemaVersion:3,state:old});assert.equal(loaded.kitchen.bins.fries,0);assert.ok(loaded.orders.every(o=>o.fry.state==='done'),'fries already taken by older orders');
+});
+
+test('every customer payment records the till that took it, so the amount can rise above it and enter the cash',()=>{
+ const s=R.createRestaurantGame(4),before=s.money;R.advanceRestaurant(s,R.OPENING.open+90-s.minute);
+ const paid=s.orders.filter(o=>o.customer!==null);assert.ok(paid.length>5);assert.ok(paid.every(o=>o.till&&['register','kiosk'].includes(o.till.kind)&&Number.isInteger(o.till.index)),'each guest order knows its till');
+ assert.ok(s.daily.revenue>0&&s.money!==before);reconcile(s);const loaded=readSave(JSON.stringify(makeSave(s)));assert.deepEqual(loaded.state.orders.at(-1).till,s.orders.at(-1).till);
+ const bad=makeSave(s);bad.state.orders[0].till={kind:'drawer',index:0};assert.throws(()=>readSave(JSON.stringify(bad)));
+});
+
+test('the assembler follows the building guide: toaster, then each burger layer by layer and boxed',()=>{
+ const s=R.createRestaurantGame(6);s.open=false;s.minute=700;const o=R.createRestaurantOrder(s,[{item:'classic',qty:1},{item:'double',qty:1},{item:'fries',qty:1},{item:'drink',qty:2}],{channel:'takeaway'});
+ const steps=R.assemblySteps(o).map(x=>x.step);
+ assert.deepEqual(steps,['toast','heel','sauce','salad','tomato','cheese','patty','crown','box','heel','sauce','cheese','patty','cheese','patty','crown','box']);
+ assert.deepEqual(R.BUILD.chicken.slice(1,3),['mayo','salad']);assert.deepEqual(R.assemblySteps({lines:[{item:'can',qty:1}]}),[]);
+ R.createRestaurantOrder(s,[{item:'chicken',qty:3},{item:'double',qty:2}],{channel:'dine'});const big=s.orders.at(-1),seen=[];for(let m=0;m<15&&big.assemble.state!=='done';m++){R.advanceRestaurant(s,1);if(big.assemble.state==='active')seen.push(big.assemble.progress);}
+ assert.ok(seen.length>=1&&seen.every((p,i)=>i===0||p>seen[i-1]),'progress moves forward step by step');assert.equal(o.assemble.state,'done');assert.equal(big.assemble.state,'done');
+});
+
+test('the server pours drinks, takes cans and ice creams, fetches fries and burgers, then packs the tray or the bag',()=>{
+ const s=R.createRestaurantGame(6);s.open=false;s.minute=700;const server=s.workers.find(w=>w.role==='server');assert.ok(server,'a server is hired from the start');
+ const cans=R.ingredientStock(s,'cans'),ice=R.ingredientStock(s,'icecream'),pots=s.supplies.pots;
+ const o=R.createRestaurantOrder(s,[{item:'classic',qty:1},{item:'fries',qty:1},{item:'drink',qty:1},{item:'can',qty:1},{item:'sundae',qty:1}],{channel:'dine'});
+ assert.equal(R.ingredientStock(s,'cans'),cans-1);assert.equal(R.ingredientStock(s,'icecream'),ice-1);
+ assert.deepEqual(R.serviceStops(o).map(x=>x.stop),['drink','can','sundae','fries','burgers','tray']);
+ const trail=[];for(let m=0;m<15&&o.stage==='kitchen';m++){R.advanceRestaurant(s,1);if(server.trail)trail.push(...server.trail);}
+ assert.equal(o.stage,'ready');assert.equal(o.pack.state,'done');assert.equal(s.supplies.pots,pots-1,'one pot per ice cream');
+ const near=p=>trail.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<.3);assert.ok(near([R.LAYOUT.drinkMachine[0],R.LAYOUT.drinkMachine[1]+.85]),'at the drink fountain');assert.ok(near([R.LAYOUT.iceMachine[0],R.LAYOUT.iceMachine[1]+.85]),'at the ice cream machine');assert.ok(near(R.LAYOUT.landing(0)),'picks the boxed burgers');assert.ok(trail.some(q=>q[2]===6),'carries the tray');
+ const none=R.createRestaurantGame(6);R.setRestaurantStaff(none,'server',0);none.open=false;none.minute=700;const stuck=R.createRestaurantOrder(none,[{item:'classic',qty:1}],{channel:'takeaway'});R.advanceRestaurant(none,12);assert.equal(stuck.stage,'kitchen','without a server nothing reaches the pass');
+ const old=R.createRestaurantGame(5);delete old.staff.server;old.workers=old.workers.filter(w=>w.role!=='server');old.ingredients=old.ingredients.slice(0,7);delete old.supplies.pots;readSave(JSON.stringify(makeSave(old)));
+ const loaded=R.migrateRestaurantGame({schemaVersion:3,state:old});assert.equal(loaded.staff.server,1);assert.equal(loaded.ingredients.length,9);assert.ok(loaded.supplies.pots>0);readSave(JSON.stringify(makeSave(loaded)));
+});

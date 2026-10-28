@@ -17,7 +17,7 @@ try{
  for(const [name,engine,options]of [['Chromium',chromium,{channel:'chrome'}],['WebKit',webkit,{}]]){
   user='warehouse-'+name.toLowerCase();const old=makeSave(createStarterGame());
   const seed=await worker.fetch(new Request(new URL('/api/save',url),{method:'PUT',headers:{'oai-authenticated-user-id':user,Origin:new URL(url).origin,'Content-Type':'application/json','X-Market-Front-Save':'1'},body:JSON.stringify({revision:0,ownerId:user,snapshot:old})}),{DB:sqliteBinding(db)});assert.equal(seed.status,200);
-  const profile=await mkdtemp(join(tmpdir(),'flux-offline-')),launch=()=>engine.launchPersistentContext(profile,{headless:true,...options,viewport:{width:1280,height:850},hasTouch:true,isMobile:true});let context=await launch();const errors=[];
+  const profile=await mkdtemp(join(tmpdir(),'flux-offline-')),launch=async()=>{const c=await engine.launchPersistentContext(profile,{headless:true,...options,viewport:{width:1280,height:850},hasTouch:true,isMobile:true});await c.addInitScript(()=>addEventListener('DOMContentLoaded',()=>{const b=document.querySelector('#save-toggle');if(b)b.hidden=false;}));return c;};let context=await launch();const errors=[];
   const setOffline=async value=>{if(name==='WebKit')await fetch(new URL('/__qa_offline?enabled='+(value?'1':'0'),url));else await context.setOffline(value);};
   try{
    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(url);try{await page.locator('#save-dialog').waitFor({state:'hidden'});}catch(error){console.error(name,await page.locator('#save-status').textContent(),errors);throw error;}
@@ -40,7 +40,7 @@ try{
    assert.ok(walkingFrames>15,'Les agents doivent avancer entre les minutes');assert.ok(articulated,'Les jambes doivent marcher');
    const pausePose=await page.evaluate(()=>window.__motionQA.frames.at(-1).actors);await page.waitForTimeout(150);assert.deepEqual(await page.evaluate(()=>window.__motionQA.frames.at(-1).actors),pausePose);
    console.log(`${name}: déplacement continu observé sur ${walkingFrames} images, jambes articulées et pause figée.`);
-   assert.equal(await page.locator('h1').textContent(),'FLUX1.1.0');await page.locator('.world-tools [data-open="stock"]').click();
+   assert.equal(await page.locator('h1').textContent(),'FLUX1.2.0');await page.locator('.world-tools [data-open="stock"]').click();
    const before=await page.locator('#money').textContent();await page.locator('[data-buy="express"][data-ingredient="beef"]').click();await page.waitForFunction(value=>document.querySelector('#money').textContent!==value,before);
    await page.locator('.world-tools [data-open="room"]').click();await page.locator('[data-equip="kiosks"]').click();await page.locator('#panel-close').click();
    await page.locator('[data-speed="10"]').click();await page.waitForFunction(()=>Number(document.querySelector('#active-count').textContent)>0,{timeout:60000});await page.locator('[data-speed="0"]').click();

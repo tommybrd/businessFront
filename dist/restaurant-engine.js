@@ -13,8 +13,10 @@ export const INGREDIENTS=[
  {id:'chicken',name:'Filets de poulet',short:'Poulet',cost:.9,shelf:3,lot:40,color:'#e8c08a',initial:160,trigger:100,lots:3},
  {id:'cheese',name:'Cheddar en tranches',short:'Cheddar',cost:.18,shelf:10,lot:100,color:'#f2b938',initial:400,trigger:300,lots:3},
  {id:'veggies',name:'Salade & tomates',short:'Légumes',cost:.15,shelf:2,lot:80,color:'#6fbf5a',initial:240,trigger:220,lots:3},
- {id:'fries',name:'Frites surgelées',short:'Frites',cost:.32,shelf:30,lot:60,color:'#f5d36b',initial:360,trigger:250,lots:4},
- {id:'drinks',name:'Sirops & boissons',short:'Boissons',cost:.25,shelf:60,lot:100,color:'#6aa5d8',initial:400,trigger:250,lots:3},
+ {id:'fries',name:'Pommes de terre',short:'Patates',cost:.2,shelf:14,lot:60,color:'#c9a46b',initial:360,trigger:250,lots:4},
+ {id:'drinks',name:'Sirops pour la fontaine',short:'Sirops',cost:.25,shelf:60,lot:100,color:'#6aa5d8',initial:400,trigger:250,lots:3},
+ {id:'cans',name:'Canettes',short:'Canettes',cost:.45,shelf:120,lot:24,color:'#d0603a',initial:144,trigger:96,lots:3},
+ {id:'icecream',name:'Mix pour glace',short:'Glace',cost:.3,shelf:5,lot:40,color:'#e9dcc4',initial:120,trigger:80,lots:2},
 ];
 // Menu items: recipe in ingredient units, base (market) price, the station work they need and the packaging they use.
 export const MENU={
@@ -22,20 +24,22 @@ export const MENU={
  double:{name:'Double Cheese',short:'Double',icon:'🍔',recipe:{buns:1,beef:2,cheese:2},patties:2,base:11.5,box:1},
  chicken:{name:'Chicken Burger',short:'Chicken',icon:'🍗',recipe:{buns:1,chicken:1,veggies:1},patties:1,base:8.5,box:1},
  fries:{name:'Frites',short:'Frites',icon:'🍟',recipe:{fries:1},fries:1,base:3.2,carton:1},
- drink:{name:'Boisson',short:'Boisson',icon:'🥤',recipe:{drinks:1},drink:1,base:2.6,cup:1},
+ drink:{name:'Boisson fontaine',short:'Fontaine',icon:'🥤',recipe:{drinks:1},drink:1,base:2.6,cup:1},
+ can:{name:'Canette',short:'Canette',icon:'🥫',recipe:{cans:1},can:1,base:2.4},
+ sundae:{name:'Glace',short:'Glace',icon:'🍦',recipe:{icecream:1},ice:1,base:2.9,pot:1},
 };
 export const BURGERS=['classic','double','chicken'];
-export const PACKAGING={boxes:{name:'Boîtes burger',short:'Boîtes',cost:.12,lot:200},cups:{name:'Gobelets',short:'Gobelets',cost:.06,lot:250},cartons:{name:'Cornets à frites',short:'Cornets',cost:.04,lot:250},bags:{name:'Sacs à emporter',short:'Sacs',cost:.08,lot:200}};
-export const PACKAGING_START={boxes:300,cups:300,cartons:300,bags:200},PACKAGING_REORDER={boxes:40,cups:40,cartons:40,bags:30};
-export const ROLES={cashier:{name:'Caisse',wage:95,icon:'🧾'},grill:{name:'Grill',wage:110,icon:'🔥'},fryer:{name:'Friteuse',wage:100,icon:'🍟'},assembly:{name:'Assemblage',wage:100,icon:'🍔'},floor:{name:'Salle',wage:90,icon:'🧽'}};
+export const PACKAGING={boxes:{name:'Boîtes burger',short:'Boîtes',cost:.12,lot:200},cups:{name:'Gobelets',short:'Gobelets',cost:.06,lot:250},cartons:{name:'Cornets à frites',short:'Cornets',cost:.04,lot:250},bags:{name:'Sacs à emporter',short:'Sacs',cost:.08,lot:200},pots:{name:'Pots à glace',short:'Pots',cost:.05,lot:200}};
+export const PACKAGING_START={boxes:300,cups:300,cartons:300,bags:200,pots:200},PACKAGING_REORDER={boxes:40,cups:40,cartons:40,bags:30,pots:30};
+export const ROLES={cashier:{name:'Caisse',wage:95,icon:'🧾'},grill:{name:'Grill',wage:110,icon:'🔥'},fryer:{name:'Friteuse',wage:100,icon:'🍟'},assembly:{name:'Assemblage',wage:100,icon:'🍔'},server:{name:'Serveur',wage:95,icon:'🛎️'},floor:{name:'Salle',wage:90,icon:'🧽'}};
 export const EQUIPMENT={grills:{name:'Grill',price:4000,max:4,energy:14,min:1},fryers:{name:'Friteuse',price:2500,max:4,energy:10,min:1},assembly:{name:'Poste d’assemblage',price:1200,max:3,energy:2,min:1},registers:{name:'Caisse',price:1500,max:3,energy:1,min:1},kiosks:{name:'Borne de commande',price:6000,max:4,energy:6,min:0},tables:{name:'Table de 4',price:400,max:12,energy:0,min:2}};
 export const RES_LIMITS={staff:12,customers:90};
 export const FORMATS={balanced:{name:'Équilibré',rate:1,takeaway:.45,patience:0},fast:{name:'Restauration rapide',rate:1.25,takeaway:.6,patience:-2},gourmet:{name:'Burger gourmet',rate:.75,takeaway:.3,patience:4}};
 export const SERVICE_TARGET=8,GRILL_MINUTES=4,FRY_MINUTES=3,CLEAN_MINUTES=2;
 
 // Fixed floor plan (1 unit ≈ 1 m): kitchen at the back, counter in the middle, dining room and door at the front.
-export const LAYOUT={door:[-3,9.6],outside:[-3,13.5],street:[-20,13.5],pass:[0,-1.2],waitArea:[[4,4.2],[5.2,4.2],[6.4,4.2],[7.6,4.2],[4,5.4],[5.2,5.4],[6.4,5.4],[7.6,5.4]],backDoor:[13,-9.6],coldRoom:[10.5,-7.5],coldRoomDoor:[8.6,-5.6],rawBins:[-14.9,-7.6],holding:[-10.5,-5.2],drinkMachine:[-10,-.4],
- grill:i=>[-12+i*2.4,-7.6],grillCook:i=>[-12+i*2.4,-6.2],fryer:i=>[-2+i*1.8,-7.6],fryCook:i=>[-2+i*1.8,-6.2],assembly:i=>[-7+i*3,-3],assembler:i=>[-7+i*3,-4.2],
+export const LAYOUT={door:[-3,9.6],outside:[-3,13.5],street:[-20,13.5],pass:[0,-1.2],waitArea:[[4,4.2],[5.2,4.2],[6.4,4.2],[7.6,4.2],[4,5.4],[5.2,5.4],[6.4,5.4],[7.6,5.4]],backDoor:[13,-9.6],coldRoom:[10.5,-7.5],coldRoomDoor:[8.6,-5.6],rawBins:[-14.9,-7.6],freezer:[5.6,-7.6],cutter:[6.4,-4.6],fryHolding:[1.9,-5.2],holding:[-10.5,-5.2],drinkMachine:[1.1,-2.8],canFridge:[2.9,-2.8],iceMachine:[4.2,-2.8],
+ grill:i=>[-12+i*2.4,-7.6],grillCook:i=>[-12+i*2.4,-6.2],fryer:i=>[-2+i*1.8,-7.6],fryCook:i=>[-2+i*1.8,-6.2],assembly:i=>[-1.2-i*3,-3],assembler:i=>[-1.2-i*3,-4.2],landing:i=>[-.3-i*3,-2],server:i=>[1.6+i*1.2,-1.95],
  register:i=>[-7+i*2.6,.6],cashier:i=>[-7+i*2.6,-.4],registerFront:i=>[-7+i*2.6,1.8],kiosk:i=>[1.6+i*1.9,2],kioskFront:i=>[1.6+i*1.9,2.9],
  queue:k=>[-5.5+(k>=8?2:0),3.4+(k%8)*.8],
  table:i=>i<6?[-14.2+(i%2)*3.6,4.4+Math.floor(i/2)*2.4]:[9.2+(i%2)*3.6,6.6+Math.floor((i-6)/2)*1.6],
@@ -55,9 +59,9 @@ export const PROMO_DISCOUNTS=[10,20,30],PROMO_DURATIONS=[180,1440,4320],PROMO_SE
 export const LOAN_AMOUNTS=[5000,10000,25000,50000],LOAN_TERMS={10:.04,20:.07,30:.1},LOAN_LIMIT=100000;
 const freshDay=()=>({customers:0,served:0,onTime:0,late:0,walkouts:0,stockouts:0,revenue:0,refunds:0,cogs:0,waste:0,purchases:0,delivery:0,packaging:0,marketing:0,bonus:0,charges:0,wagesAccrued:0,waitSum:0,discarded:0});
 
-const itemCost=id=>Object.entries(MENU[id].recipe).reduce((n,[k,q])=>n+q*INGREDIENTS.find(i=>i.id===k).cost,0)+(MENU[id].box?PACKAGING.boxes.cost:0)+(MENU[id].carton?PACKAGING.cartons.cost:0)+(MENU[id].cup?PACKAGING.cups.cost:0);
+const itemCost=id=>Object.entries(MENU[id].recipe).reduce((n,[k,q])=>n+q*INGREDIENTS.find(i=>i.id===k).cost,0)+(MENU[id].box?PACKAGING.boxes.cost:0)+(MENU[id].carton?PACKAGING.cartons.cost:0)+(MENU[id].cup?PACKAGING.cups.cost:0)+(MENU[id].pot?PACKAGING.pots.cost:0);
 // Market margin of a typical order at base prices; the margin slider scales every price by the same factor.
-const TYPICAL={classic:.45,double:.25,chicken:.3,fries:.75,drink:.75};
+const TYPICAL={classic:.45,double:.25,chicken:.3,fries:.75,drink:.5,can:.25,sundae:.25};
 export const MARKET_MARGIN=1-Object.entries(TYPICAL).reduce((n,[k,w])=>n+w*itemCost(k),0)/Object.entries(TYPICAL).reduce((n,[k,w])=>n+w*MENU[k].base,0);
 // The slider's market point is the menu's real margin at base prices, so the default prices are the catalogue prices.
 export const PRICING={minMargin:65,maxMargin:92,marketMargin:Math.round(MARKET_MARGIN*100),elasticity:1.5,maxAdBudget:600};
@@ -72,28 +76,30 @@ export const rushCurve=m=>m<OPENING.open||m>=OPENING.lastEntry?0:m<720?.25:m<840
 
 export function createRestaurantGame(seed=4207){
  const s={kind:'restaurant',version:1,seed:seed>>>0,day:1,minute:OPENING.prep,speed:0,nextId:1,ticket:1,money:30000,initialCash:30000,dayStartCash:30000,reputation:80,format:'balanced',margin:PRICING.marketMargin,adBudget:0,promo:null,open:true,priority:'fifo',
-  equipment:{grills:1,fryers:1,assembly:1,registers:1,kiosks:0,tables:6},staff:{cashier:1,grill:1,fryer:1,assembly:1,floor:1},
-  ingredients:INGREDIENTS.map(i=>({id:i.id,lots:[{qty:i.initial-(PATTIES.includes(i.id)?BIN_CAPACITY:0),expires:1+i.shelf}],ordered:0,used:0,wasted:0})),kitchen:{bins:{beef:BIN_CAPACITY,chicken:BIN_CAPACITY},batches:[],holding:[],cookAhead:'normal'},supplies:{...PACKAGING_START},autoSupplies:true,supplyRules:{},restock:{},
+  equipment:{grills:1,fryers:1,assembly:1,registers:1,kiosks:0,tables:6},staff:{cashier:1,grill:1,fryer:1,assembly:1,server:1,floor:1},
+  ingredients:INGREDIENTS.map(i=>({id:i.id,lots:[{qty:i.initial-(BINS[i.id]??0),expires:1+i.shelf}],ordered:0,used:0,wasted:0})),kitchen:{bins:{...BINS},batches:[],holding:[],cookAhead:'normal'},supplies:{...PACKAGING_START},autoSupplies:true,supplyRules:{},restock:{},
   workers:[],customers:[],queue:[],orders:[],tables:[],shipments:[],contracts:[],loans:[],history:[],log:[],metrics:[],daily:freshDay(),
   totals:{revenue:0,refunds:0,cogs:0,waste:0,purchases:0,delivery:0,packaging:0,marketing:0,bonus:0,charges:0,investments:0,borrowed:0,repaid:0},arrivalCredit:0};
  syncTables(s);for(const [role,count] of Object.entries(s.staff))for(let i=0;i<count;i++)s.workers.push(worker(s,role));
  createContracts(s);log(s,'Ouverture du restaurant : la cuisine se prépare, les portes ouvrent à 11 h.');return s;
 }
 function worker(s,role){const i=s.workers.filter(w=>w.role===role).length,home=homeOf(role,i);return {id:s.nextId++,role,retiring:false,phase:'idle',job:null,station:null,pos:[...home],path:[],target:null,remaining:0,speed:8};}
-function homeOf(role,i){return role==='cashier'?LAYOUT.cashier(i%3):role==='grill'?LAYOUT.grillCook(i%4):role==='fryer'?LAYOUT.fryCook(i%4):role==='assembly'?LAYOUT.assembler(i%3):[LAYOUT.cleaner[0]+i*.8,LAYOUT.cleaner[1]];}
+function homeOf(role,i){return role==='cashier'?LAYOUT.cashier(i%3):role==='grill'?LAYOUT.grillCook(i%4):role==='fryer'?LAYOUT.fryCook(i%4):role==='assembly'?LAYOUT.assembler(i%3):role==='server'?LAYOUT.server(i%3):[LAYOUT.cleaner[0]+i*.8,LAYOUT.cleaner[1]];}
 function syncTables(s){while(s.tables.length<s.equipment.tables)s.tables.push({state:'free',guest:null});while(s.tables.length>s.equipment.tables&&s.tables.at(-1).state==='free')s.tables.pop();}
 function go(w,target,phase){w.target=[...target];w.path=[[...target]];if(phase)w.phase=phase;}
 // Walk with a distance budget and return what is left, so a short errand and the next one can share the same minute.
-function walkBudget(w,budget,trail){let distance=budget;while(w.path.length&&distance>0){const t=w.path[0],dx=t[0]-w.pos[0],dz=t[1]-w.pos[1],l=Math.hypot(dx,dz);const load=w.carry?(w.carry.raw?1:2):0;if(l<=distance){w.pos=[...t];w.path.shift();distance-=l;trail?.push([...w.pos,load]);}else{w.pos[0]+=dx/l*distance;w.pos[1]+=dz/l*distance;distance=0;trail?.push([...w.pos,load]);}}return w.path.length?0:distance;}
+function walkBudget(w,budget,trail){let distance=budget;while(w.path.length&&distance>0){const t=w.path[0],dx=t[0]-w.pos[0],dz=t[1]-w.pos[1],l=Math.hypot(dx,dz);const fries=w.carry?.items?.[0]?.kind==='fries',load=w.load?(w.load==='bag'?7:6):w.carry?(w.carry.potatoes?5:w.carry.raw?(fries?3:1):(fries?4:2)):0;if(l<=distance){w.pos=[...t];w.path.shift();distance-=l;trail?.push([...w.pos,load]);}else{w.pos[0]+=dx/l*distance;w.pos[1]+=dz/l*distance;distance=0;trail?.push([...w.pos,load]);}}return w.path.length?0:distance;}
 function walk(w){let distance=w.speed??8;while(w.path.length&&distance>0){const t=w.path[0],dx=t[0]-w.pos[0],dz=t[1]-w.pos[1],l=Math.hypot(dx,dz);if(l<=distance){w.pos=[...t];w.path.shift();distance-=l;}else{w.pos[0]+=dx/l*distance;w.pos[1]+=dz/l*distance;distance=0;}}return w.path.length===0;}
 export const ingredientStock=(s,id)=>s.ingredients.find(i=>i.id===id).lots.reduce((n,l)=>n+l.qty,0);
-export const stockValue=s=>money(s.ingredients.reduce((n,i)=>n+i.lots.reduce((v,l)=>v+l.qty,0)*INGREDIENTS.find(x=>x.id===i.id).cost,0)+PATTIES.reduce((n,k)=>n+pattiesInKitchen(s,k)*INGREDIENTS.find(x=>x.id===k).cost,0));
-// Patties travel cold room → raw bin by the grill → grill batch → holding cabinet → burger. Orders draw cooked patties from the holding cabinet.
-export const PATTIES=['beef','chicken'],BIN_CAPACITY=24,HOLD_MINUTES=20,COOK_AHEAD={order:{name:'À la commande',rush:[0,0],calm:[0,0]},normal:{name:'Réserve normale',rush:[5,2],calm:[1,0]},high:{name:'Grosse réserve',rush:[8,4],calm:[3,1]}};
+export const stockValue=s=>money(s.ingredients.reduce((n,i)=>n+i.lots.reduce((v,l)=>v+l.qty,0)*INGREDIENTS.find(x=>x.id===i.id).cost,0)+COOKED.reduce((n,k)=>n+pattiesInKitchen(s,k)*INGREDIENTS.find(x=>x.id===k).cost,0));
+// Cooked items travel cold room → bin by the station → batch on the grill or in the fryer → holding (cabinet or fry dump) → order.
+export const PATTIES=['beef','chicken'],COOKED=['beef','chicken','fries'],BIN_CAPACITY=24,HOLD_MINUTES=20,FRY_HOLD_MINUTES=7,BINS={beef:24,chicken:24,fries:60},HOLD={beef:20,chicken:20,fries:7};
+export const COOK_AHEAD={order:{name:'À la commande',rush:[0,0,0],calm:[0,0,0]},normal:{name:'Réserve normale',rush:[5,2,6],calm:[1,0,3]},high:{name:'Grosse réserve',rush:[8,4,10],calm:[3,1,5]}};
+const KIND_INDEX={beef:0,chicken:1,fries:2},lineOf=kind=>kind==='fries'?'fry':'grill';
 const held=(s,k)=>s.kitchen.holding.filter(h=>h.kind===k).reduce((n,h)=>n+h.qty,0),grilling=(s,k)=>s.kitchen.batches.filter(b=>b.kind===k).reduce((n,b)=>n+b.qty,0),carried=(s,k)=>s.workers.reduce((n,w)=>n+(w.carry?.items??[]).filter(i=>i.kind===k).reduce((v,i)=>v+i.qty,0),0);
-export const pattiesInKitchen=(s,k)=>s.kitchen?(s.kitchen.bins[k]+held(s,k)+grilling(s,k)+carried(s,k)):0;
-export const pattiesWaiting=(s,k)=>s.orders.reduce((n,o)=>n+(o.stage==='kitchen'&&o.grill.state==='todo'?o.patties?.[k]||0:0),0);
-export const kitchenStatus=s=>Object.fromEntries(PATTIES.map(k=>[k,{bin:s.kitchen.bins[k],grilling:grilling(s,k),carried:carried(s,k),held:held(s,k),waiting:pattiesWaiting(s,k)}]));
+export const pattiesInKitchen=(s,k)=>s.kitchen?((s.kitchen.bins[k]??0)+held(s,k)+grilling(s,k)+carried(s,k)):0;
+export const pattiesWaiting=(s,k)=>s.orders.reduce((n,o)=>n+(o.stage!=='kitchen'?0:k==='fries'?(o.fry.state==='todo'?o.fry.need:0):(o.grill.state==='todo'?o.patties?.[k]||0:0)),0);
+export const kitchenStatus=s=>Object.fromEntries(COOKED.map(k=>[k,{bin:s.kitchen.bins[k]??0,grilling:grilling(s,k),carried:carried(s,k),held:held(s,k),waiting:pattiesWaiting(s,k)}]));
 const pattyAvailable=(s,k)=>ingredientStock(s,k)+pattiesInKitchen(s,k)-pattiesWaiting(s,k);
 // First-in first-out use of ingredient lots; returns the cost of what was taken.
 function take(s,id,qty){const i=s.ingredients.find(i=>i.id===id);let left=qty;i.lots.sort((a,b)=>a.expires-b.expires);for(const l of i.lots){const n=Math.min(l.qty,left);l.qty-=n;left-=n;if(!left)break;}i.lots=i.lots.filter(l=>l.qty>0);i.used+=qty;return qty*INGREDIENTS.find(x=>x.id===id).cost;}
@@ -102,19 +108,19 @@ const orderCount=(o,key)=>o.lines.reduce((n,l)=>n+(MENU[l.item][key]||0)*l.qty,0
 export const orderItems=o=>o.lines.reduce((n,l)=>n+l.qty,0);
 function metric(s){const h=Math.floor(now(s)/60);let m=s.metrics[s.metrics.length-1];if(!m||m.h!==h){m={h,customers:0,served:0,late:0,walkouts:0,revenue:0,cogs:0,waitSum:0};s.metrics.push(m);if(s.metrics.length>240)s.metrics.shift();}return m;}
 
-// A group chooses its order: one burger each, fries and a drink for most; anything out of stock is dropped.
+// A group chooses its order: one burger each, fries and a drink (fountain or can) for most, an ice cream for some; anything out of stock is dropped.
 function chooseLines(s,size){const lines=[];const add=(item,q=1)=>{const l=lines.find(l=>l.item===item);if(l)l.qty+=q;else lines.push({item,qty:q});};
- for(let p=0;p<size;p++){const r=random(s);add(r<.45?'classic':r<.7?'double':'chicken');if(random(s)<.75)add('fries');if(random(s)<.75)add('drink');}return lines;}
-function available(s,lines){const need=orderNeeds(lines);return Object.entries(need).every(([k,q])=>(PATTIES.includes(k)?pattyAvailable(s,k):ingredientStock(s,k))>=q);}
+ for(let p=0;p<size;p++){const r=random(s);add(r<.45?'classic':r<.7?'double':'chicken');if(random(s)<.75)add('fries');if(random(s)<.75)add(random(s)<.7?'drink':'can');if(random(s)<.25)add('sundae');}return lines;}
+function available(s,lines){const need=orderNeeds(lines);return Object.entries(need).every(([k,q])=>(COOKED.includes(k)?pattyAvailable(s,k):ingredientStock(s,k))>=q);}
 function trimToStock(s,lines){const kept=[];for(const l of lines){for(let q=l.qty;q>0;q--){const trial=[...kept.filter(x=>x.item!==l.item),{item:l.item,qty:(kept.find(x=>x.item===l.item)?.qty||0)+1}];if(available(s,trial)){const k=kept.find(x=>x.item===l.item);if(k)k.qty++;else kept.push({item:l.item,qty:1});}}}return kept;}
 
 export function createRestaurantOrder(s,lines,options={}){
  if(!lines.length||lines.some(l=>!MENU[l.item]||!Number.isInteger(l.qty)||l.qty<1||l.qty>40))throw Error('Commande invalide.');
  if(!available(s,lines))throw Error('Ingrédients insuffisants.');
- const needs=orderNeeds(lines),cost=Object.entries(needs).filter(([k])=>!PATTIES.includes(k)).reduce((n,[k,q])=>n+take(s,k,q),0),value=money(lines.reduce((n,l)=>n+itemPrice(s,l.item)*l.qty,0)),id=s.nextId++,t=now(s);
+ const needs=orderNeeds(lines),cost=Object.entries(needs).filter(([k])=>!COOKED.includes(k)).reduce((n,[k,q])=>n+take(s,k,q),0),value=money(lines.reduce((n,l)=>n+itemPrice(s,l.item)*l.qty,0)),id=s.nextId++,t=now(s);
  const o={id,ref:'#'+String(s.ticket++).padStart(3,'0'),customer:options.customer??null,created:t,deadline:options.deadline??t+SERVICE_TARGET,lines:lines.map(l=>({...l})),value,cost:money(cost),channel:options.channel??'takeaway',stage:'kitchen',
-  patties:{beef:needs.beef||0,chicken:needs.chicken||0},grill:{need:orderCount({lines},'patties'),state:orderCount({lines},'patties')?'todo':'done',worker:null,station:null,remaining:0},fry:{need:orderCount({lines},'fries'),state:orderCount({lines},'fries')?'todo':'done',worker:null,station:null,remaining:0},assemble:{state:'todo',worker:null,station:null,remaining:0},
-  rush:false,late:false,readyAt:null,servedAt:null,group:options.group??null};
+  patties:{beef:needs.beef||0,chicken:needs.chicken||0},grill:{need:orderCount({lines},'patties'),state:orderCount({lines},'patties')?'todo':'done',worker:null,station:null,remaining:0},fry:{need:orderCount({lines},'fries'),state:orderCount({lines},'fries')?'todo':'done',worker:null,station:null,remaining:0},assemble:{state:orderCount({lines},'box')?'todo':'done',worker:null,station:null,remaining:0},pack:{state:'todo',worker:null},
+  rush:false,late:false,readyAt:null,servedAt:null,group:options.group??null,till:options.till?{kind:options.till.kind,index:options.till.index}:null};
  s.orders.push(o);s.money=money(s.money+value);s.daily.revenue=money(s.daily.revenue+value);s.totals.revenue=money(s.totals.revenue+value);s.daily.cogs=money(s.daily.cogs+cost);s.totals.cogs=money(s.totals.cogs+cost);const m=metric(s);m.revenue=money(m.revenue+value);m.cogs=money(m.cogs+cost);return o;}
 
 function spawnGroup(s){if(s.customers.length>=RES_LIMITS.customers)return;const f=FORMATS[s.format],size=random(s)<.5?1:random(s)<.6?2:random(s)<.7?3:4,channel=random(s)<f.takeaway?'takeaway':'dine';
@@ -134,7 +140,7 @@ function stepQueue(s){
 
 function placeOrder(s,c){let lines=chooseLines(s,c.size);if(!available(s,lines))lines=trimToStock(s,lines);
  if(!lines.some(l=>BURGERS.includes(l.item))){s.daily.stockouts++;s.reputation=Math.max(0,s.reputation-1);log(s,'Rupture : un client repart sans burger.','warning');leave(s,c);return;}
- const o=createRestaurantOrder(s,lines,{customer:c.id,channel:c.channel});c.order=o.id;c.spot=null;c.phase='to_wait';const slot=LAYOUT.waitArea[s.customers.filter(x=>x.phase==='waiting'||x.phase==='to_wait').length%LAYOUT.waitArea.length];c.path=[slot];}
+ const o=createRestaurantOrder(s,lines,{customer:c.id,channel:c.channel,till:c.spot});c.order=o.id;c.spot=null;c.phase='to_wait';const slot=LAYOUT.waitArea[s.customers.filter(x=>x.phase==='waiting'||x.phase==='to_wait').length%LAYOUT.waitArea.length];c.path=[slot];}
 function leave(s,c){if(c.table!==null){const t=s.tables[c.table];if(t){t.state='dirty';t.guest=null;}c.table=null;}c.spot=null;c.phase='leaving';c.path=[[...LAYOUT.door],[...LAYOUT.outside],[...LAYOUT.street]];}
 
 function stepCustomers(s){const t=now(s);
@@ -156,63 +162,107 @@ function stepCustomers(s){const t=now(s);
 function serve(s,o){if(!o||o.stage==='served')return;o.stage='served';o.servedAt=now(s);const wait=o.servedAt-o.created,late=o.servedAt>o.deadline,m=metric(s);s.daily.served++;s.daily[late?'late':'onTime']++;s.daily.waitSum+=wait;m.served++;m.waitSum+=wait;if(late)m.late++;s.reputation=Math.max(0,Math.min(100,s.reputation+(late?-.8:.15)));
  if(o.group){const c=s.contracts.find(c=>c.id===o.group);if(c){c.status=late?'failed':'completed';if(!late){s.money=money(s.money+c.bonus);s.daily.bonus+=c.bonus;s.totals.bonus+=c.bonus;log(s,`Commande de groupe réussie : ${c.name} · prime ${c.bonus} €.`,'success');}else log(s,`Commande de groupe en retard : ${c.name}.`,'warning');}}}
 
-const packagingFor=o=>({boxes:orderCount(o,'box'),cups:orderCount(o,'cup'),cartons:orderCount(o,'carton'),bags:o.channel==='takeaway'?Math.max(1,Math.ceil(orderItems(o)/6)):0});
-export function missingPackaging(s){const need=new Set();for(const o of s.orders)if(o.stage==='kitchen'&&o.assemble.state==='todo'&&o.grill.state==='done')for(const [k,q] of Object.entries(packagingFor(o)))if(q>s.supplies[k])need.add(k);return [...need];}
+const packagingFor=o=>({boxes:orderCount(o,'box'),cups:orderCount(o,'cup'),cartons:0,pots:orderCount(o,'pot'),bags:o.channel==='takeaway'?Math.max(1,Math.ceil(orderItems(o)/6)):0});
+export function missingPackaging(s){const need=new Set();if(!s.supplies.cartons&&s.kitchen?.holding.some(h=>h.kind==='fries'&&!h.portioned))need.add('cartons');for(const o of s.orders)if(o.stage==='kitchen'&&o.assemble.state==='todo'&&o.grill.state==='done')for(const [k,q] of Object.entries(packagingFor(o)))if(q>s.supplies[k])need.add(k);return [...need];}
 // Grills and fryers cook several tickets at once up to their capacity; each needs its own cook. Assembly is one ticket per station.
 export const STATION_CAPACITY={grill:8,fry:6};
-const loadOf=(s,key,station)=>s.orders.reduce((n,o)=>n+(o.stage==='kitchen'&&o[key].state==='active'&&o[key].station===station?o[key].need:0),0);
 const pattyCost=k=>INGREDIENTS.find(x=>x.id===k).cost;
-function wastePatties(s,k,qty,reason){if(!qty)return;const cost=money(qty*pattyCost(k));s.daily.waste=money(s.daily.waste+cost);s.totals.waste=money(s.totals.waste+cost);s.daily.discarded=(s.daily.discarded||0)+qty;s.ingredients.find(i=>i.id===k).wasted+=qty;log(s,`${qty} ${k==='beef'?'steak(s) de bœuf':'filet(s) de poulet'} jeté(s) : ${reason} (${cost} €).`,'warning');}
-// Grill cooks walk: bin → grill with raw patties, then grill → holding cabinet with the cooked batch, then back to their grill.
+const WASTE_NAMES={beef:'steak(s) de bœuf',chicken:'filet(s) de poulet',fries:'portion(s) de frites'};
+function wastePatties(s,k,qty,reason){if(!qty)return;const cost=money(qty*pattyCost(k));s.daily.waste=money(s.daily.waste+cost);s.totals.waste=money(s.totals.waste+cost);s.daily.discarded=(s.daily.discarded||0)+qty;s.ingredients.find(i=>i.id===k).wasted+=qty;log(s,`${qty} ${WASTE_NAMES[k]} jeté(s) : ${reason} (${cost} €).`,'warning');}
+// Grill cooks and fryer cooks walk: bin → station with raw food, then station → holding with the cooked batch, then back.
 // Short kitchen errands can share one minute; the cook's exact trail for the minute is kept so the 3D view replays it.
 export const COOK_SPEED=8;
-const binFront=()=>[LAYOUT.rawBins[0]+.9,LAYOUT.rawBins[1]+1.1],holdingFront=()=>[LAYOUT.holding[0],LAYOUT.holding[1]-.8];
-function dropCarry(s,w){const k=s.kitchen;for(const it of w.carry?.items??[]){if(w.carry.raw)k.bins[it.kind]=Math.min(BIN_CAPACITY,k.bins[it.kind]+it.qty);else k.holding.push({kind:it.kind,qty:it.qty,cookedAt:it.cookedAt});}w.carry=null;}
-// One decision of a grill cook standing at the end of a walk; returns true when it starts a new walk.
-function grillCookStep(s,cook,station,home,cooks,buffer){const k=s.kitchen;
+export const LINES={grill:{role:'grill',kinds:['beef','chicken'],capacity:()=>STATION_CAPACITY.grill,minutes:()=>GRILL_MINUTES,stations:s=>s.equipment.grills,home:i=>LAYOUT.grillCook(i),bin:()=>[LAYOUT.rawBins[0]+.9,LAYOUT.rawBins[1]+1.1],hold:()=>[LAYOUT.holding[0],LAYOUT.holding[1]-.8]},
+ fry:{role:'fryer',kinds:['fries'],capacity:()=>STATION_CAPACITY.fry,minutes:()=>FRY_MINUTES,stations:s=>s.equipment.fryers,home:i=>LAYOUT.fryCook(i),bin:()=>[LAYOUT.freezer[0],LAYOUT.freezer[1]+1.1],hold:()=>[LAYOUT.fryHolding[0],LAYOUT.fryHolding[1]-.8]}};
+function dropCarry(s,w){const k=s.kitchen;for(const it of w.carry?.items??[]){if(w.carry.raw)k.bins[it.kind]=Math.min(BINS[it.kind],(k.bins[it.kind]??0)+it.qty);else k.holding.push({kind:it.kind,qty:it.qty,cookedAt:it.cookedAt});}w.carry=null;}
+// One decision of a cook standing at the end of a walk; returns true when it starts a new walk.
+// Cut fries in water wait in a big bin; the cutter turns a sack of potatoes into fries in a couple of minutes.
+export const CUT_MINUTES=2,PORTIONS_PER_MINUTE=6,SACK=40;
+const cutterFront=()=>[LAYOUT.cutter[0]-.2,LAYOUT.cutter[1]+1.1],loose=s=>s.kitchen.holding.filter(h=>h.kind==='fries'&&!h.portioned).reduce((n,h)=>n+h.qty,0);
+export const friesReady=s=>s.kitchen?s.kitchen.holding.filter(h=>h.kind==='fries'&&h.portioned).reduce((n,h)=>n+h.qty,0):0,friesLoose=s=>s.kitchen?loose(s):0;
+// Fried fries are shovelled into cartons, oldest first, as many as the cartons and a minute allow.
+function portionFries(s){const k=s.kitchen;let left=Math.min(PORTIONS_PER_MINUTE,loose(s),s.supplies.cartons);if(!left)return false;s.supplies.cartons-=left;for(const h of k.holding.filter(h=>h.kind==='fries'&&!h.portioned).sort((a,b)=>a.cookedAt-b.cookedAt)){const n=Math.min(h.qty,left);if(!n)break;h.qty-=n;left-=n;k.holding.push({kind:'fries',qty:n,cookedAt:h.cookedAt,portioned:true});}k.holding=k.holding.filter(h=>h.qty>0);return true;}
+function cookStep(s,line,cook,station,home,cooks,buffer){const k=s.kitchen,L=LINES[line],onStation=b=>b.station===station&&lineOf(b.kind)===line;
  if(cook.phase==='refill'){if(cook.remaining>0){cook.remaining--;return false;}
-  // Back from the cold room with a crate: both raw bins are topped up.
-  for(const p of PATTIES){const qty=Math.min(BIN_CAPACITY-k.bins[p],ingredientStock(s,p));if(qty>0){take(s,p,qty);k.bins[p]+=qty;}}cook.phase='idle';return false;}
+  // Back from the cold room: the bins of this station are topped up.
+  for(const p of L.kinds){const qty=Math.min(BINS[p]-(k.bins[p]??0),ingredientStock(s,p));if(qty>0){take(s,p,qty);k.bins[p]=(k.bins[p]??0)+qty;}}cook.phase='idle';return false;}
  if(cook.phase==='to_bin'){const plan=cook.plan,qty=Math.min(plan.qty,k.bins[plan.kind]);cook.plan=null;if(qty>0){k.bins[plan.kind]-=qty;cook.carry={raw:true,items:[{kind:plan.kind,qty}]};}cook.phase='to_grill';go(cook,home);return true;}
- if(cook.phase==='to_grill'){for(const it of cook.carry?.items??[])k.batches.push({station,kind:it.kind,qty:it.qty,remaining:GRILL_MINUTES});cook.carry=null;cook.phase='working';return false;}
- if(cook.phase==='to_holding')dropCarry(s,cook);
- // A finished batch is carried to the holding cabinet first.
- const done=k.batches.filter(b=>b.station===station&&b.ready);
- if(done.length){cook.carry={raw:false,items:done.map(b=>({kind:b.kind,qty:b.qty,cookedAt:b.cookedAt}))};k.batches=k.batches.filter(b=>!done.includes(b));cook.phase='to_holding';go(cook,holdingFront(station));return true;}
- // Otherwise fetch raw patties for what tickets and the reserve need; patties can join a grill that is already cooking.
- const load=k.batches.filter(b=>b.station===station).reduce((n,b)=>n+b.qty,0),want=PATTIES.map((p,i)=>[p,pattiesWaiting(s,p)+buffer[i]-held(s,p)-grilling(s,p)-carried(s,p)]).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1])[0];
- if(want&&k.bins[want[0]]>0&&load<STATION_CAPACITY.grill){cook.plan={kind:want[0],qty:Math.min(STATION_CAPACITY.grill-load,want[1])};cook.phase='to_bin';go(cook,binFront(station));return true;}
- // An empty (or low) bin sends the cook to the cold room, unless another cook is already on the way.
- const low=PATTIES.some(p=>k.bins[p]<(want?.[0]===p?1:6)&&ingredientStock(s,p)>0),fetching=cooks.some(c=>c.phase==='refill');
+ if(cook.phase==='to_grill'){for(const it of cook.carry?.items??[])k.batches.push({station,kind:it.kind,qty:it.qty,remaining:L.minutes()});cook.carry=null;cook.phase='working';return false;}
+ // Fries: potatoes from the cold room go through the cutter into the cut-fries bin; fried fries are portioned into cartons.
+ if(cook.phase==='to_potatoes'){const qty=Math.min(SACK,ingredientStock(s,'fries'),BINS.fries-(k.bins.fries??0));if(qty<=0){cook.phase='idle';go(cook,home);return true;}take(s,'fries',qty);cook.carry={raw:true,potatoes:true,items:[{kind:'fries',qty}]};cook.phase='to_cutter';go(cook,cutterFront());return true;}
+ if(cook.phase==='to_cutter'){cook.phase='cutting';cook.remaining=CUT_MINUTES;return false;}
+ if(cook.phase==='cutting'){if(--cook.remaining>0)return false;dropCarry(s,cook);cook.phase='idle';go(cook,home);return true;}
+ if(cook.phase==='portioning'){cook.phase='idle';}
+ // Filling a basket's worth of cartons takes half a minute, so the cook can head back to the fryer in the same minute.
+ if(cook.phase==='to_holding'||cook.phase==='to_portion'){dropCarry(s,cook);if(line==='fry'&&portionFries(s)){cook.phase='portioning';cook.pause=.5;go(cook,home);return true;}}
+ if(line==='fry'&&loose(s)&&s.supplies.cartons>0){cook.phase='to_portion';go(cook,L.hold());return true;}
+ // A finished batch is carried to the holding place first.
+ const done=k.batches.filter(b=>onStation(b)&&b.ready);
+ if(done.length){cook.carry={raw:false,items:done.map(b=>({kind:b.kind,qty:b.qty,cookedAt:b.cookedAt}))};k.batches=k.batches.filter(b=>!done.includes(b));cook.phase='to_holding';go(cook,L.hold());return true;}
+ // Otherwise fetch raw food for what tickets and the reserve need; it can join a batch that is already cooking.
+ const load=k.batches.filter(onStation).reduce((n,b)=>n+b.qty,0),want=L.kinds.map(p=>[p,pattiesWaiting(s,p)+buffer[KIND_INDEX[p]]-held(s,p)-grilling(s,p)-carried(s,p)]).filter(([,n])=>n>0).sort((a,b)=>b[1]-a[1])[0];
+ if(want&&(k.bins[want[0]]??0)>0&&load<L.capacity()){cook.plan={kind:want[0],qty:Math.min(L.capacity()-load,want[1])};cook.phase='to_bin';go(cook,L.bin());return true;}
+ // An empty (or low) bin sends the cook to the cold room, unless another cook of the line is already on the way.
+ const low=L.kinds.some(p=>(k.bins[p]??0)<(want?.[0]===p?1:line==='fry'?20:6)&&ingredientStock(s,p)>0),fetching=cooks.some(c=>['refill','to_potatoes','to_cutter','cutting'].includes(c.phase));
+ if(low&&!fetching&&line==='fry'){cook.phase='to_potatoes';go(cook,LAYOUT.coldRoomDoor);return true;}
  if(low&&!fetching){cook.phase='refill';cook.remaining=1;cook.path=[[...LAYOUT.coldRoomDoor],[...home]];return true;}
  cook.phase=load?'working':'idle';if(Math.hypot(cook.pos[0]-home[0],cook.pos[1]-home[1])>.01){go(cook,home);return true;}return false;}
-function stepGrills(s,tickets){const k=s.kitchen,t=now(s);
- for(const b of k.batches)if(!b.ready&&--b.remaining<=0){b.ready=true;b.cookedAt=t;}
- // Cooked patties wait at most 20 minutes in the holding cabinet.
- for(const h of k.holding)if(t-h.cookedAt>HOLD_MINUTES){wastePatties(s,h.kind,h.qty,'temps de maintien dépassé');h.qty=0;}k.holding=k.holding.filter(h=>h.qty>0);
- // Tickets take their cooked patties, oldest first.
- for(const o of tickets){if(o.grill.state!=='todo'||!PATTIES.every(p=>held(s,p)>=(o.patties?.[p]||0)))continue;for(const p of PATTIES){let left=o.patties?.[p]||0;const cost=money(left*pattyCost(p));for(const h of k.holding.filter(h=>h.kind===p).sort((a,b)=>a.cookedAt-b.cookedAt)){const n=Math.min(h.qty,left);h.qty-=n;left-=n;}k.holding=k.holding.filter(h=>h.qty>0);s.daily.cogs=money(s.daily.cogs+cost);s.totals.cogs=money(s.totals.cogs+cost);metric(s).cogs=money(metric(s).cogs+cost);o.cost=money(o.cost+cost);}o.grill.state='done';}
- const cooks=s.workers.filter(w=>w.role==='grill'&&!w.retiring),count=Math.min(cooks.length,s.equipment.grills),rush=rushCurve(s.minute)>=.9||rushCurve(s.minute+10)>=.9,serving=s.open&&s.minute>=OPENING.open-15&&s.minute<OPENING.lastEntry,buffer=serving?COOK_AHEAD[k.cookAhead][rush?'rush':'calm']:[0,0];
- for(let station=0;station<count;station++){const cook=cooks[station],home=LAYOUT.grillCook(station);cook.station=station;cook.speed=COOK_SPEED;let budget=COOK_SPEED;const trail=[[...cook.pos]];
-  for(let step=0;step<5;step++){budget=walkBudget(cook,budget,trail);if(cook.path.length)break;const moved=grillCookStep(s,cook,station,home,cooks,buffer);if(!moved||budget<=0)break;}
+function stepLine(s,line,tickets){const k=s.kitchen,t=now(s),L=LINES[line],mine=b=>lineOf(b.kind)===line;
+ for(const b of k.batches)if(mine(b)&&!b.ready&&--b.remaining<=0){b.ready=true;b.cookedAt=t;}
+ // Cooked food waits a limited time: 20 minutes for patties, 7 for fries.
+ for(const h of k.holding)if(mine(h)&&t-h.cookedAt>HOLD[h.kind]){wastePatties(s,h.kind,h.qty,'temps de maintien dépassé');h.qty=0;}k.holding=k.holding.filter(h=>h.qty>0);
+ // Tickets take their cooked food, oldest first.
+ for(const o of tickets){const task=line==='grill'?o.grill:o.fry,needs=line==='grill'?o.patties??{}:{fries:o.fry.need};if(task.state!=='todo'||!L.kinds.every(p=>(p==='fries'?friesReady(s):held(s,p))>=(needs[p]||0)))continue;
+  for(const p of L.kinds){let left=needs[p]||0;const cost=money(left*pattyCost(p));for(const h of k.holding.filter(h=>h.kind===p&&(p!=='fries'||h.portioned)).sort((a,b)=>a.cookedAt-b.cookedAt)){const n=Math.min(h.qty,left);h.qty-=n;left-=n;}k.holding=k.holding.filter(h=>h.qty>0);s.daily.cogs=money(s.daily.cogs+cost);s.totals.cogs=money(s.totals.cogs+cost);metric(s).cogs=money(metric(s).cogs+cost);o.cost=money(o.cost+cost);}task.state='done';}
+ const cooks=s.workers.filter(w=>w.role===L.role&&!w.retiring),count=Math.min(cooks.length,L.stations(s)),rush=rushCurve(s.minute)>=.9||rushCurve(s.minute+10)>=.9,serving=s.open&&s.minute>=OPENING.open-15&&s.minute<OPENING.lastEntry,buffer=serving?COOK_AHEAD[k.cookAhead][rush?'rush':'calm']:[0,0,0];
+ for(let station=0;station<count;station++){const cook=cooks[station],home=L.home(station);cook.station=station;cook.speed=COOK_SPEED;let budget=COOK_SPEED;const trail=[[...cook.pos]];
+  for(let step=0;step<5;step++){budget=walkBudget(cook,budget,trail);if(cook.path.length)break;const moved=cookStep(s,line,cook,station,home,cooks,buffer);if(cook.pause){budget-=cook.pause*(cook.speed??COOK_SPEED);cook.pause=0;}if(!moved||budget<=0)break;}
   cook.trail=trail.length>1?trail:null;}
- // Cooks without a grill (or leaving) put down what they carry.
- for(const w of s.workers.filter(w=>w.role==='grill'&&(w.retiring||w.station===null||w.station>=count))){if(w.carry)dropCarry(s,w);if(w.plan)w.plan=null;if(['to_bin','to_grill','to_holding'].includes(w.phase))w.phase='idle';walk(w);}}
+ // Cooks without a station (or leaving) put down what they carry.
+ for(const w of s.workers.filter(w=>w.role===L.role&&(w.retiring||w.station===null||w.station>=count))){if(w.carry)dropCarry(s,w);if(w.plan)w.plan=null;if(['to_bin','to_grill','to_holding','to_potatoes','to_cutter','cutting','to_portion','portioning'].includes(w.phase))w.phase='idle';w.trail=null;walk(w);}}
+// Assembly follows a building guide: buns go through the toaster, then each burger is dressed layer by layer, boxed, and the order is packed.
+export const BUILD={classic:['heel','sauce','salad','tomato','cheese','patty','crown','box'],double:['heel','sauce','cheese','patty','cheese','patty','crown','box'],chicken:['heel','mayo','salad','patty','crown','box']};
+export const STEP_SECONDS={toast:10,heel:2,sauce:3,mayo:3,salad:4,tomato:3,cheese:3,patty:3,crown:2,box:5};
+// The server prepares the order: burgers from the assembly landing, fries cartons from the heat lamp, fountain drinks (cup, ice, pour, lid), cans from the fridge, ice creams from the machine, then the tray or the bag on the pass.
+export const SERVE_SECONDS={burgers:2,fries:2,drink:7,can:2,sundae:8,tray:4,bag:5},SERVER_SPEED=12;
+// Drinks, cans and ice creams come first, while the burgers are still being dressed; then fries, then the boxed burgers.
+export function serviceStops(o){const front=(p,dz=.85)=>[p[0],p[1]+dz],stops=[];
+ for(const [stop,key,place] of [['drink','drink','drinkMachine'],['can','can','canFridge'],['sundae','ice','iceMachine']])if(orderCount(o,key))stops.push({stop,at:front(LAYOUT[place]),count:orderCount(o,key)});
+ if(orderCount(o,'fries'))stops.push({stop:'fries',at:[LAYOUT.fryHolding[0],LAYOUT.fryHolding[1]+.8],via:[[2.1,-2]],count:orderCount(o,'fries')});
+ if(orderCount(o,'box'))stops.push({stop:'burgers',at:[...LAYOUT.landing(o.assemble.station??0)],count:orderCount(o,'box')});
+ stops.push({stop:o.channel==='dine'?'tray':'bag',at:[...LAYOUT.server(o.pack.slot??0)],count:1});return stops;}
+export function assemblySteps(o){const steps=[{step:'toast',burger:-1}];let b=0;for(const l of o.lines)if(BUILD[l.item])for(let q=0;q<l.qty;q++,b++)for(const step of BUILD[l.item])steps.push({step,burger:b,item:l.item});
+ return b?steps:[];}
+function stepServers(s,tickets){const servers=s.workers.filter(w=>w.role==='server');
+ for(const w of servers){w.speed=SERVER_SPEED;let budget=SERVER_SPEED;const trail=[[...w.pos]];
+  for(let guard=0;guard<8;guard++){budget=walkBudget(w,budget,trail);if(w.path.length||budget<=0)break;
+   let o=w.job!==null?s.orders.find(o=>o.id===w.job&&o.pack.state==='active'):null;
+   if(!o){w.job=null;w.load=null;if(!w.retiring)o=tickets.find(o=>o.pack.state==='todo'&&o.assemble.state!=='todo'&&o.fry.state==='done'&&o.stage==='kitchen');
+    if(!o){w.phase='idle';const home=LAYOUT.server(Math.min(servers.indexOf(w),2));if(Math.hypot(w.pos[0]-home[0],w.pos[1]-home[1])>.01){go(w,home);continue;}break;}
+    Object.assign(o.pack,{state:'active',worker:w.id,stop:0,slot:Math.min(servers.indexOf(w),2)});w.job=o.id;w.phase='serving';const first=serviceStops(o)[0];w.path=[...(first.via??[]).map(p=>[...p]),[...first.at]];continue;}
+   // Arrived at the current stop: its work takes seconds, then the server heads to the next one.
+   const stops=serviceStops(o),stop=stops[o.pack.stop];if(stop.stop==='burgers'&&o.assemble.state!=='done'){w.phase='waiting';break;}w.phase='serving';const dwell=SERVE_SECONDS[stop.stop]*stop.count*w.speed/60;budget-=dwell;w.load=o.channel==='dine'||stop.stop!=='bag'?'tray':'bag';
+   // The stop is kept in the trail as a pause, so the 3D view shows the server pouring or serving there.
+   trail.push([...w.pos,w.load==='bag'?7:6,Math.round(dwell*100)/100]);
+   if(++o.pack.stop>=stops.length){o.pack.state='done';w.job=null;w.load=null;w.phase='idle';continue;}
+   const next=stops[o.pack.stop];w.path=[...(next.via??[]).map(p=>[...p]),[...next.at]];if(stop.stop==='fries')w.path.unshift([2.1,-2]);}
+  w.trail=trail.length>1?trail:null;}}
+const stepsLeft=(steps,progress)=>{let i=Math.floor(progress),left=STEP_SECONDS[steps[i]?.step]*(1-(progress-i))||0;for(i++;i<steps.length;i++)left+=STEP_SECONDS[steps[i].step];return left;};
+function pickAssembly(s,w,tickets){const busy=new Set(s.orders.filter(o=>o.stage==='kitchen'&&o.assemble.state==='active').map(o=>o.assemble.station)),station=Array.from({length:s.equipment.assembly},(_,i)=>i).find(i=>!busy.has(i));if(station===undefined)return null;
+ const o=tickets.find(o=>o.assemble.state==='todo'&&o.grill.state==='done'&&Object.entries(packagingFor(o)).every(([k,q])=>s.supplies[k]>=q));if(!o)return null;
+ for(const [k,q] of Object.entries(packagingFor(o)))s.supplies[k]-=q;Object.assign(o.assemble,{state:'active',worker:w.id,station,progress:0,prev:0,remaining:Math.ceil(stepsLeft(assemblySteps(o),0)/60)});w.phase='working';w.job=o.id;w.station=station;go(w,LAYOUT.assembler(station));return o;}
 function stepKitchen(s){
- const tickets=sortedOrders(s,s.orders.filter(o=>o.stage==='kitchen'));stepGrills(s,tickets);
- for(const key of ['fry']){const role='fryer',cooks=s.workers.filter(w=>w.role===role&&!w.retiring),count=Math.min(cooks.length,s.equipment.fryers);
-  for(const o of s.orders)if(o.stage==='kitchen'&&o[key].state==='active'&&--o[key].remaining<=0){o[key].state='done';o[key].worker=null;}
-  for(let station=0;station<count;station++){const cook=cooks[station];let load=loadOf(s,key,station);
-   for(const o of tickets){const task=o[key];if(task.state!=='todo'||load+task.need>STATION_CAPACITY[key]&&load>0)continue;task.state='active';task.station=station;task.worker=cook.id;task.remaining=FRY_MINUTES;load+=task.need;}
-   const home=LAYOUT.fryCook(station);if(!cook.path.length&&Math.hypot(cook.pos[0]-home[0],cook.pos[1]-home[1])>.01)go(cook,home);cook.station=station;cook.phase=load>0?'working':'idle';}
-  for(const w of s.workers.filter(w=>w.role===role))walk(w);}
+ const tickets=sortedOrders(s,s.orders.filter(o=>o.stage==='kitchen'));stepLine(s,'grill',tickets);stepLine(s,'fry',tickets);
  const assemblers=s.workers.filter(w=>w.role==='assembly');for(const w of assemblers){walk(w);
-  if(w.phase==='working'){const o=s.orders.find(o=>o.id===w.job);if(o&&o.assemble.state==='active'&&--o.assemble.remaining>0)continue;if(o)o.assemble.state='done';w.phase='idle';w.job=null;}
-  if(w.retiring)continue;const busy=new Set(s.orders.filter(o=>o.stage==='kitchen'&&o.assemble.state==='active').map(o=>o.assemble.station)),station=Array.from({length:s.equipment.assembly},(_,i)=>i).find(i=>!busy.has(i));if(station===undefined)continue;
-  const o=tickets.find(o=>o.assemble.state==='todo'&&o.grill.state==='done'&&Object.entries(packagingFor(o)).every(([k,q])=>s.supplies[k]>=q));if(!o)continue;
-  for(const [k,q] of Object.entries(packagingFor(o)))s.supplies[k]-=q;const burgers=o.lines.filter(l=>BURGERS.includes(l.item)).reduce((n,l)=>n+l.qty,0);
-  Object.assign(o.assemble,{state:'active',worker:w.id,station,remaining:Math.max(1,Math.round(burgers*.45+orderCount(o,'drink')*.15+.3))});w.phase='working';w.job=o.id;w.station=station;go(w,LAYOUT.assembler(station));}
- for(const o of s.orders)if(o.stage==='kitchen'&&['grill','fry','assemble'].every(k=>o[k].state==='done')){o.stage='ready';o.readyAt=now(s);}}
+  // Each minute gives the assembler sixty seconds of work; time left after an order goes to the next ticket.
+  let seconds=60;for(let guard=0;guard<6&&seconds>0;guard++){let o=w.phase==='working'?s.orders.find(o=>o.id===w.job&&o.assemble.state==='active'):null;
+   if(!o){if(w.phase==='working'){w.phase='idle';w.job=null;}if(w.retiring||!(o=pickAssembly(s,w,tickets)))break;}
+   const steps=assemblySteps(o),a=o.assemble;a.progress??=0;if(guard===0||a.prev===undefined)a.prev=a.progress;
+   while(seconds>0&&a.progress<steps.length){const i=Math.floor(a.progress),need=STEP_SECONDS[steps[i].step]*(1-(a.progress-i));if(seconds>=need-1e-9){seconds-=need;a.progress=i+1;}else{a.progress=i+(a.progress-i)+seconds/STEP_SECONDS[steps[i].step];seconds=0;}}
+   a.remaining=Math.ceil(stepsLeft(steps,a.progress)/60);if(a.progress>=steps.length){a.state='done';a.remaining=0;w.phase='idle';w.job=null;}}
+  if(w.phase!=='working'&&!w.path.length){const home=LAYOUT.assembler(Math.min(w.station??0,s.equipment.assembly-1));if(Math.hypot(w.pos[0]-home[0],w.pos[1]-home[1])>.01)go(w,home);}}
+ stepServers(s,tickets);
+ for(const o of s.orders)if(o.stage==='kitchen'&&['grill','fry','assemble','pack'].every(k=>o[k].state==='done')){o.stage='ready';o.readyAt=now(s);}}
 
 function stepStaff(s){
  // Cashiers take their register; floor staff clean dirty tables.
@@ -282,7 +332,7 @@ function closeDay(s){
  s.customers=[];s.queue=[];s.tables.forEach(t=>{t.state='free';t.guest=null;});for(const w of s.workers){w.phase='idle';w.job=null;w.path=[];w.pos=[...homeOf(w.role,s.workers.filter(x=>x.role===w.role).indexOf(w))];}
  // At closing, cooked patties are thrown away and the raw bins go back to the cold room for the night.
  for(const w of s.workers)if(w.carry?.raw)dropCarry(s,w);
- for(const p of PATTIES){wastePatties(s,p,held(s,p)+grilling(s,p)+carried(s,p),'fermeture');if(s.kitchen.bins[p]){s.ingredients.find(i=>i.id===p).lots.push({qty:s.kitchen.bins[p],expires:s.day+1});s.kitchen.bins[p]=0;}}s.kitchen.holding=[];s.kitchen.batches=[];for(const w of s.workers){w.carry=null;w.plan=null;}
+ for(const p of COOKED){wastePatties(s,p,held(s,p)+grilling(s,p)+carried(s,p),'fermeture');if(s.kitchen.bins[p]){s.ingredients.find(i=>i.id===p).lots.push({qty:s.kitchen.bins[p],expires:s.day+1});s.kitchen.bins[p]=0;}}s.kitchen.holding=[];s.kitchen.batches=[];for(const w of s.workers){w.carry=null;w.plan=null;}
  // Expired lots are thrown away at closing.
  for(const i of s.ingredients){const def=INGREDIENTS.find(x=>x.id===i.id),gone=i.lots.filter(l=>l.expires<=s.day);if(gone.length){const qty=gone.reduce((n,l)=>n+l.qty,0),cost=money(qty*def.cost);i.lots=i.lots.filter(l=>l.expires>s.day);i.wasted+=qty;s.daily.waste=money(s.daily.waste+cost);s.totals.waste=money(s.totals.waste+cost);log(s,`Périmés jetés : ${qty} ${def.short} (${cost} €).`,'warning');}}
  const costs=restaurantCosts(s);s.money=money(s.money-costs.total);s.daily.charges=costs.total;s.totals.charges=money(s.totals.charges+costs.total);payLoans(s);
@@ -299,7 +349,11 @@ export function advanceRestaurant(s,minutes){if(!Number.isInteger(minutes)||minu
 
 // Conversion of a distribution-centre game: its net worth becomes the restaurant's starting capital, the old save is archived.
 export function migrateRestaurantGame(record,{warehouseState,stockValue:previousStock=0}={}){
- if(record.schemaVersion===3&&record.state.kind==='restaurant'){const s=structuredClone(record.state);if(!s.kitchen){s.kitchen={bins:{beef:0,chicken:0},batches:[],holding:[],cookAhead:'normal'};for(const o of s.orders){o.patties??={beef:0,chicken:0};if(o.stage==='kitchen'&&o.grill.state!=='done')o.grill.state='done';}}s.daily.discarded??=0;return s;}
+ if(record.schemaVersion===3&&record.state.kind==='restaurant'){const s=structuredClone(record.state);if(!s.kitchen){s.kitchen={bins:{beef:0,chicken:0},batches:[],holding:[],cookAhead:'normal'};for(const o of s.orders){o.patties??={beef:0,chicken:0};if(o.stage==='kitchen'&&o.grill.state!=='done')o.grill.state='done';}}for(const h of s.kitchen.holding)if(h.kind==='fries'&&h.portioned===undefined)h.portioned=true;if(s.kitchen.bins.fries===undefined){s.kitchen.bins.fries=0;for(const o of s.orders)if(o.stage==='kitchen'&&o.fry.state!=='done')o.fry.state='done';}s.daily.discarded??=0;
+  // Drinks, cans, ice creams and the server role arrived after the first restaurant saves.
+  for(const def of INGREDIENTS)if(!s.ingredients.some(i=>i.id===def.id))s.ingredients.push({id:def.id,lots:[{qty:def.initial,expires:s.day+def.shelf}],ordered:0,used:0,wasted:0});s.supplies.pots??=PACKAGING_START.pots;
+  if(s.staff.server===undefined){s.staff={cashier:s.staff.cashier,grill:s.staff.grill,fryer:s.staff.fryer,assembly:s.staff.assembly,server:1,floor:s.staff.floor};s.workers.push(worker(s,'server'));}
+  for(const o of s.orders)o.pack??={state:o.stage==='kitchen'?'todo':'done',worker:null};return s;}
  const old=warehouseState??record.state,s=createRestaurantGame(old.seed);const debt=(old.loans||[]).reduce((n,l)=>n+l.principalLeft,0),net=money(old.money+previousStock-debt),support=money(Math.max(0,30000-net));
  s.money=money(net+support);s.initialCash=s.money;s.dayStartCash=s.money;s.legacyArchive=record.schemaVersion===2?structuredClone(record):{schemaVersion:2,state:structuredClone(old),preferences:{checkoutSound:true}};s.transition={cash:old.money,assets:money(previousStock),debt:money(debt),support,day:old.day};
  log(s,`Reconversion en restaurant : ancien centre archivé, capital de départ ${s.money.toLocaleString('fr-FR')} €.`);return s;}
