@@ -290,11 +290,14 @@ function stepKitchen(s){
  const tickets=sortedOrders(s,s.orders.filter(o=>o.stage==='kitchen'));stepLine(s,'grill',tickets);stepLine(s,'fry',tickets);
  const assemblers=s.workers.filter(w=>w.role==='assembly');for(const w of assemblers){walk(w);
   // Each minute gives the assembler sixty seconds of work; time left after an order goes to the next ticket.
-  let seconds=60;for(let guard=0;guard<6&&seconds>0;guard++){let o=w.phase==='working'?s.orders.find(o=>o.id===w.job&&o.assemble.state==='active'):null;
+  // The minute's work is kept as [order, station, progress from, progress to, second from, second to] so the 3D view replays it.
+  let seconds=60;const shift=[];for(let guard=0;guard<6&&seconds>0;guard++){let o=w.phase==='working'?s.orders.find(o=>o.id===w.job&&o.assemble.state==='active'):null;
    if(!o){if(w.phase==='working'){w.phase='idle';w.job=null;}if(w.retiring||!(o=pickAssembly(s,w,tickets)))break;}
    const steps=assemblySteps(o),a=o.assemble;a.progress??=0;if(guard===0||a.prev===undefined)a.prev=a.progress;
-   while(seconds>0&&a.progress<steps.length){const i=Math.floor(a.progress),need=STEP_SECONDS[steps[i].step]*(1-(a.progress-i));if(seconds>=need-1e-9){seconds-=need;a.progress=i+1;}else{a.progress=i+(a.progress-i)+seconds/STEP_SECONDS[steps[i].step];seconds=0;}}
+   const p0=a.progress,s0=60-seconds;while(seconds>0&&a.progress<steps.length){const i=Math.floor(a.progress),need=STEP_SECONDS[steps[i].step]*(1-(a.progress-i));if(seconds>=need-1e-9){seconds-=need;a.progress=i+1;}else{a.progress=i+(a.progress-i)+seconds/STEP_SECONDS[steps[i].step];seconds=0;}}
+   if(a.progress>p0)shift.push([o.id,a.station,Math.round(p0*1000)/1000,Math.round(a.progress*1000)/1000,Math.round(s0*100)/100,Math.round((60-seconds)*100)/100]);
    a.remaining=Math.ceil(stepsLeft(steps,a.progress)/60);if(a.progress>=steps.length){a.state='done';a.remaining=0;w.phase='idle';w.job=null;}}
+  w.shift=shift.length?shift:null;
   if(w.phase!=='working'&&!w.path.length){const home=LAYOUT.assembler(Math.min(w.station??0,s.equipment.assembly-1));if(Math.hypot(w.pos[0]-home[0],w.pos[1]-home[1])>.01)go(w,home);}}
  stepServers(s,tickets);stepDriveCrew(s);
  for(const o of s.orders)if(o.stage==='kitchen'&&['grill','fry','assemble','pack'].every(k=>o[k].state==='done')){o.stage='ready';o.readyAt=now(s);}}

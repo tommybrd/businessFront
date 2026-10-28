@@ -136,6 +136,13 @@ test('the assembler follows the building guide: toaster, then each burger layer 
  assert.ok(seen.length>=1&&seen.every((p,i)=>i===0||p>seen[i-1]),'progress moves forward step by step');assert.equal(o.assemble.state,'done');assert.equal(big.assemble.state,'done');
 });
 
+test('the assembler keeps the timeline of each minute, so the 3D view shows every ticket built even when it takes a few seconds',()=>{
+ const s=R.createRestaurantGame(7);at(s,780);let worked=0,seconds=0;
+ for(let m=0;m<60;m++){R.advanceRestaurant(s,1);const w=s.workers.find(w=>w.role==='assembly');if(!w.shift)continue;worked++;let last=0;
+  for(const [id,station,p0,p1,s0,s1] of w.shift){const o=s.orders.find(o=>o.id===id);assert.ok(o&&station===o.assemble.station&&p1>p0&&s0>=last-1e-9&&s1>s0&&s1<=60);last=s1;seconds+=s1-s0;}}
+ assert.ok(worked>=15,`the assembler works during the lunch rush (${worked})`);assert.ok(seconds>0);
+ assert.equal(readSave(JSON.stringify(makeSave(s))).state.workers.find(w=>w.role==='assembly').shift?.length??0,s.workers.find(w=>w.role==='assembly').shift?.length??0);
+});
 test('the server pours drinks, takes cans and ice creams, fetches fries and burgers, then packs the tray or the bag',()=>{
  const s=R.createRestaurantGame(6);s.open=false;s.minute=700;const server=s.workers.find(w=>w.role==='server');assert.ok(server,'a server is hired from the start');
  const cans=R.ingredientStock(s,'cans'),ice=R.ingredientStock(s,'icecream'),pots=s.supplies.pots;
