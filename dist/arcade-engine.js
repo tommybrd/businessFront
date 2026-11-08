@@ -128,7 +128,15 @@ const near=(a,[x,z],r=RADIUS)=>Math.hypot(a.x-x,a.z-z)<r;
 const count=(a,k)=>a.carry.filter(c=>c===k).length;
 function drop(a,k){const i=a.carry.lastIndexOf(k);if(i<0)return false;a.carry.splice(i,1);return true;}
 const popup=(s,text,x,z,kind='money')=>{s.popups.push({id:s.nextId++,text,x,z,t:0,kind});};
-const takes=(a,item)=>a.role==='player'||a.wants===item;
+// The player picks up only the kinds left switched on in their pick filter (all by default); helpers take what their mission needs.
+const takes=(a,item)=>a.role==='player'?a.pick?.[item]!==false:a.wants===item;
+export const PICKABLE=['potato','fries','raw','steak','burger','cup','soda','beef'];
+export function setPick(s,item,on){s.player.pick??={};if(item==='all'||item==='none'){for(const k of PICKABLE)s.player.pick[k]=item==='all';}else if(PICKABLE.includes(item))s.player.pick[item]=!!on;}
+// Put back what someone carries: deliveries and machine outputs take their goods back while they have room; the rest is thrown away.
+function putBack(s,list){let back=0;for(const k of list){const src=Object.entries(SOURCES).find(([,d])=>d.item===k);if(src&&sourceOpen(s,src[0])&&s.sources[src[0]].n<sourceCap(s,src[0])){s.sources[src[0]].n++;back++;continue;}
+  const st=Object.entries(STATIONS).find(([sid,def])=>def.out===k&&stationOpen(s,sid)&&s.stations[sid].out<stationCaps(s,sid).outCap);if(st){s.stations[st[0]].out++;back++;}}
+ return {back,thrown:list.length-back};}
+export function emptyHands(s){const p=s.player;if(!p.carry.length)return null;const r=putBack(s,p.carry);p.carry=[];popup(s,r.thrown?`🗑️ ${r.back} rangés · ${r.thrown} jetés`:`🗑️ ${r.back} rangés`,p.x,p.z,'info');return r;}
 
 // Furniture and fences the player cannot walk through (axis-aligned boxes [x0,z0,x1,z1]).
 export function obstacles(s){const o=[[-5.2,-12.6,14.4,-12.2],[-5.15,-12.6,-4.85,-10.9],[-1.2,-3.65,13.2,-2.75]];
@@ -203,9 +211,7 @@ export const MISSIONS=[
 export const missionsFor=(s,h)=>MISSIONS.filter(m=>(!m.humans||!h.robot)&&(!m.needs||s.unlocked[m.needs]));
 // Changing a mission restarts the loop; what the worker carries is put back where it was taken (field goods are dropped).
 export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if(!h||!MISSIONS.some(m=>m.id===loop))return false;
- for(const k of h.carry){const src=Object.entries(SOURCES).find(([,d])=>d.item===k);if(src&&s.sources[src[0]].n<sourceCap(s,src[0])){s.sources[src[0]].n++;continue;}
-  for(const [sid,def] of Object.entries(STATIONS))if(def.out===k&&s.stations[sid].out<stationCaps(s,sid).outCap){s.stations[sid].out++;break;}}
- h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.moving=false;return true;}
+putBack(s,h.carry);h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.moving=false;return true;}
 function helper(s,loop){const n=s.helpers.filter(h=>!h.robot).length+1;return {id:s.nextId++,role:'helper',name:'Employé '+n,loop,step:0,x:-5,z:-9.8,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null};}
 function target(s,h){const st=LOOPS[h.loop][h.step],[kind,id]=st.go.split(':'),dist=p=>Math.hypot(p.x-h.x,p.z-h.z);
  if(kind==='field'){const ripe=s.plots.filter(p=>p.ripe&&(p.zone===1||s.unlocked.field2)).sort((a,b)=>dist(a)-dist(b))[0];return ripe?[ripe.x,ripe.z]:[-10.8,-5.2];}
