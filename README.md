@@ -1,5 +1,9 @@
 # Flux Burger · v1.3.1
 
+> **Flux Arcade (alpha)** — le nouveau jeu du projet, dans `dist/arcade.html` : un jeu de gestion arcade sans fin (champ, ferme, cuisine, sodas, caisses, bornes, paiement espèces ou carte, employés et robots aux missions réglables, améliorations à niveaux). Lancer `npm install` puis `npm run dev` et ouvrir http://127.0.0.1:3000/arcade.html. Commandes : ZQSD, flèches ou glisser le doigt.
+>
+> Projet open source sous licence MIT (voir `LICENSE`). Three.js est distribué sous sa propre licence MIT (`dist/vendor/THREE-LICENSE.txt`).
+
 Jeu de gestion d’un restaurant de burgers, en français. La vue 3D montre la cuisine, le comptoir, les bornes, la salle et les clients réellement présents dans la simulation : steaks sur le grill, paniers de frites, commandes prêtes sur la passe, tables occupées ou sales, camion de livraison à la porte de service.
 
 ## Service
