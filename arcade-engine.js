@@ -13,6 +13,11 @@ export const STATIONS={
  burger:{name:'Poste burger',in:'steak',out:'burger',time:1.8,inCap:24,outCap:16,pos:[6.2,-8.4],needs:'burger'},
  soda:{name:'Machine à soda',in:'cup',out:'soda',time:1,inCap:24,outCap:20,pos:[10.8,-9.2],needs:'soda'},
  butcher:{name:'Boucherie',in:'beef',out:'raw',time:2.4,inCap:12,outCap:30,yield:3,pos:[-3.6,5.2],needs:'farm'}};
+// Second machines, in the back row of the kitchen: same recipe as their model (`base`), each opened by its own unlock.
+export const BACK_ROW=-14.2;
+for(const [id,base,x] of [['fryer2','fryer',-2],['grill2','grill',2.2],['burger2','burger',6.2],['soda2','soda',10.8]])
+ STATIONS[id]={...STATIONS[base],name:STATIONS[base].name+' 2',base,pos:[x,BACK_ROW],needs:id};
+export const baseOf=id=>STATIONS[id].base??id;
 export const SHELVES={fries:{name:'Frites',pos:[1,-3.2],cap:24},burger:{name:'Burgers',pos:[3.4,-3.2],cap:20,needs:'burger'},soda:{name:'Sodas',pos:[-.4,-3.2],cap:20,needs:'soda'}};
 // Deliveries that refill by themselves: meat crates and cup stacks.
 export const SOURCES={meat:{name:'Viande livrée',item:'raw',pos:[-1.6,-11.2],cap:10,every:2.2,needs:'grill'},cups:{name:'Gobelets',item:'cup',pos:[13,-10.6],cap:20,every:.9,needs:'soda'}};
@@ -23,7 +28,7 @@ export const KIOSKS=[[-.2,1.6],[1.6,1.6],[3.4,1.6],[-2,1.6]],PICKUP=Array.from({
 // Pasture south of the field: one spot per cow.
 export const COWS=[[-12.4,2.6],[-10.4,2.6],[-12.4,4.6],[-10.4,4.6],[-12.4,6.6],[-10.4,6.6],[-8.8,5.6],[-8.8,7.2]];
 export const PASTURE={x0:-13.6,x1:-7.8,z0:1.3,z1:8.2,gate:[3,4.8]};
-export const DOOR=[8.4,8],EXIT=[-2,9],MEGAPHONE=[13.6,1.2],MAX_QUEUE=9,KIOSK_QUEUE=4,WORLD={minX:-13.3,maxX:14.8,minZ:-12.1,maxZ:9};
+export const DOOR=[8.4,8],EXIT=[-2,9],MEGAPHONE=[13.6,1.2],MAX_QUEUE=9,KIOSK_QUEUE=4,WORLD={minX:-13.3,maxX:14.8,minZ:-15.9,maxZ:9};
 export const MEAT=SOURCES.meat.pos,REGISTER=REGISTERS[0].pos,SERVE_SPOT=REGISTERS[0].serve,CASH_SPOT=REGISTERS[0].cash;
 export const inZone=([x,z])=>[x-1.25,z+1.55],outZone=([x,z])=>[x+1.25,z+1.55],shelfZone=([x,z])=>[x,z-1.3];
 export const CARD_FEE=.02,KIOSK_ORDER=3,PICKUP_STEP=.35;
@@ -59,6 +64,10 @@ export const UNLOCKS=[
  {id:'terminal2',name:'Terminal CB 2',price:120,pos:[8.4,-1.2],after:'register2'},
  {id:'shelf2',name:'Grandes étagères',price:150,pos:[-3.6,3],after:'register2'},
  {id:'crewBags',name:'Sacs des aides',price:300,pos:[-5,-9.8],after:'helper3'},
+ {id:'fryer2',name:'Friteuse 2',price:300,pos:[-2,BACK_ROW],after:'fastFryer'},
+ {id:'grill2',name:'Grill 2',price:400,pos:[2.2,BACK_ROW],after:'fastKitchen'},
+ {id:'burger2',name:'Poste burger 2',price:450,pos:[6.2,BACK_ROW],after:'grill2'},
+ {id:'soda2',name:'Machine à soda 2',price:350,pos:[10.8,BACK_ROW],after:'sodaHelper'},
  {id:'robotPotato',name:'Robot récolte',price:220,pos:[-6.6,-7.6],after:'helper'},
  {id:'robotFries',name:'Robot frites',price:200,pos:[-3,-3.4],after:'robotPotato'},
  {id:'robotMeat',name:'Robot viande',price:220,pos:[4.2,-11.4],after:'helper2'},
@@ -85,7 +94,7 @@ export const stockMul=s=>1+.5*lvl(s,'stock');
 export const stationOpen=(s,id)=>!STATIONS[id].needs||!!s.unlocked[STATIONS[id].needs];
 export const shelfOpen=(s,k)=>!SHELVES[k].needs||!!s.unlocked[SHELVES[k].needs];
 export const sourceOpen=(s,k)=>!!s.unlocked[SOURCES[k].needs];
-export const stationTime=(s,id)=>STATIONS[id].time*((id==='fryer'&&s.unlocked.fastFryer)||((id==='grill'||id==='burger')&&s.unlocked.fastKitchen)?.55:1)*.85**lvl(s,'cuisine');
+export const stationTime=(s,id)=>{const b=baseOf(id);return STATIONS[id].time*((b==='fryer'&&s.unlocked.fastFryer)||((b==='grill'||b==='burger')&&s.unlocked.fastKitchen)?.55:1)*.85**lvl(s,'cuisine');};
 export const stationCaps=(s,id)=>({inCap:Math.round(STATIONS[id].inCap*stockMul(s)),outCap:Math.round(STATIONS[id].outCap*stockMul(s))});
 export const shelfCap=(s,k)=>Math.round(SHELVES[k].cap*(s.unlocked.shelf2?1.6:1)*stockMul(s));
 export const sourceCap=(s,k)=>Math.round((k==='meat'&&s.unlocked.meat2?16:SOURCES[k].cap)*stockMul(s));
@@ -139,7 +148,7 @@ function putBack(s,list){let back=0;for(const k of list){const src=Object.entrie
 export function emptyHands(s){const p=s.player;if(!p.carry.length)return null;const r=putBack(s,p.carry);p.carry=[];popup(s,r.thrown?`🗑️ ${r.back} rangés · ${r.thrown} jetés`:`🗑️ ${r.back} rangés`,p.x,p.z,'info');return r;}
 
 // Furniture and fences the player cannot walk through (axis-aligned boxes [x0,z0,x1,z1]).
-export function obstacles(s){const o=[[-5.2,-12.6,14.4,-12.2],[-5.15,-12.6,-4.85,-10.9],[-1.2,-3.65,13.2,-2.75]];
+export function obstacles(s){const o=[[-5.2,-16.6,14.4,-16.2],[-5.15,-12.6,-4.85,-10.9],[-1.2,-3.65,13.2,-2.75]];
  const boxAt=([x,z],w,d)=>o.push([x-w/2,z-d/2,x+w/2,z+d/2]);
  for(const [id,def] of Object.entries(STATIONS))if(stationOpen(s,id))boxAt(def.pos,1.8,1.2);
  for(const [k,def] of Object.entries(SOURCES))if(sourceOpen(s,k))boxAt(def.pos,1.6,1.2);
@@ -211,12 +220,15 @@ export const MISSIONS=[
 export const missionsFor=(s,h)=>MISSIONS.filter(m=>(!m.humans||!h.robot)&&(!m.needs||s.unlocked[m.needs]));
 // Changing a mission restarts the loop; what the worker carries is put back where it was taken (field goods are dropped).
 export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if(!h||!MISSIONS.some(m=>m.id===loop))return false;
-putBack(s,h.carry);h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.moving=false;return true;}
+putBack(s,h.carry);h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.station=null;h.moving=false;return true;}
 function helper(s,loop){const n=s.helpers.filter(h=>!h.robot).length+1;return {id:s.nextId++,role:'helper',name:'Employé '+n,loop,step:0,x:-5,z:-9.8,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null};}
 function target(s,h){const st=LOOPS[h.loop][h.step],[kind,id]=st.go.split(':'),dist=p=>Math.hypot(p.x-h.x,p.z-h.z);
  if(kind==='field'){const ripe=s.plots.filter(p=>p.ripe&&(p.zone===1||s.unlocked.field2)).sort((a,b)=>dist(a)-dist(b))[0];return ripe?[ripe.x,ripe.z]:[-10.8,-5.2];}
  if(kind==='cows'){const c=s.cows.slice(0,cowCount(s)).filter(c=>c.ready).sort((a,b)=>dist(a)-dist(b))[0];return c?[c.x,c.z]:[-9.4,4.6];}
- if(kind==='meat')return SOURCES.meat.pos;if(kind==='cups')return SOURCES.cups.pos;if(kind==='in')return inZone(STATIONS[id].pos);if(kind==='out')return outZone(STATIONS[id].pos);return shelfZone(SHELVES[id].pos);}
+ if(kind==='meat')return SOURCES.meat.pos;if(kind==='cups')return SOURCES.cups.pos;if(kind==='in'||kind==='out'){const sid=h.station??=pickStation(s,id,kind);return (kind==='in'?inZone:outZone)(STATIONS[sid].pos);}return shelfZone(SHELVES[id].pos);}
+// Among the open machines of one kind, feed the emptiest and empty the fullest (chosen once per step).
+function pickStation(s,base,kind){const ids=Object.keys(STATIONS).filter(id=>baseOf(id)===base&&stationOpen(s,id));
+ const score=id=>kind==='in'?s.stations[id].in/stationCaps(s,id).inCap:-s.stations[id].out;return ids.sort((a,b)=>score(a)-score(b))[0]??base;}
 function stepHelper(s,h,dt){if(h.loop==='rest'){h.moving=false;return;}const st=LOOPS[h.loop][h.step],[kind,id]=st.go.split(':'),t=target(s,h);
  h.wants=st.take??(kind==='field'?'potato':kind==='cows'?'beef':null);
  const roam=kind==='field'||kind==='cows',arrived=move(h,t,dt,roam?.2:.35);if(!arrived&&!roam)return;
@@ -224,8 +236,10 @@ function stepHelper(s,h,dt){if(h.loop==='rest'){h.moving=false;return;}const st=
  let done=false;if(st.until==='full')done=h.carry.length>=h.cap||(h.idle>2.5&&h.carry.length>0);
  else if(kind==='in')done=!h.carry.includes(STATIONS[id].in)||h.idle>2.5;else if(kind==='shelf')done=!h.carry.includes(id)||h.idle>2.5;
  // Empty-handed and nothing coming (someone else took the goods): start the loop again instead of waiting forever.
- if(!done&&st.until==='full'&&!h.carry.length&&h.idle>4){h.step=0;h.idle=0;return;}
- if(done){h.step=(h.step+1)%LOOPS[h.loop].length;h.idle=0;}}
+ if(!done&&st.until==='full'&&!h.carry.length&&h.idle>4){h.step=0;h.idle=0;h.station=null;return;}
+ // Waiting at an empty output while the other machine of the kind has goods: switch to it.
+ if(!done&&kind==='out'&&h.idle>1.5){const alt=pickStation(s,id,'out');if(alt!==h.station&&s.stations[alt].out>0){h.station=alt;h.idle=0;}}
+ if(done){h.step=(h.step+1)%LOOPS[h.loop].length;h.idle=0;h.station=null;}}
 function move(a,[x,z],dt,stop=.1){const dx=x-a.x,dz=z-a.z,d=Math.hypot(dx,dz);if(d<=stop){a.moving=false;return true;}const step=Math.min(d,a.speed*dt);a.x+=dx/d*step;a.z+=dz/d*step;a.heading=Math.atan2(dx,dz);a.moving=true;return d-step<=stop;}
 
 // Customers: some order at a self-service kiosk (card only) then wait at the pickup line; the others queue at the
@@ -278,7 +292,7 @@ export function stepArcade(s,dt,input={x:0,z:0}){dt=Math.min(dt,.1);s.t+=dt;cons
 // Saves: schema 2 loads as is; a schema 1 save is rebuilt into a fresh schema 2 game with the same money, purchases,
 // reputation and counters (helpers come back on their default missions).
 export function loadArcade(json){const o=typeof json==='string'?JSON.parse(json):json;if(!o||!o.player||!Array.isArray(o.plots))throw Error('Sauvegarde illisible.');
- if(o.schema===SAVE_SCHEMA){o.popups=[];return o;}
+ if(o.schema===SAVE_SCHEMA){o.popups=[];for(const id of Object.keys(STATIONS))o.stations[id]??={in:0,out:0,timer:0,working:false};return o;}
  if(o.schema!==1)throw Error('Sauvegarde illisible.');
  const s=createArcade();s.money=(o.money??0)+(Array.isArray(o.piles)?o.piles.reduce((a,b)=>a+b,0):o.pile??0);s.served=o.served??0;s.rep=o.rep??2.5;s.lost=o.lost??0;
  for(const u of UNLOCKS)if(o.unlocked?.[u.id]){s.unlocked[u.id]=true;applyUnlock(s,u.id);}
