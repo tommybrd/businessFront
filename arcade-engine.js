@@ -8,10 +8,10 @@ export const ITEMS={potato:{name:'Pomme de terre'},fries:{name:'Frites',price:4}
 export const PRODUCTS=['fries','burger','soda'];
 // Machines turn one input into output after `time` seconds (`yield` outputs per input). `needs`: unlock that opens it.
 export const STATIONS={
- fryer:{name:'Friteuse',in:'potato',out:'fries',time:1.4,inCap:24,outCap:20,pos:[-2,-7.5]},
- grill:{name:'Grill',in:'raw',out:'steak',time:1.6,inCap:24,outCap:20,pos:[2.2,-7.5],needs:'grill'},
- burger:{name:'Poste burger',in:'steak',out:'burger',time:1.8,inCap:24,outCap:16,pos:[6.2,-7.5],needs:'burger'},
- soda:{name:'Machine à soda',in:'cup',out:'soda',time:1,inCap:24,outCap:20,pos:[10.6,-7.5],needs:'soda'},
+ fryer:{name:'Friteuse',in:'potato',out:'fries',time:1.4,inCap:24,outCap:20,pos:[-2,-8.4]},
+ grill:{name:'Grill',in:'raw',out:'steak',time:1.6,inCap:24,outCap:20,pos:[2.2,-8.4],needs:'grill'},
+ burger:{name:'Poste burger',in:'steak',out:'burger',time:1.8,inCap:24,outCap:16,pos:[6.2,-8.4],needs:'burger'},
+ soda:{name:'Machine à soda',in:'cup',out:'soda',time:1,inCap:24,outCap:20,pos:[10.8,-9.2],needs:'soda'},
  butcher:{name:'Boucherie',in:'beef',out:'raw',time:2.4,inCap:12,outCap:30,yield:3,pos:[-3.6,5.2],needs:'farm'}};
 export const SHELVES={fries:{name:'Frites',pos:[1,-3.2],cap:24},burger:{name:'Burgers',pos:[3.4,-3.2],cap:20,needs:'burger'},soda:{name:'Sodas',pos:[-.4,-3.2],cap:20,needs:'soda'}};
 // Deliveries that refill by themselves: meat crates and cup stacks.
@@ -39,7 +39,7 @@ export const UNLOCKS=[
  {id:'burger',name:'Poste burger',price:140,pos:[6.2,-10.4],after:'grill'},
  {id:'shoes',name:'Baskets',price:70,pos:[-4.4,1.2],after:'bag'},
  {id:'terminal1',name:'Terminal CB',price:90,pos:[8.4,-1.2],after:'cashier'},
- {id:'helper2',name:'Aide burgers',price:220,pos:[9.4,-9.4],after:'burger'},
+ {id:'helper2',name:'Aide burgers',price:220,pos:[8.2,-11.2],after:'burger'},
  {id:'megaphone',name:'Mégaphone',price:50,pos:MEGAPHONE,after:'cashier'},
  {id:'ads1',name:'Pub niveau 1',price:80,pos:[13.6,4.4],after:'megaphone'},
  {id:'ads2',name:'Pub niveau 2',price:200,pos:[13.6,4.4],after:'ads1'},
@@ -48,14 +48,14 @@ export const UNLOCKS=[
  {id:'fastFryer',name:'Friteuse turbo',price:180,pos:[-5,-9.8],after:'helper'},
  {id:'helper3',name:'Aide frites 2',price:260,pos:[-5,-9.8],after:'fastFryer'},
  {id:'meat2',name:'Livraison viande +',price:160,pos:[2.2,-10.4],after:'helper2'},
- {id:'fastKitchen',name:'Grill + burger turbo',price:320,pos:[9.4,-9.4],after:'helper2'},
- {id:'helper4',name:'Aide burgers 2',price:420,pos:[9.4,-9.4],after:'fastKitchen'},
- {id:'soda',name:'Machine à soda',price:250,pos:[10.6,-10.2],after:'burger'},
- {id:'sodaHelper',name:'Aide sodas',price:200,pos:[10.6,-10.2],after:'soda'},
+ {id:'fastKitchen',name:'Grill + burger turbo',price:320,pos:[8.2,-11.2],after:'helper2'},
+ {id:'helper4',name:'Aide burgers 2',price:420,pos:[8.2,-11.2],after:'fastKitchen'},
+ {id:'soda',name:'Machine à soda',price:250,pos:[10.8,-9.2],after:'burger'},
+ {id:'sodaHelper',name:'Aide sodas',price:200,pos:[13.6,-8.3],after:'soda'},
  {id:'farm',name:'Ferme + boucherie',price:400,pos:[-6.2,1.6],after:'grill'},
  {id:'farmer',name:'Fermier',price:250,pos:[-6.2,3.6],after:'farm'},
  {id:'register2',name:'Caisse 2',price:260,pos:[10.4,-1.2],after:'burger'},
- {id:'cashier2',name:'Caissier 2',price:160,pos:[13.4,-6.4],after:'register2'},
+ {id:'cashier2',name:'Caissier 2',price:160,pos:[13.6,-5.6],after:'register2'},
  {id:'terminal2',name:'Terminal CB 2',price:120,pos:[8.4,-1.2],after:'register2'},
  {id:'shelf2',name:'Grandes étagères',price:150,pos:[-3.6,3],after:'register2'},
  {id:'crewBags',name:'Sacs des aides',price:300,pos:[-5,-9.8],after:'helper3'},
@@ -70,8 +70,8 @@ export const LEVELS=[
  {id:'pub',name:'Pub',after:'ads3',base:700,growth:1.6,pos:[13.6,4.4],tip:'+20 % de clients'},
  {id:'prix',name:'Recettes premium',after:'burger',base:400,growth:1.8,pos:[13.6,-1],tip:'+10 % sur les prix'},
  {id:'stock',name:'Stockage',after:'shelf2',base:300,growth:1.7,pos:[-3.6,3],tip:'+50 % de stock partout'},
- {id:'cuisine',name:'Cuisine rapide',after:'fastKitchen',base:500,growth:1.7,pos:[13.2,-8.8],tip:'Machines 15 % plus rapides'},
- {id:'equipe',name:'Employé',after:'helper4',base:500,growth:1.45,pos:[9.4,-9.4],tip:'Un employé de plus'},
+ {id:'cuisine',name:'Cuisine rapide',after:'fastKitchen',base:500,growth:1.7,pos:[.25,-10.8],tip:'Machines 15 % plus rapides'},
+ {id:'equipe',name:'Employé',after:'helper4',base:500,growth:1.45,pos:[8.2,-11.2],tip:'Un employé de plus'},
  {id:'robotLvl',name:'Robots',after:'robotBurger',base:400,growth:1.7,pos:[4.2,-11.4],tip:'Robots plus rapides et plus chargés'},
  {id:'cows',name:'Vache',after:'farm',base:250,growth:1.5,max:COWS.length-2,pos:[-6.2,1.6],tip:'Une vache de plus'},
  {id:'kiosk',name:'Borne',after:'register2',base:300,growth:2,max:KIOSKS.length,pos:s=>KIOSKS[lvl(s,'kiosk')],tip:'Commande et paiement CB en libre-service'}];
@@ -79,7 +79,7 @@ export const lvl=(s,id)=>s.levels[id]??0;
 export const levelPrice=(s,L)=>Math.round(L.base*L.growth**lvl(s,L.id));
 
 // Robots: each one shuttles back and forth on a single leg of a chain, forever.
-export const ROBOTS={robotPotato:{loop:'potato',at:[-7,-6]},robotFries:{loop:'friesRun',at:[-.75,-5.2]},robotMeat:{loop:'meatRun',at:[-.4,-10.4]},robotSteak:{loop:'steakRun',at:[4.2,-5.4]},robotBurger:{loop:'burgerRun',at:[7.4,-5.2]}};
+export const ROBOTS={robotPotato:{loop:'potato',at:[-7,-6]},robotFries:{loop:'friesRun',at:[-.75,-5.2]},robotMeat:{loop:'meatRun',at:[-.4,-10.4]},robotSteak:{loop:'steakRun',at:[4.2,-6.4]},robotBurger:{loop:'burgerRun',at:[7.4,-5.2]}};
 export const registerOpen=(s,r)=>r===0||!!s.unlocked.register2;
 export const stockMul=s=>1+.5*lvl(s,'stock');
 export const stationOpen=(s,id)=>!STATIONS[id].needs||!!s.unlocked[STATIONS[id].needs];

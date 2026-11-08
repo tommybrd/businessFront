@@ -21,13 +21,13 @@ let teamKey='';function renderTeam(){const key=state.helpers.map(h=>h.id+h.loop+
  for(const h of state.helpers){const row=document.createElement('div');row.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent=h.robot?'🤖':'👷';const name=document.createElement('b');name.textContent=h.name;
   const sel=document.createElement('select');sel.id='mission-'+h.id;sel.setAttribute('aria-label','Mission de '+h.name);for(const m of missionsFor(state,h)){const o=document.createElement('option');o.value=m.id;o.textContent=m.icon+'  '+m.label;o.selected=m.id===h.loop;sel.append(o);}
   sel.onchange=()=>{assignMission(state,h.id,sel.value);teamKey='';renderTeam();};row.append(ico,name,sel);list.append(row);}}
-$('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=true;teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>$('teampanel').hidden=true);
+$('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=true;scene.setShowMissions(!$('teampanel').hidden);teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>{$('teampanel').hidden=true;scene.setShowMissions(false);});
 // Hands panel: empty the stack in one tap, and choose which kinds of goods the player picks up while walking.
 const PICK_ICON={potato:'🥔',fries:'🍟',raw:'🥩',steak:'🍖',burger:'🍔',cup:'🥛',soda:'🥤',beef:'🐄'};
 function renderPicks(){const box=$('picks');box.textContent='';const pick=state.player.pick??{};let off=0;
  for(const k of PICKABLE){const on=pick[k]!==false;if(!on)off++;const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',on);b.title=(on?'Ne plus ramasser : ':'Ramasser : ')+ITEMS[k].name;b.innerHTML=`${PICK_ICON[k]}<small></small>`;b.querySelector('small').textContent=ITEMS[k].name;b.onclick=()=>{setPick(state,k,!on);renderPicks();};box.append(b);}
  $('hands').classList.toggle('filtered',off>0);$('hands').textContent=off===PICKABLE.length?'✋ Mains · rien':off?'✋ Mains · filtre':'✋ Mains';}
-$('hands').addEventListener('click',()=>{$('handspanel').hidden=!$('handspanel').hidden;$('teampanel').hidden=true;renderPicks();});$('handsclose').addEventListener('click',()=>$('handspanel').hidden=true);
+$('hands').addEventListener('click',()=>{$('handspanel').hidden=!$('handspanel').hidden;$('teampanel').hidden=true;scene.setShowMissions(false);renderPicks();});$('handsclose').addEventListener('click',()=>$('handspanel').hidden=true);
 $('empty').addEventListener('click',()=>emptyHands(state));$('pickall').addEventListener('click',()=>{setPick(state,'all');renderPicks();});$('picknone').addEventListener('click',()=>{setPick(state,'none');renderPicks();});
 renderPicks();
 let last=performance.now(),saveAt=0,hudAt=0;
