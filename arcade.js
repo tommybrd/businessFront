@@ -1,4 +1,4 @@
-import {createArcade,stepArcade,loadArcade,visibleUnlocks,traffic,avgWait,PATIENCE,MISSIONS,missionsFor,assignMission} from './arcade-engine.js';
+import {createArcade,stepArcade,loadArcade,visibleUnlocks,traffic,avgWait,PATIENCE,MISSIONS,missionsFor,assignMission,PICKABLE,setPick,emptyHands,ITEMS} from './arcade-engine.js';
 import {createArcadeScene} from './arcade-scene.js';
 
 // Input (keyboard + touch joystick), HUD and local save of the arcade alpha.
@@ -7,7 +7,7 @@ let state;try{state=loadArcade(localStorage.getItem(KEY));}catch{state=createArc
 const scene=createArcadeScene($('arcade'),()=>state);
 const keys=new Set(),stick={x:0,z:0,active:false,ox:0,oy:0,id:null};
 const DIRS={z:[0,-1],w:[0,-1],arrowup:[0,-1],s:[0,1],arrowdown:[0,1],q:[-1,0],a:[-1,0],arrowleft:[-1,0],d:[1,0],arrowright:[1,0]};
-addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(DIRS[k]){keys.add(k);e.preventDefault();}});addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));addEventListener('blur',()=>keys.clear());
+addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='x'&&!e.repeat&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement?.tagName)){emptyHands(state);return;}if(DIRS[k]){keys.add(k);e.preventDefault();}});addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));addEventListener('blur',()=>keys.clear());
 const canvas=$('arcade'),base=$('stick'),knob=$('knob');
 canvas.addEventListener('pointerdown',e=>{stick.active=true;stick.id=e.pointerId;stick.ox=e.clientX;stick.oy=e.clientY;stick.x=stick.z=0;canvas.setPointerCapture(e.pointerId);base.style.left=e.clientX+'px';base.style.top=e.clientY+'px';base.hidden=false;knob.style.transform='translate(-50%,-50%)';});
 canvas.addEventListener('pointermove',e=>{if(!stick.active||e.pointerId!==stick.id)return;const dx=e.clientX-stick.ox,dy=e.clientY-stick.oy,d=Math.hypot(dx,dy),m=Math.min(d,48),ux=d?dx/d:0,uy=d?dy/d:0;stick.x=ux*m/48;stick.z=uy*m/48;knob.style.transform=`translate(calc(-50% + ${ux*m}px),calc(-50% + ${uy*m}px))`;});
@@ -21,7 +21,15 @@ let teamKey='';function renderTeam(){const key=state.helpers.map(h=>h.id+h.loop+
  for(const h of state.helpers){const row=document.createElement('div');row.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent=h.robot?'🤖':'👷';const name=document.createElement('b');name.textContent=h.name;
   const sel=document.createElement('select');sel.id='mission-'+h.id;sel.setAttribute('aria-label','Mission de '+h.name);for(const m of missionsFor(state,h)){const o=document.createElement('option');o.value=m.id;o.textContent=m.icon+'  '+m.label;o.selected=m.id===h.loop;sel.append(o);}
   sel.onchange=()=>{assignMission(state,h.id,sel.value);teamKey='';renderTeam();};row.append(ico,name,sel);list.append(row);}}
-$('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>$('teampanel').hidden=true);
+$('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=true;teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>$('teampanel').hidden=true);
+// Hands panel: empty the stack in one tap, and choose which kinds of goods the player picks up while walking.
+const PICK_ICON={potato:'🥔',fries:'🍟',raw:'🥩',steak:'🍖',burger:'🍔',cup:'🥛',soda:'🥤',beef:'🐄'};
+function renderPicks(){const box=$('picks');box.textContent='';const pick=state.player.pick??{};let off=0;
+ for(const k of PICKABLE){const on=pick[k]!==false;if(!on)off++;const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',on);b.title=(on?'Ne plus ramasser : ':'Ramasser : ')+ITEMS[k].name;b.innerHTML=`${PICK_ICON[k]}<small></small>`;b.querySelector('small').textContent=ITEMS[k].name;b.onclick=()=>{setPick(state,k,!on);renderPicks();};box.append(b);}
+ $('hands').classList.toggle('filtered',off>0);$('hands').textContent=off===PICKABLE.length?'✋ Mains · rien':off?'✋ Mains · filtre':'✋ Mains';}
+$('hands').addEventListener('click',()=>{$('handspanel').hidden=!$('handspanel').hidden;$('teampanel').hidden=true;renderPicks();});$('handsclose').addEventListener('click',()=>$('handspanel').hidden=true);
+$('empty').addEventListener('click',()=>emptyHands(state));$('pickall').addEventListener('click',()=>{setPick(state,'all');renderPicks();});$('picknone').addEventListener('click',()=>{setPick(state,'none');renderPicks();});
+renderPicks();
 let last=performance.now(),saveAt=0,hudAt=0;
 function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;stepArcade(state,dt,input());scene.update(dt);
  if(now-hudAt>150){hudAt=now;$('money').textContent=Math.floor(state.money).toLocaleString('fr-FR')+' $';$('cashwait').textContent=Math.round(state.piles.reduce((a,b)=>a+b,0)).toLocaleString('fr-FR')+' $';$('served').textContent=state.served;$('traffic').textContent='×'+traffic(state).toFixed(1)+(state.rush>0?' 🔥':'');$('rep').textContent='★ '+state.rep.toFixed(1);const w=avgWait(state),f=Math.min(1,w/PATIENCE);$('wait').textContent=Math.round(w)+' s / '+PATIENCE+' s';$('gauge').style.width=(f*100)+'%';$('gauge').style.background=f<.4?'#4fbf5a':f<.7?'#f0a830':'#e8483a';$('lost').textContent=state.lost+(state.lost>1?' partis':' parti');$('hint').textContent=hint();$('hint').hidden=!$('hint').textContent;$('team').hidden=!state.helpers.length;if(!$('teampanel').hidden&&document.activeElement?.tagName!=='SELECT')renderTeam();}

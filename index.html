@@ -13,7 +13,14 @@
   .brand{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;z-index:2;background:#ffffffe8;color:#26343f;border-radius:14px;padding:7px 12px;font-weight:900;letter-spacing:1px;box-shadow:0 3px 0 #0002}.brand small{display:block;font-size:10px;letter-spacing:0;color:#6b7a84}
   #hint{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);background:#26343fdd;color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;font-size:15px;max-width:min(92vw,560px);text-align:center;z-index:2;pointer-events:none}
   #reset{position:fixed;left:12px;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;border:0;border-radius:12px;background:#ffffffd0;padding:8px 10px;font:inherit;font-size:12px;font-weight:700;color:#26343f;cursor:pointer}
-  #team{position:fixed;right:12px;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;border:0;border-radius:12px;background:#ffffffe8;padding:9px 13px;font:inherit;font-size:14px;font-weight:800;color:#26343f;cursor:pointer;box-shadow:0 3px 0 #0002}
+  #dock{position:fixed;right:12px;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;display:flex;gap:8px}
+  #hands.filtered{background:#ffe08a}
+  .panel{max-height:calc(100vh - 140px);overflow:auto;position:fixed;right:12px;bottom:max(64px,calc(env(safe-area-inset-bottom) + 64px));z-index:5;width:min(340px,calc(100vw - 24px));background:#fffffff5;color:#26343f;border-radius:16px;box-shadow:0 8px 30px #0003;padding:14px;box-sizing:border-box}
+  .panel header{display:flex;justify-content:space-between;align-items:center;font-size:16px}.panel header button{border:0;background:#eef2f4;border-radius:8px;width:30px;height:30px;font-size:14px;cursor:pointer}
+  .panel p{margin:8px 0;font-size:12.5px;color:#5b6a73}.panel .big{width:100%;margin-top:10px;border:0;border-radius:12px;background:#e8483a;color:#fff;font:inherit;font-weight:800;font-size:15px;padding:11px;cursor:pointer}.panel .big small{font-weight:600;opacity:.85}
+  #picks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}#picks button{border:2px solid #d3dbe0;background:#fff;border-radius:10px;padding:6px 2px;font-size:20px;cursor:pointer;line-height:1.1}#picks button small{display:block;font-size:10px;font-weight:700;color:#5b6a73}#picks button[aria-pressed="false"]{opacity:.35;border-style:dashed}
+  .panel .row{display:flex;gap:6px;margin-top:8px}.panel .row button{flex:1;border:0;background:#eef2f4;border-radius:9px;padding:8px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  #hands,#team{border:0;border-radius:12px;background:#ffffffe8;padding:9px 13px;font:inherit;font-size:14px;font-weight:800;color:#26343f;cursor:pointer;box-shadow:0 3px 0 #0002}
   #teampanel{position:fixed;right:12px;bottom:max(64px,calc(env(safe-area-inset-bottom) + 64px));z-index:5;width:min(360px,calc(100vw - 24px));max-height:min(70vh,560px);overflow:auto;background:#fffffff5;color:#26343f;border-radius:16px;box-shadow:0 8px 30px #0003;padding:14px;box-sizing:border-box}
   #teampanel header{display:flex;justify-content:space-between;align-items:center;font-size:16px}#teampanel header button{border:0;background:#eef2f4;border-radius:8px;width:30px;height:30px;font-size:14px;cursor:pointer}
   #teampanel p{margin:6px 0 10px;font-size:12.5px;color:#5b6a73}
@@ -27,10 +34,14 @@
 </head>
 <body>
  <canvas id="arcade" aria-label="Jeu : déplacez le personnage avec ZQSD, les flèches ou en glissant le doigt."></canvas>
- <div class="brand">FLUX ARCADE<small>alpha · ZQSD / flèches / doigt</small></div>
+ <div class="brand">FLUX ARCADE<small>alpha · ZQSD / flèches / doigt · X vider</small></div>
  <div class="hud"><div class="chip" title="Argent sur le compte (cartes bancaires comprises) et espèces encore dans les caisses"><small>Compte · 💵 <b id="cashwait">0 $</b> en caisse</small><span id="money">0 $</span></div><div class="chip"><small>Servis</small><span id="served">0</span></div><div class="chip wait" title="Temps d’attente moyen des clients : au-delà de la patience, ils partent fâchés"><small>Attente moy. · <b id="lost">0 partis</b></small><span id="wait">0 s</span><div class="gauge"><i id="gauge"></i></div></div><div class="chip" title="Affluence : publicité × réputation × rush"><small>Affluence · <b id="rep">★ 2.5</b></small><span id="traffic">×1.0</span></div></div>
  <div id="hint" hidden></div><button id="reset">↺ Recommencer</button>
- <button id="team" hidden>👷 Équipe</button>
+ <div id="dock"><button id="hands">✋ Mains</button><button id="team" hidden>👷 Équipe</button></div>
+ <section id="handspanel" class="panel" hidden aria-label="Mains et ramassage"><header><b>Mains et ramassage</b><button id="handsclose" aria-label="Fermer">✕</button></header>
+  <button id="empty" class="big">🗑️ Vider les mains <small>(touche X)</small></button>
+  <p>Ce que vous ramassez en passant. Décochez ce que vous ne voulez plus prendre ; vous pouvez toujours déposer ce que vous portez.</p>
+  <div id="picks"></div><div class="row"><button id="pickall">Tout ramasser</button><button id="picknone">Ne rien ramasser</button></div></section>
  <section id="teampanel" hidden aria-label="Missions de l’équipe"><header><b>Missions de l’équipe</b><button id="teamclose" aria-label="Fermer">✕</button></header><p>Choisissez la tâche de chaque employé et robot. Les robots ne font qu’un trajet ; les employés peuvent tenir une chaîne entière.</p><div id="teamlist"></div></section>
  <div id="stick" hidden><div id="knob"></div></div>
  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script><script type="module" src="./arcade.js"></script>
