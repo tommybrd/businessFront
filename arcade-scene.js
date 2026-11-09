@@ -60,7 +60,7 @@ export function createArcadeScene(canvas,getState){
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(120,120),mat('#a9db6e'));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
  box(scene,19.5,.1,18.8,4.75,.05,-6.9,'#f7c97f',false);box(scene,19.5,2.4,.3,4.75,1.2,-16.4,'#e6eef0');box(scene,.3,2.4,1.6,-5,1.2,-11.7,'#e6eef0');box(scene,19.5,.25,.3,4.75,2.5,-16.4,'#5bbf4a',false);
  box(scene,14.4,1,.9,6,.5,-3.2,'#5fd6b4');box(scene,14.4,.08,.95,6,1.04,-3.2,'#eafaf4',false);
- box(scene,6.8,.06,8.2,DOOR[0],.08,2,'#e2b26a',false);box(scene,14,.04,2,2,.03,9.5,'#59646b',false);box(scene,7.6,.05,5.6,1,.075,1.4,'#efd9a6',false);
+ box(scene,6.8,.06,8.2,DOOR[0],.09,2,'#e2b26a',false);box(scene,14,.04,2,2,.03,9.5,'#59646b',false);box(scene,7.6,.05,5.6,1,.095,1.4,'#efd9a6',false);
  // Pickup line: floor marks in front of the left part of the counter and a "Retrait" sign.
  const pickup=new THREE.Group();scene.add(pickup);for(const [x,z] of PICKUP)for(const [w,d,dx,dz] of [[.56,.04,0,-.28],[.56,.04,0,.28],[.04,.56,-.28,0],[.04,.56,.28,0]])box(pickup,w,.015,d,x+dx,.1,z+dz,'#ffffff',false);const sign=textPlane('RETRAIT · bornes',3.2,.5,{bg:'#e8483a'});sign.position.set(1.9,.55,-2.74);pickup.add(sign);
  // Potato field behind a wooden fence, open on the restaurant side; the lower part only exists once "Champ +6" is bought.
