@@ -8,7 +8,7 @@ export const ITEMS={potato:{name:'Pomme de terre'},fries:{name:'Frites',price:4}
 export const PRODUCTS=['fries','burger','soda'];
 // Machines turn one input into output after `time` seconds (`yield` outputs per input). `needs`: unlock that opens it.
 export const STATIONS={
- fryer:{name:'Friteuse',in:'potato',out:'fries',time:1.4,inCap:24,outCap:20,pos:[-2,-8.4]},
+ fryer:{name:'Friteuse',in:'potato',out:'fries',time:1.4,inCap:24,outCap:20,pos:[-2,-8.4],baskets:2},
  grill:{name:'Grill',in:'raw',out:'steak',time:1.6,inCap:24,outCap:20,pos:[2.2,-8.4],needs:'grill'},
  burger:{name:'Poste burger',in:'steak',out:'burger',time:1.8,inCap:24,outCap:16,pos:[6.2,-8.4],needs:'burger'},
  soda:{name:'Machine à soda',in:'cup',out:'soda',time:1,inCap:24,outCap:20,pos:[10.8,-9.2],needs:'soda'},
@@ -276,13 +276,19 @@ function stepCustomers(s,dt){const pos=[0,0],kpos=KIOSKS.map(()=>0);let pi=0;con
  s.pickupTimer-=dt;if(s.pickupTimer<=0&&pickupHead.length){for(const c of pickupHead.sort((a,b)=>a.ordered-b.ordered)){const k=PRODUCTS.find(k=>c.got[k]<c.wants[k]&&s.shelves[k]>0);if(!k)continue;s.shelves[k]--;c.got[k]++;s.pickupTimer=PICKUP_STEP;if(done(c))pay(s,c,'card',[c.x,c.z-1.2]);break;}}
  s.customers=s.customers.filter(c=>!(c.phase==='leave'&&Math.hypot(c.x-EXIT[0],c.z-EXIT[1])<.3));}
 
+// Machines with several baskets (the fryer): each basket takes one input and cooks it on its own for `baskets` times
+// the machine time, so all baskets together make as much as one fast batch line. A cooked basket waits for room.
+export const basketsOf=(s,id)=>{const st=s.stations[id];return st.baskets??=Array.from({length:STATIONS[id].baskets},()=>({on:false,t:0}));};
+function stepBaskets(s,id,st,dt){const def=STATIONS[id],T=stationTime(s,id)*def.baskets,y=def.yield??1,open=stationOpen(s,id),cap=stationCaps(s,id).outCap;st.working=false;
+ for(const b of basketsOf(s,id)){if(!b.on&&open&&st.in>0){st.in--;b.on=true;b.t=0;}if(!b.on)continue;st.working=true;b.t=Math.min(T,b.t+dt);if(b.t>=T&&st.out+y<=cap){st.out+=y;b.on=false;b.t=0;}}
+ st.timer=0;}
 export function stepArcade(s,dt,input={x:0,z:0}){dt=Math.min(dt,.1);s.t+=dt;const p=s.player,len=Math.hypot(input.x,input.z);
  if(len>.05){const k=Math.min(1,len);p.x=Math.max(WORLD.minX,Math.min(WORLD.maxX,p.x+input.x/len*k*p.speed*dt));p.z=Math.max(WORLD.minZ,Math.min(WORLD.maxZ,p.z+input.z/len*k*p.speed*dt));p.heading=Math.atan2(input.x,input.z);p.moving=true;}else p.moving=false;
  collide(p,obstacles(s));
  interact(s,p,dt);playerExtras(s,p,dt);for(const h of s.helpers)stepHelper(s,h,dt);
  for(const pl of s.plots)if(!pl.ripe){pl.grow+=dt/growTime(s);if(pl.grow>=1){pl.grow=1;pl.ripe=true;}}
  for(let i=0;i<cowCount(s);i++){const c=s.cows[i];if(!c.ready){c.grow+=dt/COW_TIME;if(c.grow>=1){c.grow=1;c.ready=true;}}}
- for(const [id,def] of Object.entries(STATIONS)){const st=s.stations[id],y=def.yield??1;st.working=stationOpen(s,id)&&st.in>0&&st.out+y<=stationCaps(s,id).outCap;if(st.working){st.timer+=dt;if(st.timer>=stationTime(s,id)){st.timer=0;st.in--;st.out+=y;}}else st.timer=0;}
+ for(const [id,def] of Object.entries(STATIONS)){const st=s.stations[id],y=def.yield??1;if(def.baskets){stepBaskets(s,id,st,dt);continue;}st.working=stationOpen(s,id)&&st.in>0&&st.out+y<=stationCaps(s,id).outCap;if(st.working){st.timer+=dt;if(st.timer>=stationTime(s,id)){st.timer=0;st.in--;st.out+=y;}}else st.timer=0;}
  for(const k of Object.keys(SOURCES)){const src=s.sources[k];if(sourceOpen(s,k)&&src.n<sourceCap(s,k)){src.timer+=dt;if(src.timer>=sourceEvery(s,k)){src.timer=0;src.n++;}}}
  s.rush=Math.max(0,s.rush-dt);s.rushCool=Math.max(0,s.rushCool-dt);
  const room=MAX_QUEUE*openRegisters(s).length+(KIOSK_QUEUE+2)*kioskCount(s);
