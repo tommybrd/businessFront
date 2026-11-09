@@ -59,7 +59,7 @@ export const UNLOCKS=[
  {id:'sodaHelper',name:'Aide sodas',price:200,pos:[13.6,-8.3],after:'soda'},
  {id:'farm',name:'Ferme + boucherie',price:400,pos:[-6.2,1.6],after:'grill'},
  {id:'farmer',name:'Fermier',price:250,pos:[-6.2,3.6],after:'farm'},
- {id:'register2',name:'Caisse 2',price:260,pos:[10.4,-1.2],after:'burger'},
+ {id:'register2',name:'Caisse 2',price:260,pos:[10.4,-1.2],after:'cashier'},
  {id:'cashier2',name:'Caissier 2',price:160,pos:[13.6,-5.6],after:'register2'},
  {id:'terminal2',name:'Terminal CB 2',price:120,pos:[8.4,-1.2],after:'register2'},
  {id:'shelf2',name:'Grandes étagères',price:150,pos:[-3.6,3],after:'register2'},
