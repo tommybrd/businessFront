@@ -34,6 +34,8 @@ export const DOOR=[8.4,8],EXIT=[-2,9],MEGAPHONE=[13.6,1.2],MAX_QUEUE=9,KIOSK_QUE
 // Terrace tables (eat-in customers leave a dirty tray), the dish sink, the office desk for bills, the robots' charging
 // dock, and the drive: a pad by the side window where the orders are put, and the car stop on the road beyond it.
 export const TABLES=[[-.4,7.2],[1.5,7.2],[3.4,7.2],[5.3,7.2]],SINK=[6.6,4.6],DESK=[15.8,.6],DOCK=[-4,-15.3];
+// Back office in the north-east corner of the kitchen: the safe (cash is stored there) and the bank terminal.
+export const SAFE=[15.6,-18.6],ATM=[15.6,-15.4];
 export const DRIVE={pad:[15.8,-3.4],road:18.6,stop:-3.4,gap:2.6,cap:12,maxCars:4,patience:75};
 export const MEAT=SOURCES.meat.pos,REGISTER=REGISTERS[0].pos,SERVE_SPOT=REGISTERS[0].serve,CASH_SPOT=REGISTERS[0].cash;
 export const inZone=([x,z])=>[x-1.25,z+1.55],outZone=([x,z])=>[x+1.25,z+1.55],shelfZone=([x,z])=>[x,z-1.3];
@@ -84,6 +86,10 @@ export const UNLOCKS=[
  {id:'dessertHelper',name:'Aide glaces',price:300,pos:[15.8,-13.2],after:'dessert'},
  {id:'drive',name:'Drive',price:500,pos:DRIVE.pad,after:'register2'},
  {id:'driveHelper',name:'Aide drive',price:300,pos:[15.8,-5.6],after:'drive'},
+ {id:'safe',name:'Coffre-fort',price:300,pos:SAFE,after:'register2'},
+ {id:'collector',name:'Convoyeur de fonds',price:250,pos:[13.4,-17.6],after:'safe'},
+ {id:'tubes',name:'Tubes à billets',price:700,pos:[13.4,-17.6],after:'collector'},
+ {id:'bank',name:'Banque',price:400,pos:ATM,after:'safe'},
  {id:'robotPotato',name:'Robot récolte',price:220,pos:[-6.6,-7.6],after:'helper'},
  {id:'robotFries',name:'Robot frites',price:200,pos:[-3,-3.4],after:'robotPotato'},
  {id:'robotMeat',name:'Robot viande',price:220,pos:[4.2,-11.4],after:'helper2'},
@@ -155,7 +161,8 @@ const newDay=()=>({revenue:0,served:0,lost:0,bills:0});
 function fill(s){for(const id of Object.keys(STATIONS))s.stations[id]??={in:0,out:0,timer:0,working:false};for(const k of Object.keys(SOURCES))s.sources[k]??={n:0,timer:0};
  for(const k of Object.keys(SHELVES))s.shelves[k]??=0;for(const c of s.customers)for(const k of PRODUCTS){c.wants[k]??=0;c.got[k]??=0;}
  s.clock??=OPEN*.15;s.day??=1;s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=120;
- s.tables??=TABLES.map(()=>({by:null,dirty:false}));s.drive??={pad:[],cars:[],timer:8,pick:0};
+ s.tables??=TABLES.map(()=>({by:null,dirty:false}));s.safe??=0;s.capsules??=[];s.tubeTimer??=0;
+ s.bank??={savings:0,debt:0,stocks:Object.fromEntries(STOCKS.map(k=>[k.id,{price:k.price,owned:0,paid:0,hist:[k.price]}])),timer:0};s.drive??={pad:[],cars:[],timer:8,pick:0};
  for(const h of s.helpers)if(h.robot){const r=robotStats(s);h.cap=r.cap;h.speed=r.speed;h.battMax=r.battMax;h.batt??=r.battMax;}
  return s;}
 
@@ -168,6 +175,9 @@ export const isUnlocked=(s,id)=>!!s.unlocked[id];
 const near=(a,[x,z],r=RADIUS)=>Math.hypot(a.x-x,a.z-z)<r;
 const count=(a,k)=>a.carry.filter(c=>c===k).length;
 function drop(a,k){const i=a.carry.lastIndexOf(k);if(i<0)return false;a.carry.splice(i,1);return true;}
+// Money the player can spend: the account plus the cash stored in the safe (taken from the account first).
+export const wallet=s=>s.money+(s.safe??0);
+function spend(s,a){const m=Math.min(Math.max(0,s.money),a);s.money-=m;s.safe-=a-m;}
 const popup=(s,text,x,z,kind='money')=>{s.popups.push({id:s.nextId++,text,x,z,t:0,kind});};
 // The player picks up only the kinds left switched on in their pick filter (all by default); helpers take what their mission needs.
 const takes=(a,item)=>a.role==='player'?a.pick?.[item]!==false:a.wants===item;
@@ -188,6 +198,7 @@ export function obstacles(s){const o=[[-5.2,-20.6,17.4,-20.2],[-5.15,-12.6,-4.85
  if(s.unlocked.terrace){for(const t of TABLES)boxAt(t,.9,.9);boxAt(SINK,1.2,.8);}
  if(s.helpers.some(h=>h.robot))boxAt(DOCK,1.2,.6);
  if(s.unlocked.drive)o.push([16.75,-4.5,17.05,-2.3]);
+ if(s.unlocked.safe)boxAt(SAFE,1.4,1);if(s.unlocked.bank)boxAt(ATM,.9,.7);
  // Field fence: top, left, bottom (moves with "Champ +6"), and the right side except the gate.
  const zb=s.unlocked.field2?0:-3.15,fx0=-13.6,fx1=-8,t=.12;
  o.push([fx0-t,-8.9-t,fx1+t,-8.9+t],[fx0-t,-8.9,fx0+t,zb],[fx0-t,zb-t,fx1+t,zb+t],[fx1-t,-8.9,fx1+t,-7.2],[fx1-t,zb-1.5,fx1+t,zb]);
@@ -216,18 +227,19 @@ export const driveNeed=(s,k)=>s.drive.cars.filter(c=>c.phase==='queue').reduce((
 
 function playerExtras(s,a,dt){
  // Office desk: standing there pays the bills, oldest first, as long as the account covers them.
- s.deskCool-=dt;if(s.deskCool<=0&&near(a,DESK,1.7)){const b=s.bills[0];if(b&&s.money>=b.amount){s.money-=b.amount;s.today.bills+=b.amount;s.bills.shift();s.deskCool=.35;popup(s,`🧾 ${b.label} −${b.amount} $`,DESK[0],DESK[1],'info');}}
+ s.deskCool-=dt;if(s.deskCool<=0&&near(a,DESK,1.7)){const b=s.bills[0];if(b&&wallet(s)>=b.amount){spend(s,b.amount);s.today.bills+=b.amount;s.bills.shift();s.deskCool=.35;popup(s,`🧾 ${b.label} −${b.amount} $`,DESK[0],DESK[1],'info');}}
  // A broken machine is repaired by standing next to it for a moment.
  const ev=s.event;if(ev?.kind==='panne'){const st=s.stations[ev.id];if(st?.broken&&near(a,STATIONS[ev.id].pos,1.9)){st.broken.fix+=dt;if(st.broken.fix>=REPAIR){delete st.broken;s.event=null;popup(s,'🔧 Réparé !',a.x,a.z,'info');}}}if(s.unlocked.megaphone&&s.rushCool<=0&&near(a,MEGAPHONE,.9)){s.rush=RUSH.length;s.rushCool=RUSH.cooldown;popup(s,'📣 RUSH !',MEGAPHONE[0],MEGAPHONE[1],'info');}
- REGISTERS.forEach((r,i)=>{if(s.piles[i]>0&&near(a,r.cash,1.2)){const take=Math.round(s.piles[i]);s.money+=s.piles[i];s.piles[i]=0;popup(s,`💵 +${take} $`,r.cash[0],r.cash[1]);}});
- for(const u of visibleUnlocks(s)){if(!near(a,u.pos,.95)||s.money<1)continue;const left=u.price-(s.paid[u.key]??0),pay=Math.min(left,Math.floor(s.money),Math.max(1,Math.ceil(u.price*dt*1.4)));
-  s.money-=pay;s.paid[u.key]=(s.paid[u.key]??0)+pay;if(s.paid[u.key]>=u.price){delete s.paid[u.key];u.level?levelUp(s,u):unlock(s,u);}}}
+ REGISTERS.forEach((r,i)=>{if(s.piles[i]>0&&near(a,r.cash,1.2)){const take=Math.round(s.piles[i]);if(s.unlocked.safe)s.safe+=s.piles[i];else s.money+=s.piles[i];s.piles[i]=0;popup(s,`💵 +${take} $${s.unlocked.safe?' → 🔐':''}`,r.cash[0],r.cash[1]);}});
+ for(const u of visibleUnlocks(s)){if(!near(a,u.pos,.95)||wallet(s)<1)continue;const left=u.price-(s.paid[u.key]??0),pay=Math.min(left,Math.floor(wallet(s)),Math.max(1,Math.ceil(u.price*dt*1.4)));
+  spend(s,pay);s.paid[u.key]=(s.paid[u.key]??0)+pay;if(s.paid[u.key]>=u.price){delete s.paid[u.key];u.level?levelUp(s,u):unlock(s,u);}}}
 function unlock(s,u){s.unlocked[u.id]=true;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyUnlock(s,u.id);}
 function applyUnlock(s,id){s.player.cap=playerCap(s);if(id==='shoes')s.player.speed=5.6;
  if(id==='cashier')s.cashiers[0]=cashierAt(0);if(id==='cashier2')s.cashiers[1]=cashierAt(1);
  if(id==='helper'||id==='helper3')s.helpers.push(helper(s,'fries'));if(id==='helper2'||id==='helper4')s.helpers.push(helper(s,'burger'));
  if(id==='sodaHelper')s.helpers.push(helper(s,'soda'));if(id==='farmer')s.helpers.push(helper(s,'farm'));
  if(id==='busboy')s.helpers.push(helper(s,'trays'));if(id==='dessertHelper')s.helpers.push(helper(s,'dessert'));if(id==='driveHelper')s.helpers.push(helper(s,'drive'));
+ if(id==='collector'){const h=helper(s,'cashRun');h.name='Convoyeur';h.x=SAFE[0]-1.5;h.z=SAFE[1]+1.5;s.helpers.push(h);}
  if(ROBOTS[id])s.helpers.push(robot(s,id));
  if(id==='crewBags')for(const h of s.helpers)if(!h.robot)h.cap=helperCap(s);}
 function levelUp(s,u){s.levels[u.id]=lvl(s,u.id)+1;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyLevel(s,u.id);}
@@ -247,7 +259,7 @@ const LOOPS={fries:[{go:'field',until:'full'},{go:'in:fryer'},{go:'out:fryer',ta
  beefRun:[{go:'cows',until:'full'},{go:'in:butcher'}],butcherRun:[{go:'out:butcher',take:'raw',until:'full'},{go:'in:grill'}],
  dessert:[{go:'milk',take:'milk',until:'full'},{go:'in:icecream'},{go:'out:icecream',take:'icecream',until:'full'},{go:'shelf:icecream'}],
  milkRun:[{go:'milk',take:'milk',until:'full'},{go:'in:icecream'}],iceRun:[{go:'out:icecream',take:'icecream',until:'full'},{go:'shelf:icecream'}],
- trays:[{go:'tables',until:'full'},{go:'sink'}],drive:[{go:'driveTake'},{go:'drive'}]};
+ trays:[{go:'tables',until:'full'},{go:'sink'}],drive:[{go:'driveTake'},{go:'drive'}],cashRun:[{go:'tills'},{go:'safe'}]};
 function robot(s,id){const r=ROBOTS[id],st=robotStats(s);return {...helper(s,r.loop),robot:id,name:UNLOCKS.find(u=>u.id===id).name,x:r.at[0],z:r.at[1],...st,batt:st.battMax};}
 // Missions the player can give: humans can run a whole chain or one leg, robots only one leg; anyone can be put on pause.
 export const MISSIONS=[
@@ -269,11 +281,12 @@ export const MISSIONS=[
  {id:'iceRun',label:'Machine à glaces → étagère',icon:'🍦→🛒',needs:'dessert'},
  {id:'trays',label:'Débarrasser les tables → plonge',icon:'🍽️→🧽',needs:'terrace'},
  {id:'drive',label:'Étagères → drive',icon:'🛒→🚗',needs:'drive'},
+ {id:'cashRun',label:'Caisses → coffre-fort',icon:'💵→🔐',humans:true,needs:'safe'},
  {id:'rest',label:'Pause',icon:'💤',needs:null}];
 export const missionsFor=(s,h)=>MISSIONS.filter(m=>(!m.humans||!h.robot)&&(!m.needs||s.unlocked[m.needs]));
 // Changing a mission restarts the loop; what the worker carries is put back where it was taken (field goods are dropped).
 export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if(!h||!MISSIONS.some(m=>m.id===loop))return false;
-putBack(s,h.carry);h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.station=null;h.moving=false;return true;}
+if(h.cashAmt){s.safe+=h.cashAmt;h.cashAmt=0;h.carry=[];}putBack(s,h.carry);h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.station=null;h.moving=false;return true;}
 function helper(s,loop){const n=s.helpers.filter(h=>!h.robot).length+1;return {id:s.nextId++,role:'helper',name:'Employé '+n,loop,step:0,x:-5,z:-9.8,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null};}
 function target(s,h){const st=LOOPS[h.loop][h.step],[kind,id]=st.go.split(':'),dist=p=>Math.hypot(p.x-h.x,p.z-h.z);
  if(kind==='field'){const ripe=s.plots.filter(p=>p.ripe&&(p.zone===1||s.unlocked.field2)).sort((a,b)=>dist(a)-dist(b))[0];return ripe?[ripe.x,ripe.z]:[-10.8,-5.2];}
@@ -289,7 +302,7 @@ function stepHelper(s,h,dt){if(h.loop==='rest'){h.moving=false;return;}
  if(h.robot){if(h.charging){if(move(h,DOCK,dt,.35)){h.batt=Math.min(h.battMax,h.batt+dt*h.battMax/CHARGE_TIME);if(h.batt>=h.battMax)h.charging=false;}return;}
   if(h.moving)h.batt=Math.max(0,h.batt-dt);if((h.batt<=.15*h.battMax&&!h.carry.length)||h.batt<=0){h.charging=true;h.step=0;h.idle=0;h.station=null;return;}}
  const st=LOOPS[h.loop][h.step],[kind,id]=st.go.split(':');
- if(kind==='driveTake'){stepDriveTake(s,h,dt);return;}const t=target(s,h);
+ if(kind==='driveTake'){stepDriveTake(s,h,dt);return;}if(kind==='tills'||kind==='safe'){stepCash(s,h,kind,dt);return;}const t=target(s,h);
  h.wants=st.take??(kind==='field'?'potato':kind==='cows'?'beef':kind==='tables'?'tray':null);
  const roam=kind==='field'||kind==='cows',arrived=move(h,t,dt,roam?.2:.35);if(!arrived&&!roam)return;
  const before=h.carry.length;interact(s,h,dt);h.idle=h.carry.length===before?h.idle+dt:0;
@@ -302,6 +315,14 @@ function stepHelper(s,h,dt){if(h.loop==='rest'){h.moving=false;return;}
  // Waiting at an empty output while the other machine of the kind has goods: switch to it.
  if(!done&&kind==='out'&&h.idle>1.5){const alt=pickStation(s,id,'out');if(alt!==h.station&&s.stations[alt].out>0){h.station=alt;h.idle=0;}}
  if(done){h.step=(h.step+1)%LOOPS[h.loop].length;h.idle=0;h.station=null;}}
+// Cash collector: takes the biggest cash pile by the tills and carries it, in bundles, to the safe.
+const bundlesOf=v=>Array.from({length:Math.min(14,Math.ceil(v/20))},()=>'bundle');
+function stepCash(s,h,kind,dt){h.wants=null;h.cashAmt??=0;
+ if(kind==='tills'){const r=REGISTERS.map((R,i)=>i).filter(i=>s.piles[i]>0).sort((a,b)=>s.piles[b]-s.piles[a])[0];
+  if(r==null){if(h.cashAmt>0){h.step=1;return;}move(h,[REGISTERS[0].cash[0]+.9,REGISTERS[0].cash[1]-.8],dt,.3);return;}
+  if(!move(h,[REGISTERS[r].cash[0],REGISTERS[r].cash[1]-.6],dt,.35))return;h.cashAmt+=s.piles[r];s.piles[r]=0;h.carry=bundlesOf(h.cashAmt);
+  if(h.cashAmt>=40||!REGISTERS.some((R,i)=>s.piles[i]>0))h.step=1;return;}
+ if(!move(h,[SAFE[0]-1.3,SAFE[1]+.9],dt,.35))return;if(h.cashAmt>0){s.safe+=h.cashAmt;popup(s,`🔐 +${Math.round(h.cashAmt)} $`,SAFE[0],SAFE[1]);}h.cashAmt=0;h.carry=[];h.step=0;}
 // Drive helper: fetch from the counter shelves what the cars in line are waiting for, then bring it to the drive pad.
 function stepDriveTake(s,h,dt){h.wants=null;const k=PRODUCTS.find(k=>driveNeed(s,k)-count(h,k)>0&&s.shelves[k]>0);
  if(!k){h.moving=false;h.idle+=dt;if(h.carry.length&&h.idle>1){h.step=1;h.idle=0;}return;}
@@ -358,7 +379,7 @@ const SUPPLY={meat:.5,cups:.15,milk:.4};
 // Day clock: at closing time a popup; when the night ends the day report is kept and the morning bills arrive.
 function stepDay(s,dt){const was=isOpen(s);s.clock+=dt;s.report=Math.max(0,s.report-dt);
  if(was&&!isOpen(s))popup(s,'🌙 Fermeture, plus de nouveaux clients',s.player.x,s.player.z,'info');
- if(s.clock>=DAY){s.clock-=DAY;s.lastDay={day:s.day,...s.today};s.report=10;s.day++;s.today=newDay();issueBills(s);popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
+ if(s.clock>=DAY){s.clock-=DAY;bankNight(s);s.lastDay={day:s.day,...s.today};s.report=10;s.day++;s.today=newDay();issueBills(s);popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
  for(const b of s.bills)if(!b.late&&s.t>b.due){b.late=true;b.amount=Math.round(b.amount*LATE_FEE);s.rep=Math.max(0,s.rep-.3);popup(s,`🧾 Retard : ${b.label} +25 %`,DESK[0],DESK[1],'bad');}}
 export const machinesCount=s=>Object.keys(STATIONS).filter(id=>stationOpen(s,id)).length+openRegisters(s).length+kioskCount(s);
 function issueBills(s){const L=s.lastDay,list=[['Loyer',Math.round(15+.04*(L?.revenue??0))],['Électricité',4*machinesCount(s)],['Fournisseurs',Math.round(s.supply)]];s.supply=0;
@@ -391,6 +412,32 @@ function stepDrive(s,dt){const D=s.drive;if(!s.unlocked.drive)return;
    else if(c.wait>DRIVE.patience){c.phase='leave';s.lost++;s.today.lost++;s.rep=Math.max(0,s.rep-.2);popup(s,'🚗 😠 −★',DRIVE.road,c.z,'bad');}}
   else{c.moving=true;c.z-=7*dt;}}
  D.cars=D.cars.filter(c=>c.z>-26);}
+// Pneumatic tubes: every few seconds the cash of each till is sucked into a capsule that flies to the safe.
+export const TUBE_EVERY=3,TUBE_TIME=2.5;
+function stepTubes(s,dt){for(const c of s.capsules)c.t+=dt/TUBE_TIME;for(const c of s.capsules.filter(c=>c.t>=1))s.safe+=c.amt;s.capsules=s.capsules.filter(c=>c.t<1);
+ if(!s.unlocked.tubes)return;s.tubeTimer-=dt;if(s.tubeTimer>0)return;s.tubeTimer=TUBE_EVERY;
+ REGISTERS.forEach((R,r)=>{if(s.piles[r]>=1){s.capsules.push({id:s.nextId++,r,amt:s.piles[r],t:0});s.piles[r]=0;}});}
+// Bank (in-game and fictional): savings that earn interest every night, shares of three made-up companies whose price
+// moves every few seconds, and loans that cost interest every night.
+export const STOCKS=[{id:'frit',name:'FritCo',price:20,vol:.045,drift:.0015},{id:'burg',name:'BurgerCorp',price:50,vol:.03,drift:.001},{id:'sodt',name:'SodaTech',price:10,vol:.07,drift:.0008}];
+export const SAVINGS_RATE=.02,LOAN_RATE=.05,STOCK_EVERY=5;
+export const loanLimit=s=>Math.max(300,Math.round(2*(s.lastDay?.revenue??150)));
+const gauss=()=>Math.sqrt(-2*Math.log(1-Math.random()))*Math.cos(2*Math.PI*Math.random());
+function stepBank(s,dt){const B=s.bank;B.timer-=dt;if(B.timer>0)return;B.timer=STOCK_EVERY;
+ for(const k of STOCKS){const st=B.stocks[k.id];st.price=Math.max(1,Math.round(st.price*Math.exp(k.drift+k.vol*gauss())*100)/100);st.hist.push(st.price);if(st.hist.length>60)st.hist.shift();}}
+// Night: interest on savings and on the loan; the cash of the safe is taken to the account by the armoured van.
+function bankNight(s){const B=s.bank,gain=Math.round(B.savings*SAVINGS_RATE),cost=Math.round(B.debt*LOAN_RATE);B.savings+=gain;B.debt+=cost;s.today.interest=gain;s.today.loanCost=cost;
+ if(s.unlocked.bank&&s.safe>=1){const v=Math.round(s.safe);s.money+=s.safe;s.safe=0;popup(s,`🚚 Fourgon : ${v} $ → compte`,SAFE[0],SAFE[1],'info');}}
+export function bankAction(s,action,arg,n=1){const B=s.bank;if(!s.unlocked.bank)return false;n=Math.floor(n);if(!(n>0))return false;
+ if(action==='deposit'){const v=Math.min(n,Math.floor(wallet(s)));if(v<=0)return false;spend(s,v);B.savings+=v;return true;}
+ if(action==='withdraw'){const v=Math.min(n,Math.floor(B.savings));if(v<=0)return false;B.savings-=v;s.money+=v;return true;}
+ if(action==='borrow'){const v=Math.min(n,loanLimit(s)-B.debt);if(v<=0)return false;B.debt+=v;s.money+=v;return true;}
+ if(action==='repay'){const v=Math.min(n,Math.ceil(B.debt),Math.floor(wallet(s)));if(v<=0)return false;spend(s,v);B.debt=Math.max(0,B.debt-v);return true;}
+ const st=B.stocks[arg];if(!st)return false;
+ if(action==='buy'){const q=Math.min(n,Math.floor(wallet(s)/st.price));if(q<=0)return false;spend(s,q*st.price);st.owned+=q;st.paid+=q*st.price;return true;}
+ if(action==='sell'){const q=Math.min(n,st.owned);if(q<=0)return false;st.paid*=(st.owned-q)/st.owned;st.owned-=q;s.money+=q*st.price;return true;}
+ return false;}
+export const portfolio=s=>STOCKS.reduce((t,k)=>t+s.bank.stocks[k.id].owned*s.bank.stocks[k.id].price,0);
 export function stepArcade(s,dt,input={x:0,z:0}){dt=Math.min(dt,.1);s.t+=dt;const p=s.player,len=Math.hypot(input.x,input.z);
  if(len>.05){const k=Math.min(1,len);p.x=Math.max(WORLD.minX,Math.min(WORLD.maxX,p.x+input.x/len*k*p.speed*dt));p.z=Math.max(WORLD.minZ,Math.min(WORLD.maxZ,p.z+input.z/len*k*p.speed*dt));p.heading=Math.atan2(input.x,input.z);p.moving=true;}else p.moving=false;
  collide(p,obstacles(s));
@@ -399,7 +446,7 @@ export function stepArcade(s,dt,input={x:0,z:0}){dt=Math.min(dt,.1);s.t+=dt;cons
  for(let i=0;i<cowCount(s);i++){const c=s.cows[i];if(!c.ready){c.grow+=dt/COW_TIME;if(c.grow>=1){c.grow=1;c.ready=true;}}}
  for(const [id,def] of Object.entries(STATIONS)){const st=s.stations[id],y=def.yield??1;if(st.broken){st.working=false;continue;}if(def.baskets){stepBaskets(s,id,st,dt);continue;}st.working=stationOpen(s,id)&&st.in>0&&st.out+y<=stationCaps(s,id).outCap;if(st.working){st.timer+=dt;if(st.timer>=stationTime(s,id)){st.timer=0;st.in--;st.out+=y;}}else st.timer=0;}
  for(const k of Object.keys(SOURCES)){const src=s.sources[k];if(src.late>0){src.late-=dt;continue;}if(sourceOpen(s,k)&&src.n<sourceCap(s,k)){src.timer+=dt;if(src.timer>=sourceEvery(s,k)){src.timer=0;src.n++;s.supply+=SUPPLY[k];}}}
- stepDay(s,dt);stepEvents(s,dt);stepDrive(s,dt);
+ stepDay(s,dt);stepEvents(s,dt);stepDrive(s,dt);stepTubes(s,dt);stepBank(s,dt);
  s.rush=Math.max(0,s.rush-dt);s.rushCool=Math.max(0,s.rushCool-dt);
  const room=MAX_QUEUE*openRegisters(s).length+(KIOSK_QUEUE+2)*kioskCount(s)+(s.unlocked.terrace?TABLES.length:0);
  s.spawnTimer-=dt;if(isOpen(s)&&s.spawnTimer<=0&&waiting(s).length<room){spawnCustomer(s);s.spawnTimer=((s.unlocked.burger?3.2:4.5)+Math.random()*2)/Math.max(.05,traffic(s));}
