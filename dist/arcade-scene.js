@@ -155,6 +155,6 @@ export function createArcadeScene(canvas,getState){
   for(const [id,g] of popups)if(!s.popups.some(p=>p.id===id)){scene.remove(g);popups.delete(id);}
   // Camera follows the player from the front-top, like a tabletop diorama.
   const px=s.player.x,pz=s.player.z,cx=camera.userData.x??px,cz=camera.userData.z??pz,nx=cx+(px-cx)*Math.min(1,dt*4),nz=cz+(pz-cz)*Math.min(1,dt*4);camera.userData.x=nx;camera.userData.z=nz;camera.position.set(nx+6,20,nz+15);camera.lookAt(nx,0,nz-1);sun.position.set(nx-10,30,nz+12);sun.target.position.set(nx,0,nz);}
- function resize(){const r=canvas.getBoundingClientRect(),aspect=r.width/Math.max(1,r.height),half=aspect<1?11:8.5;camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(r.width,r.height,false);}
+ function resize(){const r=canvas.getBoundingClientRect(),aspect=r.width/Math.max(1,r.height),half=aspect<1?(r.width<500?8.6:10):(r.height<500?6.6:8.5);camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(r.width,r.height,false);}
  const ro=new ResizeObserver(resize);ro.observe(canvas);resize();
  return {three:scene,camera,setShowMissions(v){showMissions=!!v;},update(dt){sync(dt);renderer.render(scene,camera);},reset(){for(const m of [customers,helpers,popups])for(const [id,g] of m){scene.remove(g);m.delete(id);}for(const [id,g] of tiles){scene.remove(g);tiles.delete(id);}}};}
