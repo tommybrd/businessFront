@@ -5,7 +5,7 @@ import {STATIONS,SHELVES,SOURCES,REGISTERS,KIOSKS,PICKUP,COWS,PASTURE,DOOR,PRODU
 // Low-poly view of the arcade game: stacks, trays, shelves, cash and unlock tiles show the simulated counts.
 export function createArcadeScene(canvas,getState){
  const renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.setClearColor('#9fd46a');
- const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-12,12,9,-9,.1,200),sun=new THREE.DirectionalLight('#fff4e0',2.6);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,far:120});sun.shadow.normalBias=.03;const hemi=new THREE.HemisphereLight('#ffffff','#7a9a5a',2.1);scene.add(sun,sun.target,hemi);
+ const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-12,12,9,-9,.1,200),sun=new THREE.DirectionalLight('#fff4e0',2.6);const small=matchMedia('(max-width:700px),(pointer:coarse)').matches;sun.castShadow=true;sun.shadow.mapSize.set(small?1024:2048,small?1024:2048);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,far:120});sun.shadow.normalBias=.03;const hemi=new THREE.HemisphereLight('#ffffff','#7a9a5a',2.1);scene.add(sun,sun.target,hemi);
  const mats=new Map(),mat=c=>{if(!mats.has(c))mats.set(c,new THREE.MeshStandardMaterial({color:c,roughness:.85}));return mats.get(c);};
  const geo={box:new THREE.BoxGeometry(1,1,1),cyl:new THREE.CylinderGeometry(1,1,1,16),sphere:new THREE.SphereGeometry(1,12,10),cap:new THREE.CapsuleGeometry(.28,.5,4,10)};
  function box(p,w,h,d,x,y,z,c,shadow=true){const m=new THREE.Mesh(geo.box,mat(c));m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;p.add(m);return m;}
@@ -45,12 +45,26 @@ export function createArcadeScene(canvas,getState){
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})();
  const noteMats=[mat('#cfe6cf'),mat('#cfe6cf'),new THREE.MeshStandardMaterial({map:noteTex,roughness:.8}),mat('#cfe6cf'),mat('#cfe6cf'),mat('#cfe6cf')];
  const coinGeo=merge([0,1,2,3,4].map(i=>part(C(.07,.07,14),{y:.008+i*.017,sy:.015,x:(i%2)*.006})));
- function moneyItem(kind){const g=new THREE.Group();if(kind==='coins'){for(const [x,z,n] of [[-.06,0,1],[.08,.03,.7]]){const m=new THREE.Mesh(coinGeo,new THREE.MeshStandardMaterial({color:'#e2b33c',metalness:.7,roughness:.35}));m.position.set(x,0,z);m.scale.y=n;m.castShadow=true;g.add(m);}return g;}
-  const b=new THREE.Mesh(geo.box,noteMats);b.scale.set(.46,.08,.23);b.position.y=.04;b.castShadow=true;g.add(b);box(g,.07,.084,.235,0,.042,0,'#f2ead2',false);return g;}
- function item(kind){if(kind==='bundle'||kind==='coins')return moneyItem(kind);const g=new THREE.Group();for(const [gm,c] of MODELS[kind]){const m=new THREE.Mesh(gm,mat(c));m.castShadow=true;g.add(m);}return g;}
+ // One geometry per kind of item, its parts told apart by vertex colours: a kind is drawn in one call however many there are.
+ function mergeColored(parts){const pos=[],nor=[],col=[],k=new THREE.Color();for(const [g,c] of parts){k.set(c);const a=g.attributes.position.array,n=g.attributes.normal.array;for(let i=0;i<a.length;i++){pos.push(a[i]);nor.push(n[i]);}for(let i=0;i<a.length;i+=3)col.push(k.r,k.g,k.b);}
+  const m=new THREE.BufferGeometry();m.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));m.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3));m.setAttribute('color',new THREE.Float32BufferAttribute(col,3));m.computeBoundingSphere();return m;}
+ const itemMat=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.85}),coinMat=new THREE.MeshStandardMaterial({color:'#e2b33c',metalness:.7,roughness:.35});
+ const LAYERS={};for(const k in MODELS)LAYERS[k]=[[mergeColored(MODELS[k]),itemMat]];
+ LAYERS.bundle=[[geo.box.clone().scale(.46,.08,.23).translate(0,.04,0),noteMats],[mergeColored([[part(B(),{y:.042,sx:.07,sy:.084,sz:.235}),'#f2ead2']]),itemMat]];
+ LAYERS.coins=[[merge([part(coinGeo,{x:-.06}),part(coinGeo,{x:.08,z:.03,sy:.7})]),coinMat]];
+ // A single item with its parts kept apart, for the few that belong to a model and are animated part by part (the cone of the ice-cream machine).
+ function item(kind){const g=new THREE.Group();for(const [gm,c] of MODELS[kind]){const x=new THREE.Mesh(gm,mat(c));x.castShadow=true;g.add(x);}return g;}
  // A stack laid out as a grid of `cols`×`rows` cells, each cell piling up; at most `max` items drawn (the label gives the true count).
- function stackOf(group,list,{cols=1,rows=1,step=.42,dstep=.42,max=60}={}){const key=list.length+':'+list.slice(-8).join(',')+cols+rows;if(group.userData.key===key)return;group.userData.key=key;while(group.children.length)group.remove(group.children[0]);
-  const heights=new Map(),per=cols*rows;list.slice(0,max).forEach((k,i)=>{const cell=i%per,col=cell%cols,row=Math.floor(cell/cols),y=heights.get(cell)??0;const m=item(k);m.position.set((col-(cols-1)/2)*step,y,(row-(rows-1)/2)*dstep);m.rotation.y=((i*37)%7-3)*.04;group.add(m);heights.set(cell,y+H[k]);});}
+ // Each kind present in the stack is one instanced mesh, kept in a pool on the group and refilled only when the stack changes.
+ function stackOf(group,list,{cols=1,rows=1,step=.42,dstep=.42,max=60}={}){const key=list.length+':'+list.slice(-8).join(',')+cols+rows;if(group.userData.key===key)return;group.userData.key=key;
+  const pool=group.userData.pool??=new Map(),n=Math.min(list.length,max),per=cols*rows,heights=new Map();for(const e of pool.values())e.n=e.need=0;
+  for(let i=0;i<n;i++){let e=pool.get(list[i]);if(!e){e={cap:0,n:0,need:0,meshes:[]};pool.set(list[i],e);}e.need++;}
+  for(const [k,e] of pool)if(e.need>e.cap){for(const m of e.meshes){group.remove(m);m.dispose();}e.cap=Math.max(8,2**Math.ceil(Math.log2(e.need)));e.meshes=LAYERS[k].map(([g,m])=>{const im=new THREE.InstancedMesh(g,m,e.cap);im.castShadow=true;group.add(im);return im;});}
+  for(let i=0;i<n;i++){const k=list[i],cell=i%per,col=cell%cols,row=Math.floor(cell/cols),y=heights.get(cell)??0,e=pool.get(k);T.position.set((col-(cols-1)/2)*step,y,(row-(rows-1)/2)*dstep);T.rotation.set(0,((i*37)%7-3)*.04,0);T.scale.set(1,1,1);T.updateMatrix();
+   for(const m of e.meshes)m.setMatrixAt(e.n,T.matrix);e.n++;heights.set(cell,y+H[k]);}
+  for(const e of pool.values())for(const m of e.meshes){m.count=e.n;m.visible=e.n>0;m.instanceMatrix.needsUpdate=true;if(e.n)m.computeBoundingSphere();}}
+ // Takes a model out of the scene and frees what belonged to it alone (label textures, instanced stacks); shared geometries and materials stay.
+ function drop(g){scene.remove(g);g.traverse(o=>{if(o.isInstancedMesh)o.dispose();else if(o.isSprite||(o.isMesh&&o.material.isMeshBasicMaterial&&o.material.map)){o.material.map.dispose();o.material.dispose();if(o.isMesh)o.geometry.dispose();}});}
  const carryLayout=n=>n<=10?{}:n<=24?{cols:2,step:.36}:{cols:2,rows:2,step:.36,dstep:.34};
  // Flat icon painted on a pad: what goes there (input) or what comes out of it.
  const ICON={potato:'🥔',fries:'🍟',raw:'🥩',steak:'🍖',burger:'🍔',cup:'🥛',soda:'🥤',beef:'🐄',milk:'🍼',icecream:'🍦',tray:'🍽️'};
@@ -229,7 +243,7 @@ export function createArcadeScene(canvas,getState){
   const m=new THREE.Mesh(new THREE.BoxGeometry(2.6,1.3,.12),[mat('#ffffff'),mat('#ffffff'),mat('#ffffff'),mat('#ffffff'),new THREE.MeshStandardMaterial({map}),mat('#ffffff')]);m.position.set(0,1.9+i*1.4,0);m.castShadow=true;board.add(m);if(i){const pole=box(board,.14,1.4,.14,0,1.9+i*1.4-.7,-.14,'#59646b');m.userData.pole=pole;}return m;});
 
  // Unlock tiles: dashed square, name and price, filling as the player pays; levelled upgrades show what the level brings.
- const tiles=new Map();function tile(u){const g=new THREE.Group();g.position.set(u.pos[0],.13,u.pos[1]);const c=document.createElement('canvas');c.width=c.height=256;const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const plane=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.8),new THREE.MeshBasicMaterial({map,transparent:true}));plane.rotation.x=-Math.PI/2;g.add(plane);scene.add(g);let last='';
+ const tiles=new Map();let shownTiles=null;function tile(u){const g=new THREE.Group();g.position.set(u.pos[0],.13,u.pos[1]);const c=document.createElement('canvas');c.width=c.height=256;const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const plane=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.8),new THREE.MeshBasicMaterial({map,transparent:true}));plane.rotation.x=-Math.PI/2;g.add(plane);scene.add(g);let last='';
   g.userData.draw=(paid)=>{const key=paid;if(key===last)return;last=key;const ctx=c.getContext('2d');ctx.clearRect(0,0,256,256);ctx.fillStyle=u.level?'#fff3c455':'#ffffff55';ctx.fillRect(14,14,228,228);ctx.fillStyle='#5fd06acc';const f=paid/u.price;ctx.fillRect(14,242-228*f,228,228*f);ctx.setLineDash([26,18]);ctx.lineWidth=10;ctx.strokeStyle=u.level?'#ffe08a':'#fff';ctx.strokeRect(14,14,228,228);
    ctx.fillStyle='#2b3a44';ctx.textAlign='center';ctx.font='800 32px system-ui';ctx.fillText(u.name,128,u.tip?72:92,220);ctx.font='900 54px system-ui';ctx.fillText(`${(u.price-paid).toLocaleString('fr-FR')} $`,128,u.tip?140:168,220);if(u.tip){ctx.font='700 22px system-ui';ctx.fillText(u.tip,128,196,220);}map.needsUpdate=true;};return g;}
 
@@ -269,22 +283,22 @@ export function createArcadeScene(canvas,getState){
   drive.visible=!!s.unlocked.drive;stackOf(drivePile,s.drive.pad,{cols:3,rows:2,step:.32,dstep:.32});
   const seenCars=new Set();for(const c of s.drive.cars){seenCars.add(c.id);let v=cars.get(c.id);if(!v){v=carModel(CAR_COLORS[c.look%CAR_COLORS.length]);cars.set(c.id,v);}v.g.position.set(DRIVE.road,0,c.z);v.g.rotation.y=Math.PI;v.g.children[0].position.y=c.moving?Math.sin(time*20)*.015:0;
    const left=PRODUCTS.map(k=>c.wants[k]-c.got[k]?`${ICON[k]}${c.wants[k]-c.got[k]}`:'').filter(Boolean).join(' ');v.bubble.visible=c.phase==='queue';if(c.phase==='queue'){const f=c.wait/DRIVE.patience;pill(v.bubble,`🚗 ${left||'✓'}`,f<.4?{}:f<.7?{bg:'#f6b94aee'}:{bg:'#e8483aee',fg:'#fff'});}}
-  for(const [id,v] of cars)if(!seenCars.has(id)){scene.remove(v.g);cars.delete(id);}
+  for(const [id,v] of cars)if(!seenCars.has(id)){drop(v.g);cars.delete(id);}
   safe.visible=!!s.unlocked.safe;if(safe.visible){stackOf(safePile,cashList(s.safe,30),{cols:2,rows:3,step:.5,dstep:.3});pill(safeTag,`🔐 ${Math.round(s.safe).toLocaleString('fr-FR')} $`);}
   atm.visible=!!s.unlocked.bank;if(atm.visible)pill(atmTag,'🏦 Banque');
   tubes.visible=!!s.unlocked.tubes;const seenCap=new Set();for(const c of s.capsules){seenCap.add(c.id);let m=capsules.get(c.id);if(!m){m=new THREE.Group();const b=new THREE.Mesh(geo.cap,mat('#f6c945'));b.scale.setScalar(.45);b.rotation.z=Math.PI/2;m.add(b);scene.add(m);capsules.set(c.id,m);}m.position.copy(at(paths[c.r],Math.min(1,c.t)));}
-  for(const [id,m] of capsules)if(!seenCap.has(id)){scene.remove(m);capsules.delete(id);}
+  for(const [id,m] of capsules)if(!seenCap.has(id)){drop(m);capsules.delete(id);}
   const insp=s.event?.kind==='inspection';inspector.visible=insp;if(insp){animate(inspector,{x:4.2,z:-.6,heading:Math.PI,moving:false},time);pill(inspTag,`🧑‍⚕️ ${Math.ceil(s.event.t)} s`,{bg:'#26343fee',fg:'#fff'});}
-  const shown=visibleUnlocks(s),keys=new Set(shown.map(u=>u.key));for(const u of shown){let g=tiles.get(u.key);if(!g){g=tile(u);tiles.set(u.key,g);}g.userData.draw(s.paid[u.key]??0);}for(const [k,g] of tiles)if(!keys.has(k)){scene.remove(g);tiles.delete(k);}
+  const shown=visibleUnlocks(s);for(const u of shown){let g=tiles.get(u.key);if(!g){g=tile(u);tiles.set(u.key,g);}g.userData.draw(s.paid[u.key]??0);}if(shown!==shownTiles){shownTiles=shown;const keys=new Set(shown.map(u=>u.key));for(const [k,g] of tiles)if(!keys.has(k)){drop(g);tiles.delete(k);}}
   const seen=new Set();for(const c of s.customers){seen.add(c.id);let g=customers.get(c.id);if(!g){g=person(COLORS[c.look%COLORS.length]);const b=sprite(1.8,.5);b.position.set(0,2.05,0);g.add(b);g.userData.bubble=b;customers.set(c.id,g);}
    animate(g,c,time);stackOf(g.userData.back,c.phase==='leave'&&c.happy?PRODUCTS.flatMap(k=>repeat(k,c.got[k])):[],{cols:2,step:.34});
    const left=PRODUCTS.map(k=>c.wants[k]-c.got[k]?`${ICON[k]}${c.wants[k]-c.got[k]}`:'').filter(Boolean).join(' ');const waiting=c.phase==='queue'||c.phase==='kiosk'||c.phase==='pickup';g.userData.bubble.visible=waiting;
    if(waiting){const f=c.wait/PATIENCE,text=c.phase==='kiosk'&&c.order>0?`📝 ${Math.round(c.order/KIOSK_ORDER*100)} %`:`${c.card?'💳':'💵'} ${left||'✓'}`;pill(g.userData.bubble,text,f<.4?{}:f<.7?{bg:'#f6b94aee'}:{bg:'#e8483aee',fg:'#fff'});}}
-  for(const [id,g] of customers)if(!seen.has(id)){scene.remove(g);customers.delete(id);}
+  for(const [id,g] of customers)if(!seen.has(id)){drop(g);customers.delete(id);}
   for(const p of s.popups){let g=popups.get(p.id);if(!g){g=sprite(1.8,.55);scene.add(g);pill(g,p.text,{...(POP[p.kind]??POP.money),size:.55});popups.set(p.id,g);}g.position.set(p.x,2+p.t*1.6,p.z);g.material.opacity=1-p.t/1.4;}
-  for(const [id,g] of popups)if(!s.popups.some(p=>p.id===id)){scene.remove(g);popups.delete(id);}
+  for(const [id,g] of popups)if(!s.popups.some(p=>p.id===id)){drop(g);popups.delete(id);}
   // Camera follows the player from the front-top, like a tabletop diorama.
   const px=s.player.x,pz=s.player.z,cx=camera.userData.x??px,cz=camera.userData.z??pz,nx=cx+(px-cx)*Math.min(1,dt*4),nz=cz+(pz-cz)*Math.min(1,dt*4);camera.userData.x=nx;camera.userData.z=nz;camera.position.set(nx+6,20,nz+15);camera.lookAt(nx,0,nz-1);sun.position.set(nx-10,30,nz+12);sun.target.position.set(nx,0,nz);}
  function resize(){const r=canvas.getBoundingClientRect(),aspect=r.width/Math.max(1,r.height),half=aspect<1?(r.width<500?8.6:10):(r.height<500?6.6:8.5);camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(r.width,r.height,false);}
  const ro=new ResizeObserver(resize);ro.observe(canvas);resize();
- return {three:scene,camera,setShowMissions(v){showMissions=!!v;},update(dt){sync(dt);renderer.render(scene,camera);},reset(){for(const m of [customers,helpers,popups])for(const [id,g] of m){scene.remove(g);m.delete(id);}for(const [id,g] of tiles){scene.remove(g);tiles.delete(id);}}};}
+ return {three:scene,camera,setShowMissions(v){showMissions=!!v;},update(dt){sync(dt);renderer.render(scene,camera);},reset(){for(const m of [customers,helpers,popups,tiles])for(const [id,g] of m){drop(g);m.delete(id);}shownTiles=null;}};}
