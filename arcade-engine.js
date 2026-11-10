@@ -102,7 +102,7 @@ export const LEVELS=[
  {id:'prix',name:'Recettes premium',after:'burger',base:400,growth:1.8,pos:[13.6,-1],tip:'+10 % sur les prix'},
  {id:'stock',name:'Stockage',after:'shelf2',base:300,growth:1.7,pos:[-3.6,3],tip:'+50 % de stock partout'},
  {id:'cuisine',name:'Cuisine rapide',after:'fastKitchen',base:500,growth:1.7,pos:[.25,-10.8],tip:'Machines 15 % plus rapides'},
- {id:'equipe',name:'Employé',after:'helper4',base:500,growth:1.45,pos:[8.2,-11.2],tip:'Un employé de plus'},
+ {id:'equipe',name:'Employé',after:'helper4',base:500,growth:1.45,pos:[8.2,-11.2],tip:'Un employé là où ça manque'},
  {id:'robotLvl',name:'Robots',after:'robotPotato',base:400,growth:1.7,pos:[4.2,-11.4],tip:'Robots plus rapides, plus chargés, batterie +'},
  {id:'cows',name:'Vache',after:'farm',base:250,growth:1.5,max:COWS.length-2,pos:[-6.2,1.6],tip:'Une vache de plus'},
  {id:'kiosk',name:'Borne',after:'register2',base:300,growth:2,max:KIOSKS.length,pos:s=>KIOSKS[lvl(s,'kiosk')],tip:'Commande et paiement CB en libre-service'}];
@@ -156,18 +156,23 @@ export function createArcade(){const s={schema:SAVE_SCHEMA,t:0,money:10,piles:[0
  for(let r=0;r<2;r++)for(let c=0;c<3;c++)s.plots.push(plot(s.plots.length,-12.4+c*1.6,-2.8+r*1.6,2));
  COWS.forEach(([x,z],i)=>s.cows.push({id:i,x,z,grow:Math.random()*.5,ready:false}));
  return fill(s);}
-const newDay=()=>({revenue:0,served:0,lost:0,bills:0});
+const newDay=()=>({revenue:0,served:0,tips:0,lost:0,bills:0});
 // Fields added since the first saves get their defaults here, for new games and loaded ones alike.
 function fill(s){for(const id of Object.keys(STATIONS))s.stations[id]??={in:0,out:0,timer:0,working:false};for(const k of Object.keys(SOURCES))s.sources[k]??={n:0,timer:0};
  for(const k of Object.keys(SHELVES))s.shelves[k]??=0;for(const c of s.customers)for(const k of PRODUCTS){c.wants[k]??=0;c.got[k]??=0;}
  s.clock??=OPEN*.15;s.day??=1;s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=120;
- s.tables??=TABLES.map(()=>({by:null,dirty:false}));s.safe??=0;s.capsules??=[];s.tubeTimer??=0;
+ s.tables??=TABLES.map(()=>({by:null,dirty:false}));s.short??={};for(const k of PRODUCTS)s.short[k]??=0;s.safe??=0;s.capsules??=[];s.tubeTimer??=0;
  s.bank??={savings:0,debt:0,stocks:Object.fromEntries(STOCKS.map(k=>[k.id,{price:k.price,owned:0,paid:0,hist:[k.price]}])),timer:0};s.drive??={pad:[],cars:[],timer:8,pick:0};
  for(const h of s.helpers)if(h.robot){const r=robotStats(s);h.cap=r.cap;h.speed=r.speed;h.battMax=r.battMax;h.batt??=r.battMax;}
  return s;}
 
 // Tiles to show now: one-off unlocks whose prerequisite is bought, plus the next level of each levelled upgrade.
-export function visibleUnlocks(s){const out=UNLOCKS.filter(u=>!s.unlocked[u.id]&&(!u.after||s.unlocked[u.after])).map(u=>({...u,key:u.id}));
+// What is bought only ever grows, so the lists that depend on it (tiles, obstacles) are rebuilt when this signature
+// changes instead of on every frame. Callers must not modify the arrays they get.
+const sig=s=>{let n=0,l=0;for(const k in s.unlocked)if(s.unlocked[k])n++;for(const k in s.levels)l+=s.levels[k];return n+':'+l+':'+s.helpers.length;};
+const memo=build=>{const cache=new WeakMap();return s=>{const k=sig(s),c=cache.get(s);if(c&&c.k===k)return c.v;const v=build(s);cache.set(s,{k,v});return v;};};
+export const visibleUnlocks=memo(listUnlocks);
+function listUnlocks(s){const out=UNLOCKS.filter(u=>!s.unlocked[u.id]&&(!u.after||s.unlocked[u.after])).map(u=>({...u,key:u.id}));
  for(const L of LEVELS){if(!s.unlocked[L.after])continue;const n=lvl(s,L.id);if(L.max!=null&&n>=L.max)continue;
   out.push({id:L.id,level:n+1,key:`${L.id}#${n+1}`,name:`${L.name} niv. ${n+1}`,price:levelPrice(s,L),pos:typeof L.pos==='function'?L.pos(s):L.pos,tip:L.tip});}
  return out;}
@@ -190,7 +195,8 @@ function putBack(s,list){let back=0;for(const k of list){const src=Object.entrie
 export function emptyHands(s){const p=s.player;if(!p.carry.length)return null;const r=putBack(s,p.carry);p.carry=[];popup(s,r.thrown?`🗑️ ${r.back} rangés · ${r.thrown} jetés`:`🗑️ ${r.back} rangés`,p.x,p.z,'info');return r;}
 
 // Furniture and fences the player cannot walk through (axis-aligned boxes [x0,z0,x1,z1]).
-export function obstacles(s){const o=[[-5.2,-20.6,17.4,-20.2],[-5.15,-12.6,-4.85,-10.9],[-1.2,-3.65,13.2,-2.75],[DESK[0]-.7,DESK[1]-.4,DESK[0]+.7,DESK[1]+.4]];
+export const obstacles=memo(listObstacles);
+function listObstacles(s){const o=[[-5.2,-20.6,17.4,-20.2],[-5.15,-12.6,-4.85,-10.9],[-1.2,-3.65,13.2,-2.75],[DESK[0]-.7,DESK[1]-.4,DESK[0]+.7,DESK[1]+.4]];
  const boxAt=([x,z],w,d)=>o.push([x-w/2,z-d/2,x+w/2,z+d/2]);
  for(const [id,def] of Object.entries(STATIONS))if(stationOpen(s,id))boxAt(def.pos,1.8,1.2);
  for(const [k,def] of Object.entries(SOURCES))if(sourceOpen(s,k))boxAt(def.pos,1.6,1.2);
@@ -223,7 +229,7 @@ function interact(s,a,dt){a.cool-=dt;if(a.cool>0)return;let did=false;const room
  if(!did&&s.unlocked.drive&&near(a,DRIVE.pad,1.2)&&s.drive.pad.length<DRIVE.cap){const k=PRODUCTS.find(k=>a.carry.includes(k)&&driveNeed(s,k)>0);if(k){drop(a,k);s.drive.pad.push(k);did=true;}}
  if(did)a.cool=.11;}
 // Drive: what the cars in line still want of a product, minus what already waits on the pad.
-export const driveNeed=(s,k)=>s.drive.cars.filter(c=>c.phase==='queue').reduce((n,c)=>n+c.wants[k]-c.got[k],0)-s.drive.pad.filter(x=>x===k).length;
+export const driveNeed=(s,k)=>{let n=0;for(const c of s.drive.cars)if(c.phase==='queue')n+=c.wants[k]-c.got[k];for(const x of s.drive.pad)if(x===k)n--;return n;};
 
 function playerExtras(s,a,dt){
  // Office desk: standing there pays the bills, oldest first, as long as the account covers them.
@@ -244,8 +250,10 @@ function applyUnlock(s,id){s.player.cap=playerCap(s);if(id==='shoes')s.player.sp
  if(id==='crewBags')for(const h of s.helpers)if(!h.robot)h.cap=helperCap(s);}
 function levelUp(s,u){s.levels[u.id]=lvl(s,u.id)+1;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyLevel(s,u.id);}
 function applyLevel(s,id){s.player.cap=playerCap(s);
- if(id==='equipe'){const chains=['fries','burger',...(s.unlocked.soda?['soda']:[]),...(s.unlocked.farm?['farm']:[])];s.helpers.push(helper(s,chains[(lvl(s,'equipe')-1)%chains.length]));}
+ if(id==='equipe'){const chains=['fries','burger',...(s.unlocked.soda?['soda']:[]),...(s.unlocked.farm?['farm']:[])],worst=PRODUCTS.filter(k=>shelfOpen(s,k)).sort((a,b)=>s.short[b]-s.short[a])[0];
+  const loop=s.short[worst]>.08?CHAIN_OF[worst]:chains[(lvl(s,'equipe')-1)%chains.length];s.helpers.push(helper(s,loop));popup(s,`👷 → ${MISSIONS.find(m=>m.id===loop)?.icon??''}`,-5,-9.8,'info');}
  if(id==='robotLvl'){const r=robotStats(s);for(const h of s.helpers)if(h.robot){Object.assign(h,r);h.batt=r.battMax;}}}
+const CHAIN_OF={fries:'fries',burger:'burger',soda:'soda',icecream:'dessert'};
 const cashierAt=i=>({x:REGISTERS[i].cashier[0],z:REGISTERS[i].cashier[1],heading:0});
 
 // Helpers repeat a fixed loop of the same actions as the player.
@@ -289,7 +297,7 @@ export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if
 if(h.cashAmt){s.safe+=h.cashAmt;h.cashAmt=0;h.carry=[];}putBack(s,h.carry);h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.station=null;h.moving=false;return true;}
 function helper(s,loop){const n=s.helpers.filter(h=>!h.robot).length+1;return {id:s.nextId++,role:'helper',name:'Employé '+n,loop,step:0,x:-5,z:-9.8,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null};}
 function target(s,h){const st=LOOPS[h.loop][h.step],[kind,id]=st.go.split(':'),dist=p=>Math.hypot(p.x-h.x,p.z-h.z);
- if(kind==='field'){const ripe=s.plots.filter(p=>p.ripe&&(p.zone===1||s.unlocked.field2)).sort((a,b)=>dist(a)-dist(b))[0];return ripe?[ripe.x,ripe.z]:[-10.8,-5.2];}
+ if(kind==='field'){let ripe=null,best=Infinity;for(const p of s.plots)if(p.ripe&&(p.zone===1||s.unlocked.field2)){const d=dist(p);if(d<best){best=d;ripe=p;}}return ripe?[ripe.x,ripe.z]:[-10.8,-5.2];}
  if(kind==='cows'){const c=s.cows.slice(0,cowCount(s)).filter(c=>c.ready).sort((a,b)=>dist(a)-dist(b))[0];return c?[c.x,c.z]:[-9.4,4.6];}
  if(kind==='tables'){const i=s.tables.map((t,i)=>i).filter(i=>s.tables[i].dirty).sort((a,b)=>Math.hypot(TABLES[a][0]-h.x,TABLES[a][1]-h.z)-Math.hypot(TABLES[b][0]-h.x,TABLES[b][1]-h.z))[0];return i==null?[2.4,5.9]:[TABLES[i][0],TABLES[i][1]-.75];}
  if(kind==='sink')return SINK;if(kind==='drive')return [DRIVE.pad[0]-.6,DRIVE.pad[1]];if(kind==='milk')return SOURCES.milk.pos;
@@ -347,25 +355,32 @@ function spawnCustomer(s){const burger=s.unlocked.burger&&Math.random()<.55?1+Ma
  if(k>=0&&kq(k)<KIOSK_QUEUE&&Math.random()<Math.min(.75,.3*nk)){c.phase='kiosk';c.kiosk=k;c.card=true;}
  else{const q=s.customers.filter(x=>x.phase==='queue');c.phase='queue';c.reg=openRegisters(s).sort((a,b)=>q.filter(x=>x.reg===a).length-q.filter(x=>x.reg===b).length)[0];}
  s.customers.push(c);}
-function pay(s,c,where,[x,z]){const amount=bill(s,c);s.served++;s.today.served++;s.today.revenue+=amount;s.rep=Math.min(5,s.rep+.08);c.phase='leave';c.happy=true;leftAfter(s,c);
+// Money of a sale: by card straight to the account (minus the fee), in cash on the pile of the till.
+function collect(s,amount,where,[x,z],tag=''){s.today.revenue+=amount;
+ if(where==='card'){const fee=amount*CARD_FEE;s.money+=amount-fee;s.fees+=fee;s.cardSales+=amount;popup(s,`💳 +${Math.round(amount-fee)} $${tag}`,x,z,'card');}
+ else{s.piles[where]+=amount;s.cashSales+=amount;popup(s,`💵 +${Math.round(amount)} $${tag}`,x,z);}}
+// A customer served in less than FAST_WAIT seconds leaves a tip of TIP on top of the bill.
+export const FAST_WAIT=15,TIP=.1;
+function pay(s,c,where,[x,z]){const fast=c.wait<FAST_WAIT,amount=bill(s,c)*(fast?1+TIP:1);s.served++;s.today.served++;if(fast)s.today.tips=(s.today.tips??0)+1;s.rep=Math.min(5,s.rep+.08);c.phase='leave';c.happy=true;leftAfter(s,c);
  // Some customers eat on the terrace when a clean table is free; they leave a dirty tray behind.
  if(s.unlocked.terrace&&Math.random()<.45){const i=s.tables.findIndex(t=>!t.by&&!t.dirty);if(i>=0){s.tables[i].by=c.id;c.phase='eat';c.table=i;c.eat=EAT_TIME;}}
- if(where==='card'){const fee=amount*CARD_FEE;s.money+=amount-fee;s.fees+=fee;s.cardSales+=amount;popup(s,`💳 +${Math.round(amount-fee)} $`,x,z,'card');}
- else{s.piles[where]+=amount;s.cashSales+=amount;popup(s,`💵 +${Math.round(amount)} $`,x,z);}}
-function stepCustomers(s,dt){const pos=[0,0],kpos=KIOSKS.map(()=>0);let pi=0;const pickupHead=[];
+ collect(s,amount,where,[x,z],fast?' ⚡':'');}
+function stepCustomers(s,dt){const pos=[0,0],kpos=KIOSKS.map(()=>0);let pi=0,gone=false,atPickup=0;const pickupHead=[];for(const c of s.customers)if(c.phase==='pickup')atPickup++;
  for(const c of s.customers){
   if(c.phase==='queue'){const r=c.reg,R=REGISTERS[r],i=pos[r]++;move(c,queueSpot(r,i),dt,.05);c.wait+=dt;if(i===0&&!c.moving){c.heading=Math.PI;
     const player=near(s.player,R.serve,1.1);if(player||s.cashiers[r]){c.pick-=dt;if(c.pick<=0){for(const k of PRODUCTS)if(c.got[k]<c.wants[k]&&s.shelves[k]>0){s.shelves[k]--;c.got[k]++;c.pick=player?.25:.45;break;}}}
     if(done(c))pay(s,c,c.card&&hasTerminal(s,r)?'card':r,R.pos);}}
   else if(c.phase==='kiosk'){const k=c.kiosk,i=kpos[k]++;move(c,kioskSpot(k,i),dt,.05);c.wait+=dt;
-   if(i===0&&!c.moving){c.heading=Math.PI;if(s.customers.filter(x=>x.phase==='pickup').length<PICKUP.length){c.order+=dt;if(c.order>=KIOSK_ORDER){c.phase='pickup';c.ordered=s.t;}}}}
+   if(i===0&&!c.moving){c.heading=Math.PI;if(atPickup<PICKUP.length){c.order+=dt;if(c.order>=KIOSK_ORDER){c.phase='pickup';c.ordered=s.t;atPickup++;}}}}
   else if(c.phase==='pickup'){const spot=PICKUP[Math.min(pi++,PICKUP.length-1)];move(c,spot,dt,.05);c.wait+=dt;if(!c.moving){c.heading=Math.PI;pickupHead.push(c);}}
   else if(c.phase==='eat'){const T=TABLES[c.table];if(move(c,[T[0],T[1]-.7],dt,.05)){c.heading=Math.PI;c.eat-=dt;if(c.eat<=0){s.tables[c.table].by=null;s.tables[c.table].dirty=true;s.rep=Math.min(5,s.rep+.03);c.phase='leave';}}}
-  else move(c,EXIT,dt,.2);
-  if(WAITING.includes(c.phase)&&c.wait>PATIENCE){c.phase='leave';c.happy=false;s.lost++;s.today.lost++;s.rep=Math.max(0,s.rep-.35);leftAfter(s,c);popup(s,'😠 −★',c.x,c.z,'bad');}}
+  else{move(c,EXIT,dt,.2);if(Math.hypot(c.x-EXIT[0],c.z-EXIT[1])<.3)gone=true;}
+  if(WAITING.includes(c.phase)&&c.wait>PATIENCE){const part=bill(s,c),where=c.phase==='queue'&&!(c.card&&hasTerminal(s,c.reg))?c.reg:'card';if(c.phase==='pickup')atPickup--;
+   c.phase='leave';c.happy=part>0;s.lost++;s.today.lost++;s.rep=Math.max(0,s.rep-(part>0?.2:.35));leftAfter(s,c);
+   if(part>0)collect(s,part,where,[c.x,c.z],' 😕');else popup(s,'😠 −★',c.x,c.z,'bad');}}
  // Pickup counter: orders are handed over one item at a time, oldest order first, as soon as the shelves have the goods.
  s.pickupTimer-=dt;if(s.pickupTimer<=0&&pickupHead.length){for(const c of pickupHead.sort((a,b)=>a.ordered-b.ordered)){const k=PRODUCTS.find(k=>c.got[k]<c.wants[k]&&s.shelves[k]>0);if(!k)continue;s.shelves[k]--;c.got[k]++;s.pickupTimer=PICKUP_STEP;if(done(c))pay(s,c,'card',[c.x,c.z-1.2]);break;}}
- s.customers=s.customers.filter(c=>!(c.phase==='leave'&&Math.hypot(c.x-EXIT[0],c.z-EXIT[1])<.3));}
+ if(gone)s.customers=s.customers.filter(c=>!(c.phase==='leave'&&Math.hypot(c.x-EXIT[0],c.z-EXIT[1])<.3));}
 
 // Machines with several baskets (the fryer): each basket takes one input and cooks it on its own for `baskets` times
 // the machine time, so all baskets together make as much as one fast batch line. A cooked basket waits for room.
@@ -409,12 +424,12 @@ function stepDrive(s,dt){const D=s.drive;if(!s.unlocked.drive)return;
  for(const c of D.cars){if(c.phase==='queue'){const tz=DRIVE.stop+i*DRIVE.gap,head=i===0;i++;const d=tz-c.z;c.moving=Math.abs(d)>.05;c.z+=Math.sign(d)*Math.min(Math.abs(d),5*dt);c.wait+=dt;
    if(head&&!c.moving&&D.pick<=0){const k=PRODUCTS.find(k=>c.got[k]<c.wants[k]&&D.pad.includes(k));if(k){D.pad.splice(D.pad.indexOf(k),1);c.got[k]++;D.pick=.3;}}
    if(done(c)){const amount=bill(s,c)*1.1,fee=amount*CARD_FEE;s.money+=amount-fee;s.fees+=fee;s.cardSales+=amount;s.served++;s.today.served++;s.today.revenue+=amount;s.rep=Math.min(5,s.rep+.06);c.phase='leave';popup(s,`🚗 +${Math.round(amount-fee)} $`,DRIVE.road,c.z,'card');}
-   else if(c.wait>DRIVE.patience){c.phase='leave';s.lost++;s.today.lost++;s.rep=Math.max(0,s.rep-.2);popup(s,'🚗 😠 −★',DRIVE.road,c.z,'bad');}}
+   else if(c.wait>DRIVE.patience){const part=bill(s,c);c.phase='leave';s.lost++;s.today.lost++;s.rep=Math.max(0,s.rep-(part>0?.1:.2));if(part>0)collect(s,part,'card',[DRIVE.road,c.z],' 😕');else popup(s,'🚗 😠 −★',DRIVE.road,c.z,'bad');}}
   else{c.moving=true;c.z-=7*dt;}}
  D.cars=D.cars.filter(c=>c.z>-26);}
 // Pneumatic tubes: every few seconds the cash of each till is sucked into a capsule that flies to the safe.
 export const TUBE_EVERY=3,TUBE_TIME=2.5;
-function stepTubes(s,dt){for(const c of s.capsules)c.t+=dt/TUBE_TIME;for(const c of s.capsules.filter(c=>c.t>=1))s.safe+=c.amt;s.capsules=s.capsules.filter(c=>c.t<1);
+function stepTubes(s,dt){let arrived=false;for(const c of s.capsules){c.t+=dt/TUBE_TIME;if(c.t>=1){s.safe+=c.amt;arrived=true;}}if(arrived)s.capsules=s.capsules.filter(c=>c.t<1);
  if(!s.unlocked.tubes)return;s.tubeTimer-=dt;if(s.tubeTimer>0)return;s.tubeTimer=TUBE_EVERY;
  REGISTERS.forEach((R,r)=>{if(s.piles[r]>=1){s.capsules.push({id:s.nextId++,r,amt:s.piles[r],t:0});s.piles[r]=0;}});}
 // Bank (in-game and fictional): savings that earn interest every night, shares of three made-up companies whose price
@@ -450,7 +465,9 @@ export function stepArcade(s,dt,input={x:0,z:0}){dt=Math.min(dt,.1);s.t+=dt;cons
  s.rush=Math.max(0,s.rush-dt);s.rushCool=Math.max(0,s.rushCool-dt);
  const room=MAX_QUEUE*openRegisters(s).length+(KIOSK_QUEUE+2)*kioskCount(s)+(s.unlocked.terrace?TABLES.length:0);
  s.spawnTimer-=dt;if(isOpen(s)&&s.spawnTimer<=0&&waiting(s).length<room){spawnCustomer(s);s.spawnTimer=((s.unlocked.burger?3.2:4.5)+Math.random()*2)/Math.max(.05,traffic(s));}
- stepCustomers(s,dt);for(const pp of s.popups)pp.t+=dt;s.popups=s.popups.filter(pp=>pp.t<1.4);}
+ stepCustomers(s,dt);if(s.popups.length){let old=false;for(const pp of s.popups){pp.t+=dt;if(pp.t>=1.4)old=true;}if(old)s.popups=s.popups.filter(pp=>pp.t<1.4);}
+ // Share of the opening time each shelf spent empty lately (about the last minute and a half): tells where a new hire is needed.
+ if(isOpen(s))for(const k of PRODUCTS)if(shelfOpen(s,k))s.short[k]+=((s.shelves[k]===0?1:0)-s.short[k])*Math.min(1,dt/90);}
 
 // Saves: schema 2 loads as is; a schema 1 save is rebuilt into a fresh schema 2 game with the same money, purchases,
 // reputation and counters (helpers come back on their default missions).
