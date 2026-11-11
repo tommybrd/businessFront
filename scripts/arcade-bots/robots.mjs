@@ -26,6 +26,10 @@ for (const id of NEW) {
   const close = spots.filter(([, p]) => d(p) < 1.3).map(([n, p]) => `${n} à ${d(p).toFixed(2)}`);
   assert(!close.length, `${id} : rien à moins de 1,3 m${close.length ? ' (' + close.join(', ') + ')' : ''}`);
 }
+// Buying needs a deliberate stop: crossing a tile costs nothing.
+{ const u = E.UNLOCKS.find(x => x.id === 'robotCups'), m0 = s.money + s.safe; s.player.x = u.pos[0]; s.player.z = u.pos[1];
+  for (let t = 0; t < E.BUY_DELAY * .7; t += .05) E.stepArcade(s, .05, { x: 0, z: 0 });
+  assert(Math.abs(s.money + s.safe - m0) < 60 && !(s.paid.robotCups > 0), 'traverser une case sans s’arrêter ne coûte rien'); }
 // Buy the four robots by standing on their tiles.
 const standOn = id => { const u = E.UNLOCKS.find(x => x.id === id); s.player.x = u.pos[0]; s.player.z = u.pos[1];
   for (let t = 0; t < 30 && !s.unlocked[id]; t += .05) E.stepArcade(s, .05, { x: 0, z: 0 }); return !!s.unlocked[id]; };

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,ITEMS} from './camping-engine.js';
+import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,ITEMS,BUY_DELAY} from './camping-engine.js';
 
 // Low-poly view of the campsite: pitches with their tents and caravans, the toilet block, the shop, the pool and the stage show
 // what the simulation holds. Nothing here decides anything.
@@ -130,9 +130,10 @@ export function createCampingScene(canvas,getState){
  const markers=[0,1,2].map(()=>{const g=new THREE.Group();scene.add(g);box(g,1.3,.04,1.3,0,.06,0,'#e8483a',false);const t=sprite(1.8,.5);t.position.y=1.5;g.add(t);g.visible=false;return {g,t};});
 
  // Unlock tiles: dashed square, name and price, filling as the player pays.
+ const holdOf=(s,key)=>{let h=0;if(!(s.paid[key]>0))for(const b of [s.player,...s.guests])if(b.buyKey===key)h=Math.max(h,Math.min(1,(b.buyT??0)/BUY_DELAY));return h>=1?0:h;};
  const tiles=new Map();let shownTiles=null;function tile(u){const g=new THREE.Group();g.position.set(u.pos[0],.13,u.pos[1]);const c=document.createElement('canvas');c.width=c.height=256;const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const plane=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.8),new THREE.MeshBasicMaterial({map,transparent:true}));plane.rotation.x=-Math.PI/2;g.add(plane);scene.add(g);let last='';
-  g.userData.draw=paid=>{if(paid===last)return;last=paid;const ctx=c.getContext('2d');ctx.clearRect(0,0,256,256);ctx.fillStyle=u.level?'#fff3c455':'#ffffff55';ctx.fillRect(14,14,228,228);ctx.fillStyle='#5fd06acc';const f=paid/u.price;ctx.fillRect(14,242-228*f,228,228*f);ctx.setLineDash([26,18]);ctx.lineWidth=10;ctx.strokeStyle=u.level?'#ffe08a':'#fff';ctx.strokeRect(14,14,228,228);
-   ctx.fillStyle='#2b3a44';ctx.textAlign='center';ctx.font='800 30px system-ui';ctx.fillText(u.name,128,u.tip?72:92,220);ctx.font='900 54px system-ui';ctx.fillText(`${(u.price-paid).toLocaleString('fr-FR')} $`,128,u.tip?140:168,220);if(u.tip){ctx.font='700 22px system-ui';ctx.fillText(u.tip,128,196,220);}map.needsUpdate=true;};return g;}
+  g.userData.draw=(paid,hold=0)=>{const key=paid+':'+Math.round(hold*16);if(key===last)return;last=key;const ctx=c.getContext('2d');ctx.clearRect(0,0,256,256);ctx.fillStyle=u.level?'#fff3c455':'#ffffff55';ctx.fillRect(14,14,228,228);ctx.fillStyle='#5fd06acc';const f=paid/u.price;ctx.fillRect(14,242-228*f,228,228*f);ctx.setLineDash([26,18]);ctx.lineWidth=10;ctx.strokeStyle=u.level?'#ffe08a':'#fff';ctx.strokeRect(14,14,228,228);
+   ctx.fillStyle='#2b3a44';ctx.textAlign='center';ctx.font='800 30px system-ui';ctx.fillText(u.name,128,u.tip?72:92,220);ctx.font='900 54px system-ui';ctx.fillText(`${(u.price-paid).toLocaleString('fr-FR')} $`,128,u.tip?140:168,220);if(u.tip){ctx.font='700 22px system-ui';ctx.fillText(u.tip,128,196,220);}if(hold>0){ctx.setLineDash([]);ctx.fillStyle='#26343f';ctx.fillRect(30,204,196,34);ctx.fillStyle='#2b6fd6';ctx.fillRect(30,204,196*hold,34);ctx.fillStyle='#fff';ctx.font='800 21px system-ui';ctx.fillText('Restez pour acheter…',128,229,186);}map.needsUpdate=true;};return g;}
 
  const campers=new Map(),helpers=new Map(),popups=new Map(),posts={};
  const POP={money:{bg:'#2f9e4fee',fg:'#fff'},card:{bg:'#2b6fd6ee',fg:'#fff'},info:{bg:'#26343fee',fg:'#fff'},bad:{bg:'#e8483aee',fg:'#fff'}};
@@ -188,7 +189,7 @@ export function createCampingScene(canvas,getState){
   // Event markers.
   const ev=s.event;markers.forEach((m,i)=>{const sp=ev?.spots[i];m.g.visible=!!sp&&sp.fix<REPAIR;if(!m.g.visible)return;m.g.position.set(sp.x,0,sp.z);pill(m.t,`${ev.label.split(' ')[0]} ${Math.round(sp.fix/REPAIR*100)} %`,{bg:'#e8483aee',fg:'#fff'});m.g.children[0].material=mat(Math.sin(time*8)>0?'#e8483a':'#f6c945');});
   // Tiles.
-  const shown=visibleUnlocks(s);for(const u of shown){let g=tiles.get(u.key);if(!g){g=tile(u);tiles.set(u.key,g);}g.userData.draw(s.paid[u.key]??0);}if(shown!==shownTiles){shownTiles=shown;const keys=new Set(shown.map(u=>u.key));for(const [k,g] of tiles)if(!keys.has(k)){drop(g);tiles.delete(k);}}
+  const shown=visibleUnlocks(s);for(const u of shown){let g=tiles.get(u.key);if(!g){g=tile(u);tiles.set(u.key,g);}g.userData.draw(s.paid[u.key]??0,holdOf(s,u.key));}if(shown!==shownTiles){shownTiles=shown;const keys=new Set(shown.map(u=>u.key));for(const [k,g] of tiles)if(!keys.has(k)){drop(g);tiles.delete(k);}}
   // Campers.
   const seen=new Set();for(const c of s.campers){seen.add(c.id);let g=campers.get(c.id);if(!g){g=person(CAMP[c.look%CAMP.length]);const b=sprite(1.9,.5);b.position.set(0,2.05,0);g.add(b);g.userData.bubble=b;campers.set(c.id,g);}
    animate(g,c,time);if(c.swim)g.position.y=-.5;const A=c.act,q=c.phase==='queue';let text='',style={};

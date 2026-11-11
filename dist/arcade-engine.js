@@ -242,8 +242,12 @@ function playerExtras(s,a,dt){
  // A broken machine is repaired by standing next to it for a moment.
  const ev=s.event;if(ev?.kind==='panne'){const st=s.stations[ev.id];if(st?.broken&&near(a,STATIONS[ev.id].pos,1.9)){st.broken.fix+=dt;if(st.broken.fix>=REPAIR){delete st.broken;s.event=null;popup(s,'🔧 Réparé !',a.x,a.z,'info');}}}if(s.unlocked.megaphone&&s.rushCool<=0&&near(a,MEGAPHONE,.9)){s.rush=RUSH.length;s.rushCool=RUSH.cooldown;popup(s,'📣 RUSH !',MEGAPHONE[0],MEGAPHONE[1],'info');}
  REGISTERS.forEach((r,i)=>{if(s.piles[i]>0&&near(a,r.cash,1.2)){const take=Math.round(s.piles[i]);if(s.unlocked.safe)s.safe+=s.piles[i];else s.money+=s.piles[i];s.piles[i]=0;popup(s,`💵 +${take} $${s.unlocked.safe?' → 🔐':''}`,r.cash[0],r.cash[1]);}});
- for(const u of visibleUnlocks(s)){if(!near(a,u.pos,.95)||wallet(s)<1)continue;const left=u.price-(s.paid[u.key]??0),pay=Math.min(left,Math.floor(wallet(s)),Math.max(1,Math.ceil(u.price*dt*1.4)));
-  spend(s,pay);s.paid[u.key]=(s.paid[u.key]??0)+pay;if(s.paid[u.key]>=u.price){delete s.paid[u.key];u.level?levelUp(s,u):unlock(s,u);}}}
+ let on=null;for(const u of visibleUnlocks(s)){if(!near(a,u.pos,.95)||wallet(s)<1)continue;on=u.key;if(a.buyKey!==u.key){a.buyKey=u.key;a.buyT=0;}a.buyT+=dt;if(!(s.paid[u.key]>0)&&a.buyT<BUY_DELAY)break;const left=u.price-(s.paid[u.key]??0),pay=Math.min(left,Math.floor(wallet(s)),Math.max(1,Math.ceil(u.price*dt*1.4)));
+  spend(s,pay);s.paid[u.key]=(s.paid[u.key]??0)+pay;if(s.paid[u.key]>=u.price){delete s.paid[u.key];u.level?levelUp(s,u):unlock(s,u);}break;}
+ if(!on){a.buyKey=null;a.buyT=0;}}
+// Buying needs a deliberate stop: standing on a tile for BUY_DELAY seconds before the first coin goes in, so walking across one
+// by accident costs nothing. Once something has been paid into a tile, paying carries on without the wait.
+export const BUY_DELAY=1.2;
 function unlock(s,u){s.unlocked[u.id]=true;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyUnlock(s,u.id);}
 function applyUnlock(s,id){s.player.cap=playerCap(s);if(id==='shoes')s.player.speed=5.6;
  if(id==='cashier')s.cashiers[0]=cashierAt(0);if(id==='cashier2')s.cashiers[1]=cashierAt(1);

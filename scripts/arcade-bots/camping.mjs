@@ -65,4 +65,15 @@ const still = { x: 0, z: 0 };
   assert(s.sanit.paper > 2 && g.carry.length < 6, 'l’invité réapprovisionne les toilettes');
   for (let i = 0; i < 3; i++) E.addGuest(s, 'q' + i, 'X'); assert(s.guests.length <= E.MAX_GUESTS, 'au plus 4 joueurs');
 }
+// 5. Buying needs a deliberate stop: crossing a tile costs nothing, standing on it pays after BUY_DELAY seconds.
+{ const s = E.createCamping(); s.money = 500; const u = E.visibleUnlocks(s).find(x => x.id === 'receptionist');
+  s.player.x = u.pos[0]; s.player.z = u.pos[1];
+  for (let t = 0; t < E.BUY_DELAY * .7; t += .05) E.stepCamping(s, .05, still);
+  assert(s.money === 500 && !(s.paid[u.key] > 0), 'traverser une case sans s’arrêter ne coûte rien');
+  s.player.x = 0; s.player.z = 7; E.stepCamping(s, .05, still); s.player.x = u.pos[0]; s.player.z = u.pos[1];
+  for (let t = 0; t < E.BUY_DELAY * .7; t += .05) E.stepCamping(s, .05, still);
+  assert(s.money === 500, 'quitter la case remet la temporisation à zéro');
+  for (let t = 0; t < E.BUY_DELAY + 3; t += .05) E.stepCamping(s, .05, still);
+  assert(s.unlocked.receptionist && s.money < 500, `rester sur la case l’achète (${Math.round(500 - s.money)} $)`);
+}
 console.log('camping : tout est bon');

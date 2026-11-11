@@ -33,7 +33,7 @@ function hint(){const s=state,p=me(),u=visibleUnlocks(s),queue=s.campers.some(c=
  if(s.event)return s.event.label+' — allez sur le carré rouge';
  if(s.bills.some(b=>b.late)||(s.bills.length&&s.money>=s.bills[0].amount&&s.bills[0].due-s.t<60))return 'Payez vos factures au bureau 🧾 près de l’accueil';
  if(s.pitches.some(q=>q.noisy))return 'Des campeurs font la fête : allez leur dire « chut ! » devant leur emplacement 🤫';
- if(u.length&&s.money>=Math.min(...u.map(x=>x.price-(s.paid[x.key]??0))))return 'Marchez sur une zone en pointillé pour la débloquer';return '';}
+ if(u.length&&s.money>=Math.min(...u.map(x=>x.price-(s.paid[x.key]??0))))return 'Restez une seconde sur une zone en pointillé pour l’acheter';return '';}
 // Team panel: one row per staff member with a mission picker; rebuilt only when the team or the choices change.
 let teamKey='';function renderTeam(){const key=state.helpers.map(h=>h.id+h.loop+missionsFor(state,h).length).join();if(key===teamKey)return;teamKey=key;const list=$('teamlist');list.textContent='';
  for(const h of state.helpers){const row=document.createElement('div');row.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent='👷';const name=document.createElement('b');name.textContent=h.name;
