@@ -81,7 +81,7 @@ export function createArcadeScene(canvas,getState){
   for(const x of [-.08,.08])box(body,.06,.05,.01,x,.23,.222,'#5fe0ff',false);cyl(body,.02,.22,0,.46,0,'#8a959b');const lamp=ball(body,.05,0,.6,0,accent);
   const back=new THREE.Group();back.position.set(0,.27,-.32);g.add(back);g.userData={back,body,lamp,robot:true};scene.add(g);return g;}
  function animate(g,a,t){g.position.set(a.x,0,a.z);g.rotation.y=a.heading;g.userData.body.position.y=.62+(a.moving?Math.abs(Math.sin(t*12))*(g.userData.robot?.02:.07):0);if(g.userData.lamp)g.userData.lamp.visible=!a.moving||Math.sin(t*10)>0;}
- const chainColor=loop=>/cash/i.test(loop)?'#2f7d4f':/fries|potato/i.test(loop)?'#f0a830':/soda|cup/i.test(loop)?'#3a8ee0':/farm|beef|butcher/i.test(loop)?'#7a5a3a':'#d8432f';
+ const chainColor=loop=>/cash/i.test(loop)?'#2f7d4f':/fries|potato/i.test(loop)?'#f0a830':/soda|cup/i.test(loop)?'#3a8ee0':/farm|beef|butcher/i.test(loop)?'#7a5a3a':/dessert|milk|ice/i.test(loop)?'#e86fa8':'#d8432f';
 
  // Ground, restaurant floor, counter, field, kitchen.
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.MeshStandardMaterial({color:'#a9db6e',roughness:.85}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);

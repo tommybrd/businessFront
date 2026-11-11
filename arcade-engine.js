@@ -94,7 +94,11 @@ export const UNLOCKS=[
  {id:'robotFries',name:'Robot frites',price:200,pos:[-3,-3.4],after:'robotPotato'},
  {id:'robotMeat',name:'Robot viande',price:220,pos:[4.2,-11.4],after:'helper2'},
  {id:'robotSteak',name:'Robot steaks',price:240,pos:[4.2,-11.4],after:'robotMeat'},
- {id:'robotBurger',name:'Robot burgers',price:260,pos:[4.2,-11.4],after:'robotSteak'}];
+ {id:'robotBurger',name:'Robot burgers',price:260,pos:[4.2,-11.4],after:'robotSteak'},
+ {id:'robotCups',name:'Robot gobelets',price:260,pos:[10.8,-11.6],after:'sodaHelper'},
+ {id:'robotSoda',name:'Robot sodas',price:280,pos:[10.8,-11.6],after:'robotCups'},
+ {id:'robotMilk',name:'Robot lait',price:320,pos:[15.8,-13.2],after:'dessertHelper'},
+ {id:'robotIce',name:'Robot glaces',price:340,pos:[15.8,-13.2],after:'robotMilk'}];
 // Levelled upgrades: bought again and again, each level dearer (price = base × growth^level). This is the endless scale.
 export const LEVELS=[
  {id:'sac',name:'Sac',after:'bag',base:150,growth:1.6,pos:[-4.4,-1.6],tip:'+6 objets portés'},
@@ -110,7 +114,8 @@ export const lvl=(s,id)=>s.levels[id]??0;
 export const levelPrice=(s,L)=>Math.round(L.base*L.growth**lvl(s,L.id));
 
 // Robots: each one shuttles back and forth on a single leg of a chain, forever.
-export const ROBOTS={robotPotato:{loop:'potato',at:[-7,-6]},robotFries:{loop:'friesRun',at:[-.75,-5.2]},robotMeat:{loop:'meatRun',at:[-.4,-10.4]},robotSteak:{loop:'steakRun',at:[4.2,-6.4]},robotBurger:{loop:'burgerRun',at:[7.4,-5.2]}};
+export const ROBOTS={robotPotato:{loop:'potato',at:[-7,-6]},robotFries:{loop:'friesRun',at:[-.75,-5.2]},robotMeat:{loop:'meatRun',at:[-.4,-10.4]},robotSteak:{loop:'steakRun',at:[4.2,-6.4]},robotBurger:{loop:'burgerRun',at:[7.4,-5.2]},
+ robotCups:{loop:'cupRun',at:[12.2,-9]},robotSoda:{loop:'sodaRun',at:[9.4,-5.6]},robotMilk:{loop:'milkRun',at:[14.6,-10.2]},robotIce:{loop:'iceRun',at:[14.2,-5.6]}};
 export const registerOpen=(s,r)=>r===0||!!s.unlocked.register2;
 export const stockMul=s=>1+.5*lvl(s,'stock');
 export const stationOpen=(s,id)=>!STATIONS[id].needs||!!s.unlocked[STATIONS[id].needs];
