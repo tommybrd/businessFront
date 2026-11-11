@@ -1,11 +1,13 @@
 import {createArcade,stepArcade,loadArcade,visibleUnlocks,traffic,avgWait,PATIENCE,MISSIONS,missionsFor,assignMission,PICKABLE,setPick,emptyHands,guestOf,addGuest,removeGuest,guestInput,ITEMS,hourOf,isOpen,billsDue,bankAction,loanLimit,STOCKS,portfolio,wallet,SAVINGS_RATE,LOAN_RATE} from './arcade-engine.js';
 import {createArcadeScene} from './arcade-scene.js';
 import {hostRoom,joinRoom,cleanCode,netError} from './arcade-net.js';
+import {mountCompanies} from './companies.js';
 
 // Input (keyboard + touch joystick), HUD and local save of the arcade alpha.
 const KEY='flux-arcade-v1',$=id=>document.getElementById(id);
 let state;try{state=loadArcade(localStorage.getItem(KEY));}catch{state=createArcade();}
 const scene=createArcadeScene($('arcade'),()=>state);
+mountCompanies('arcade',$('dock'));
 // Network play: `net` is null alone, {role:'host',room,seen} when others play in this restaurant, {role:'guest',room,me,solo} when
 // this screen plays in someone else's (then `state` is a copy of the host's game, refreshed several times a second).
 let net=null;const guest=()=>net?.role==='guest',me=()=>guest()?guestOf(state,net.me)??{carry:[],x:0,z:0}:state.player;
