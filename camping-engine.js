@@ -156,8 +156,12 @@ const CASH=[RECEPTION.cash,SHOP.cash];
 function playerExtras(s,a,dt){
  s.deskCool-=dt;if(s.deskCool<=0&&near(a,DESK,1.3)){const b=s.bills[0];if(b&&s.money>=b.amount){s.money-=b.amount;s.today.bills+=b.amount;s.bills.shift();s.deskCool=.35;popup(s,`🧾 ${b.label} −${b.amount} $`,DESK[0],DESK[1],'info');}}
  CASH.forEach((pos,i)=>{if(s.piles[i]>0&&near(a,pos,1.2)){const take=Math.round(s.piles[i]);s.money+=s.piles[i];s.piles[i]=0;popup(s,`💵 +${take} $`,pos[0],pos[1]);}});
- for(const u of visibleUnlocks(s)){if(!near(a,u.pos,.95)||s.money<1)continue;const left=u.price-(s.paid[u.key]??0),pay=Math.min(left,Math.floor(s.money),Math.max(1,Math.ceil(u.price*dt*1.4)));
-  s.money-=pay;s.paid[u.key]=(s.paid[u.key]??0)+pay;if(s.paid[u.key]>=u.price){delete s.paid[u.key];if(u.level){s.levels[u.id]=lvl(s,u.id)+1;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyLevel(s,u.id);}else{s.unlocked[u.id]=true;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyUnlock(s,u.id);}}}}
+ let on=null;for(const u of visibleUnlocks(s)){if(!near(a,u.pos,.95)||s.money<1)continue;on=u.key;if(a.buyKey!==u.key){a.buyKey=u.key;a.buyT=0;}a.buyT+=dt;if(!(s.paid[u.key]>0)&&a.buyT<BUY_DELAY)break;const left=u.price-(s.paid[u.key]??0),pay=Math.min(left,Math.floor(s.money),Math.max(1,Math.ceil(u.price*dt*1.4)));
+  s.money-=pay;s.paid[u.key]=(s.paid[u.key]??0)+pay;if(s.paid[u.key]>=u.price){delete s.paid[u.key];if(u.level){s.levels[u.id]=lvl(s,u.id)+1;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyLevel(s,u.id);}else{s.unlocked[u.id]=true;popup(s,`${u.name} !`,u.pos[0],u.pos[1],'info');applyUnlock(s,u.id);}}break;}
+ if(!on){a.buyKey=null;a.buyT=0;}}
+// Buying needs a deliberate stop: standing on a tile for BUY_DELAY seconds before the first coin goes in, so walking across one
+// by accident costs nothing. Once something has been paid into a tile, paying carries on without the wait.
+export const BUY_DELAY=1.2;
 function applyUnlock(s,id){s.player.cap=playerCap(s);s.player.speed=s.unlocked.cart?5.8:4.2;
  if(id==='receptionist')s.posts.reception=true;if(id==='shopkeeper')s.posts.shop=true;if(id==='animateur')s.posts.stage=true;
  if(id==='cleaner')s.helpers.push(helper(s,'clean','Agent d’entretien'));if(id==='handyman')s.helpers.push(helper(s,'fix','Homme à tout faire'));if(id==='lifeguard')s.helpers.push(helper(s,'pool','Maître-nageur'));

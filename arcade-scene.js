@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {STATIONS,SHELVES,SOURCES,REGISTERS,KIOSKS,PICKUP,COWS,PASTURE,DOOR,PRODUCTS,registerOpen,stationTime,stationCaps,shelfCap,sourceCap,sourceOpen,shelfOpen,cowCount,kioskCount,hasTerminal,
- inZone,outZone,shelfZone,stationOpen,visibleUnlocks,MEGAPHONE,adsLevel,PATIENCE,MISSIONS,KIOSK_ORDER,TABLES,SINK,DESK,DOCK,DRIVE,hourOf,OPEN,billsDue,REPAIR,TECH_DELAY,SAFE,ATM} from './arcade-engine.js';
+ inZone,outZone,shelfZone,stationOpen,visibleUnlocks,MEGAPHONE,adsLevel,PATIENCE,MISSIONS,KIOSK_ORDER,TABLES,SINK,DESK,DOCK,DRIVE,hourOf,OPEN,billsDue,REPAIR,TECH_DELAY,SAFE,ATM,BUY_DELAY} from './arcade-engine.js';
 
 // Low-poly view of the arcade game: stacks, trays, shelves, cash and unlock tiles show the simulated counts.
 export function createArcadeScene(canvas,getState){
@@ -243,9 +243,10 @@ export function createArcadeScene(canvas,getState){
   const m=new THREE.Mesh(new THREE.BoxGeometry(2.6,1.3,.12),[mat('#ffffff'),mat('#ffffff'),mat('#ffffff'),mat('#ffffff'),new THREE.MeshStandardMaterial({map}),mat('#ffffff')]);m.position.set(0,1.9+i*1.4,0);m.castShadow=true;board.add(m);if(i){const pole=box(board,.14,1.4,.14,0,1.9+i*1.4-.7,-.14,'#59646b');m.userData.pole=pole;}return m;});
 
  // Unlock tiles: dashed square, name and price, filling as the player pays; levelled upgrades show what the level brings.
+ const holdOf=(s,key)=>{let h=0;if(!(s.paid[key]>0))for(const b of [s.player,...s.guests])if(b.buyKey===key)h=Math.max(h,Math.min(1,(b.buyT??0)/BUY_DELAY));return h>=1?0:h;};
  const tiles=new Map();let shownTiles=null;function tile(u){const g=new THREE.Group();g.position.set(u.pos[0],.13,u.pos[1]);const c=document.createElement('canvas');c.width=c.height=256;const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const plane=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.8),new THREE.MeshBasicMaterial({map,transparent:true}));plane.rotation.x=-Math.PI/2;g.add(plane);scene.add(g);let last='';
-  g.userData.draw=(paid)=>{const key=paid;if(key===last)return;last=key;const ctx=c.getContext('2d');ctx.clearRect(0,0,256,256);ctx.fillStyle=u.level?'#fff3c455':'#ffffff55';ctx.fillRect(14,14,228,228);ctx.fillStyle='#5fd06acc';const f=paid/u.price;ctx.fillRect(14,242-228*f,228,228*f);ctx.setLineDash([26,18]);ctx.lineWidth=10;ctx.strokeStyle=u.level?'#ffe08a':'#fff';ctx.strokeRect(14,14,228,228);
-   ctx.fillStyle='#2b3a44';ctx.textAlign='center';ctx.font='800 32px system-ui';ctx.fillText(u.name,128,u.tip?72:92,220);ctx.font='900 54px system-ui';ctx.fillText(`${(u.price-paid).toLocaleString('fr-FR')} $`,128,u.tip?140:168,220);if(u.tip){ctx.font='700 22px system-ui';ctx.fillText(u.tip,128,196,220);}map.needsUpdate=true;};return g;}
+  g.userData.draw=(paid,hold=0)=>{const key=paid+':'+Math.round(hold*16);if(key===last)return;last=key;const ctx=c.getContext('2d');ctx.clearRect(0,0,256,256);ctx.fillStyle=u.level?'#fff3c455':'#ffffff55';ctx.fillRect(14,14,228,228);ctx.fillStyle='#5fd06acc';const f=paid/u.price;ctx.fillRect(14,242-228*f,228,228*f);ctx.setLineDash([26,18]);ctx.lineWidth=10;ctx.strokeStyle=u.level?'#ffe08a':'#fff';ctx.strokeRect(14,14,228,228);
+   ctx.fillStyle='#2b3a44';ctx.textAlign='center';ctx.font='800 32px system-ui';ctx.fillText(u.name,128,u.tip?72:92,220);ctx.font='900 54px system-ui';ctx.fillText(`${(u.price-paid).toLocaleString('fr-FR')} $`,128,u.tip?140:168,220);if(u.tip){ctx.font='700 22px system-ui';ctx.fillText(u.tip,128,196,220);}if(hold>0){ctx.setLineDash([]);ctx.fillStyle='#26343f';ctx.fillRect(30,204,196,34);ctx.fillStyle='#2b6fd6';ctx.fillRect(30,204,196*hold,34);ctx.fillStyle='#fff';ctx.font='800 21px system-ui';ctx.fillText('Restez pour acheter…',128,229,186);}map.needsUpdate=true;};return g;}
 
  const customers=new Map(),helpers=new Map(),popups=new Map(),COLORS=['#e86a7a','#6a8ee8','#e8b86a','#8ad06a','#b06ae8','#6ad0c8'];
  const POP={money:{bg:'#2f9e4fee',fg:'#fff'},card:{bg:'#2b6fd6ee',fg:'#fff'},info:{bg:'#26343fee',fg:'#fff'},bad:{bg:'#e8483aee',fg:'#fff'}};
@@ -292,7 +293,7 @@ export function createArcadeScene(canvas,getState){
   tubes.visible=!!s.unlocked.tubes;const seenCap=new Set();for(const c of s.capsules){seenCap.add(c.id);let m=capsules.get(c.id);if(!m){m=new THREE.Group();const b=new THREE.Mesh(geo.cap,mat('#f6c945'));b.scale.setScalar(.45);b.rotation.z=Math.PI/2;m.add(b);scene.add(m);capsules.set(c.id,m);}m.position.copy(at(paths[c.r],Math.min(1,c.t)));}
   for(const [id,m] of capsules)if(!seenCap.has(id)){drop(m);capsules.delete(id);}
   const insp=s.event?.kind==='inspection';inspector.visible=insp;if(insp){animate(inspector,{x:4.2,z:-.6,heading:Math.PI,moving:false},time);pill(inspTag,`🧑‍⚕️ ${Math.ceil(s.event.t)} s`,{bg:'#26343fee',fg:'#fff'});}
-  const shown=visibleUnlocks(s);for(const u of shown){let g=tiles.get(u.key);if(!g){g=tile(u);tiles.set(u.key,g);}g.userData.draw(s.paid[u.key]??0);}if(shown!==shownTiles){shownTiles=shown;const keys=new Set(shown.map(u=>u.key));for(const [k,g] of tiles)if(!keys.has(k)){drop(g);tiles.delete(k);}}
+  const shown=visibleUnlocks(s);for(const u of shown){let g=tiles.get(u.key);if(!g){g=tile(u);tiles.set(u.key,g);}g.userData.draw(s.paid[u.key]??0,holdOf(s,u.key));}if(shown!==shownTiles){shownTiles=shown;const keys=new Set(shown.map(u=>u.key));for(const [k,g] of tiles)if(!keys.has(k)){drop(g);tiles.delete(k);}}
   const seen=new Set();for(const c of s.customers){seen.add(c.id);let g=customers.get(c.id);if(!g){g=person(COLORS[c.look%COLORS.length]);const b=sprite(1.8,.5);b.position.set(0,2.05,0);g.add(b);g.userData.bubble=b;customers.set(c.id,g);}
    animate(g,c,time);stackOf(g.userData.back,c.phase==='leave'&&c.happy?PRODUCTS.flatMap(k=>repeat(k,c.got[k])):[],{cols:2,step:.34});
    const left=PRODUCTS.map(k=>c.wants[k]-c.got[k]?`${ICON[k]}${c.wants[k]-c.got[k]}`:'').filter(Boolean).join(' ');const waiting=c.phase==='queue'||c.phase==='kiosk'||c.phase==='pickup';g.userData.bubble.visible=waiting;
