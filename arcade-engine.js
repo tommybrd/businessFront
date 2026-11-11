@@ -158,7 +158,7 @@ export function createArcade(){const s={schema:SAVE_SCHEMA,t:0,money:10,piles:[0
  return fill(s);}
 const newDay=()=>({revenue:0,served:0,tips:0,lost:0,bills:0});
 // Fields added since the first saves get their defaults here, for new games and loaded ones alike.
-function fill(s){for(const id of Object.keys(STATIONS))s.stations[id]??={in:0,out:0,timer:0,working:false};for(const k of Object.keys(SOURCES))s.sources[k]??={n:0,timer:0};
+function fill(s){s.guests=[];delete s.replica;for(const id of Object.keys(STATIONS))s.stations[id]??={in:0,out:0,timer:0,working:false};for(const k of Object.keys(SOURCES))s.sources[k]??={n:0,timer:0};
  for(const k of Object.keys(SHELVES))s.shelves[k]??=0;for(const c of s.customers)for(const k of PRODUCTS){c.wants[k]??=0;c.got[k]??=0;}
  s.clock??=OPEN*.15;s.day??=1;s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=120;
  s.tables??=TABLES.map(()=>({by:null,dirty:false}));s.short??={};for(const k of PRODUCTS)s.short[k]??=0;s.safe??=0;s.capsules??=[];s.tubeTimer??=0;
@@ -187,12 +187,12 @@ const popup=(s,text,x,z,kind='money')=>{s.popups.push({id:s.nextId++,text,x,z,t:
 // The player picks up only the kinds left switched on in their pick filter (all by default); helpers take what their mission needs.
 const takes=(a,item)=>a.role==='player'?a.pick?.[item]!==false:a.wants===item;
 export const PICKABLE=['potato','fries','raw','steak','burger','cup','soda','beef','milk','icecream','tray'];
-export function setPick(s,item,on){s.player.pick??={};if(item==='all'||item==='none'){for(const k of PICKABLE)s.player.pick[k]=item==='all';}else if(PICKABLE.includes(item))s.player.pick[item]=!!on;}
+export function setPick(s,item,on,a=s.player){a.pick??={};if(item==='all'||item==='none'){for(const k of PICKABLE)a.pick[k]=item==='all';}else if(PICKABLE.includes(item))a.pick[item]=!!on;}
 // Put back what someone carries: deliveries and machine outputs take their goods back while they have room; the rest is thrown away.
 function putBack(s,list){let back=0;for(const k of list){const src=Object.entries(SOURCES).find(([,d])=>d.item===k);if(src&&sourceOpen(s,src[0])&&s.sources[src[0]].n<sourceCap(s,src[0])){s.sources[src[0]].n++;back++;continue;}
   const st=Object.entries(STATIONS).find(([sid,def])=>def.out===k&&stationOpen(s,sid)&&s.stations[sid].out<stationCaps(s,sid).outCap);if(st){s.stations[st[0]].out++;back++;}}
  return {back,thrown:list.length-back};}
-export function emptyHands(s){const p=s.player;if(!p.carry.length)return null;const r=putBack(s,p.carry);p.carry=[];popup(s,r.thrown?`🗑️ ${r.back} rangés · ${r.thrown} jetés`:`🗑️ ${r.back} rangés`,p.x,p.z,'info');return r;}
+export function emptyHands(s,p=s.player){if(!p.carry.length)return null;const r=putBack(s,p.carry);p.carry=[];popup(s,r.thrown?`🗑️ ${r.back} rangés · ${r.thrown} jetés`:`🗑️ ${r.back} rangés`,p.x,p.z,'info');return r;}
 
 // Furniture and fences the player cannot walk through (axis-aligned boxes [x0,z0,x1,z1]).
 export const obstacles=memo(listObstacles);
@@ -368,7 +368,7 @@ function pay(s,c,where,[x,z]){const fast=c.wait<FAST_WAIT,amount=bill(s,c)*(fast
 function stepCustomers(s,dt){const pos=[0,0],kpos=KIOSKS.map(()=>0);let pi=0,gone=false,atPickup=0;const pickupHead=[];for(const c of s.customers)if(c.phase==='pickup')atPickup++;
  for(const c of s.customers){
   if(c.phase==='queue'){const r=c.reg,R=REGISTERS[r],i=pos[r]++;move(c,queueSpot(r,i),dt,.05);c.wait+=dt;if(i===0&&!c.moving){c.heading=Math.PI;
-    const player=near(s.player,R.serve,1.1);if(player||s.cashiers[r]){c.pick-=dt;if(c.pick<=0){for(const k of PRODUCTS)if(c.got[k]<c.wants[k]&&s.shelves[k]>0){s.shelves[k]--;c.got[k]++;c.pick=player?.25:.45;break;}}}
+    const player=near(s.player,R.serve,1.1)||s.guests.some(g=>near(g,R.serve,1.1));if(player||s.cashiers[r]){c.pick-=dt;if(c.pick<=0){for(const k of PRODUCTS)if(c.got[k]<c.wants[k]&&s.shelves[k]>0){s.shelves[k]--;c.got[k]++;c.pick=player?.25:.45;break;}}}
     if(done(c))pay(s,c,c.card&&hasTerminal(s,r)?'card':r,R.pos);}}
   else if(c.phase==='kiosk'){const k=c.kiosk,i=kpos[k]++;move(c,kioskSpot(k,i),dt,.05);c.wait+=dt;
    if(i===0&&!c.moving){c.heading=Math.PI;if(atPickup<PICKUP.length){c.order+=dt;if(c.order>=KIOSK_ORDER){c.phase='pickup';c.ordered=s.t;atPickup++;}}}}
@@ -408,7 +408,7 @@ function stepEvents(s,dt){const ev=s.event;
    // Nobody came: after TECH_DELAY seconds a technician repairs it and sends a bill.
    else if((st.broken.t=(st.broken.t??0)+dt)>=TECH_DELAY){delete st.broken;s.event=null;s.bills.push({id:s.nextId++,label:'Dépannage',amount:TECH_FEE,due:s.t+BILL_DELAY,late:false});popup(s,`🔧 Technicien : facture ${TECH_FEE} $`,STATIONS[ev.id].pos[0],STATIONS[ev.id].pos[1],'bad');}}
   return;}
- if(s.served<25||!isOpen(s))return;s.eventTimer-=dt;if(s.eventTimer>0)return;s.eventTimer=100+Math.random()*80;
+ if(s.served<25||!isOpen(s))return;s.eventTimer-=dt;if(s.eventTimer>0||s.replica)return;s.eventTimer=100+Math.random()*80;
  const kinds=['panne','retard','inspection'],kind=kinds[Math.floor(Math.random()*3)];
  if(kind==='panne'){const ids=Object.keys(STATIONS).filter(id=>stationOpen(s,id)&&id!=='butcher');const id=ids[Math.floor(Math.random()*ids.length)];s.stations[id].broken={fix:0};s.event={kind,id,label:`🔧 Panne : ${STATIONS[id].name} — allez la réparer`};}
  else if(kind==='retard'){const ks=Object.keys(SOURCES).filter(k=>sourceOpen(s,k));if(!ks.length){s.eventTimer=20;return;}const k=ks[Math.floor(Math.random()*ks.length)];s.sources[k].late=45;s.event={kind,k,t:45,label:`🚚 Livraison en retard : ${SOURCES[k].name}`};}
@@ -417,7 +417,7 @@ function stepEvents(s,dt){const ev=s.event;
 export const inspectionOk=s=>!Object.values(s.stations).some(st=>st.broken)&&!s.tables.some(t=>t.dirty)&&!s.bills.some(b=>b.late)&&Object.keys(SHELVES).every(k=>!shelfOpen(s,k)||s.shelves[k]>0);
 // Drive: cars come up the road, queue, and the first one takes its order from the pad (card payment, +10 % tip).
 function stepDrive(s,dt){const D=s.drive;if(!s.unlocked.drive)return;
- D.timer-=dt;if(isOpen(s)&&D.timer<=0&&D.cars.filter(c=>c.phase==='queue').length<DRIVE.maxCars){D.timer=(14+Math.random()*8)/Math.max(.2,traffic(s));
+ D.timer-=dt;if(!s.replica&&isOpen(s)&&D.timer<=0&&D.cars.filter(c=>c.phase==='queue').length<DRIVE.maxCars){D.timer=(14+Math.random()*8)/Math.max(.2,traffic(s));
   const fries=1+Math.floor(Math.random()*2),burger=s.unlocked.burger&&Math.random()<.6?1+Math.floor(Math.random()*2):0,soda=s.unlocked.soda&&Math.random()<.6?1+Math.floor(Math.random()*2):0,icecream=s.unlocked.dessert&&Math.random()<.3?1:0;
   D.cars.push({id:s.nextId++,z:16,phase:'queue',wants:{fries,burger,soda,icecream},got:{fries:0,burger:0,soda:0,icecream:0},wait:0,look:Math.floor(Math.random()*5),moving:false});}
  let i=0;D.pick-=dt;
@@ -453,10 +453,32 @@ export function bankAction(s,action,arg,n=1){const B=s.bank;if(!s.unlocked.bank)
  if(action==='sell'){const q=Math.min(n,st.owned);if(q<=0)return false;st.paid*=(st.owned-q)/st.owned;st.owned-=q;s.money+=q*st.price;return true;}
  return false;}
 export const portfolio=s=>STOCKS.reduce((t,k)=>t+s.bank.stocks[k.id].owned*s.bank.stocks[k.id].price,0);
-export function stepArcade(s,dt,input={x:0,z:0}){dt=Math.min(dt,.1);s.t+=dt;const p=s.player,len=Math.hypot(input.x,input.z);
+// Network play. The host's game holds the other players in `s.guests`: same body and same hands as the player, each moved by the
+// input its owner last sent. Guests are never saved. On a guest's machine the game is a replica (`s.replica`) of the host's:
+// it runs between two snapshots to stay smooth, but rolls no dice (customers, cars and events only come from the host).
+export const MAX_GUESTS=3;
+const cleanName=n=>String(n??'').replace(/[^\p{L}\p{N} _-]/gu,'').trim().slice(0,12)||'Invité';
+export const guestOf=(s,id)=>s.guests.find(g=>g.id===id);
+export function addGuest(s,id,name){removeGuest(s,id);if(s.guests.length>=MAX_GUESTS)return null;const p=s.player,n=s.guests.length;
+ const g={id:String(id),role:'player',guest:true,name:cleanName(name),look:n,x:-6.4+(n+1)*.9,z:-4.6,heading:0,carry:[],cap:p.cap,speed:p.speed,cool:0,moving:false,input:{x:0,z:0}};
+ const used=new Set(s.guests.map(x=>x.look));for(let i=0;i<=MAX_GUESTS;i++)if(!used.has(i)){g.look=i;break;}
+ s.guests.push(g);popup(s,`👋 ${g.name}`,g.x,g.z,'info');return g;}
+export function removeGuest(s,id){const i=s.guests.findIndex(g=>g.id===id);if(i<0)return false;const g=s.guests[i];putBack(s,g.carry);s.guests.splice(i,1);popup(s,`👋 ${g.name} a quitté la partie`,g.x,g.z,'info');return true;}
+// What a guest sends many times a second: its stick, and where it stands on its own screen (trusted, this is a game between friends:
+// it keeps the guest's character exactly where its owner sees it, whatever the network delay).
+const num=v=>typeof v==='number'&&Number.isFinite(v);
+export function guestInput(s,id,m){const g=guestOf(s,id);if(!g||!m)return false;
+ if(num(m.ix)&&num(m.iz)){g.input.x=Math.max(-1,Math.min(1,m.ix));g.input.z=Math.max(-1,Math.min(1,m.iz));}
+ if(num(m.x)&&num(m.z)){g.x=Math.max(WORLD.minX,Math.min(WORLD.maxX,m.x));g.z=Math.max(WORLD.minZ,Math.min(WORLD.maxZ,m.z));}if(num(m.h))g.heading=m.h;return true;}
+function walk(s,p,input,dt){const len=Math.hypot(input.x,input.z);
  if(len>.05){const k=Math.min(1,len);p.x=Math.max(WORLD.minX,Math.min(WORLD.maxX,p.x+input.x/len*k*p.speed*dt));p.z=Math.max(WORLD.minZ,Math.min(WORLD.maxZ,p.z+input.z/len*k*p.speed*dt));p.heading=Math.atan2(input.x,input.z);p.moving=true;}else p.moving=false;
- collide(p,obstacles(s));
- interact(s,p,dt);playerExtras(s,p,dt);for(const h of s.helpers)stepHelper(s,h,dt);
+ collide(p,obstacles(s));}
+const STILL={x:0,z:0};
+// `input` moves the player; left out, the player keeps the last one given (a replica moves the host's character that way).
+export function stepArcade(s,dt,input){dt=Math.min(dt,.1);s.t+=dt;const p=s.player;if(input)p.input={x:input.x,z:input.z};
+ walk(s,p,p.input??STILL,dt);interact(s,p,dt);playerExtras(s,p,dt);
+ for(const g of s.guests){g.cap=p.cap;g.speed=p.speed;walk(s,g,g.input,dt);interact(s,g,dt);playerExtras(s,g,dt);}
+ for(const h of s.helpers)stepHelper(s,h,dt);
  for(const pl of s.plots)if(!pl.ripe){pl.grow+=dt/growTime(s);if(pl.grow>=1){pl.grow=1;pl.ripe=true;}}
  for(let i=0;i<cowCount(s);i++){const c=s.cows[i];if(!c.ready){c.grow+=dt/COW_TIME;if(c.grow>=1){c.grow=1;c.ready=true;}}}
  for(const [id,def] of Object.entries(STATIONS)){const st=s.stations[id],y=def.yield??1;if(st.broken){st.working=false;continue;}if(def.baskets){stepBaskets(s,id,st,dt);continue;}st.working=stationOpen(s,id)&&st.in>0&&st.out+y<=stationCaps(s,id).outCap;if(st.working){st.timer+=dt;if(st.timer>=stationTime(s,id)){st.timer=0;st.in--;st.out+=y;}}else st.timer=0;}
@@ -464,7 +486,7 @@ export function stepArcade(s,dt,input={x:0,z:0}){dt=Math.min(dt,.1);s.t+=dt;cons
  stepDay(s,dt);stepEvents(s,dt);stepDrive(s,dt);stepTubes(s,dt);stepBank(s,dt);
  s.rush=Math.max(0,s.rush-dt);s.rushCool=Math.max(0,s.rushCool-dt);
  const room=MAX_QUEUE*openRegisters(s).length+(KIOSK_QUEUE+2)*kioskCount(s)+(s.unlocked.terrace?TABLES.length:0);
- s.spawnTimer-=dt;if(isOpen(s)&&s.spawnTimer<=0&&waiting(s).length<room){spawnCustomer(s);s.spawnTimer=((s.unlocked.burger?3.2:4.5)+Math.random()*2)/Math.max(.05,traffic(s));}
+ s.spawnTimer-=dt;if(!s.replica&&isOpen(s)&&s.spawnTimer<=0&&waiting(s).length<room){spawnCustomer(s);s.spawnTimer=((s.unlocked.burger?3.2:4.5)+Math.random()*2)/Math.max(.05,traffic(s));}
  stepCustomers(s,dt);if(s.popups.length){let old=false;for(const pp of s.popups){pp.t+=dt;if(pp.t>=1.4)old=true;}if(old)s.popups=s.popups.filter(pp=>pp.t<1.4);}
  // Share of the opening time each shelf spent empty lately (about the last minute and a half): tells where a new hire is needed.
  if(isOpen(s))for(const k of PRODUCTS)if(shelfOpen(s,k))s.short[k]+=((s.shelves[k]===0?1:0)-s.short[k])*Math.min(1,dt/90);}

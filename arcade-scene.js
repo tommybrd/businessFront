@@ -250,6 +250,9 @@ export function createArcadeScene(canvas,getState){
  const customers=new Map(),helpers=new Map(),popups=new Map(),COLORS=['#e86a7a','#6a8ee8','#e8b86a','#8ad06a','#b06ae8','#6ad0c8'];
  const POP={money:{bg:'#2f9e4fee',fg:'#fff'},card:{bg:'#2b6fd6ee',fg:'#fff'},info:{bg:'#26343fee',fg:'#fff'},bad:{bg:'#e8483aee',fg:'#fff'}};
  const player=person('#3aa0d8',{hat:'#1f6f9a'}),cashiers=REGISTERS.map(()=>{const c=person('#e46ab0');c.visible=false;return c;});let time=0,showMissions=false;
+ // Network play: the other players, each with a colour and a name; `focus` is the guest this screen belongs to (null: the host).
+ const GUEST_LOOK=[['#f08a3c','#b85a14'],['#8e5fd0','#5d3aa0'],['#3cb878','#1f7a4a'],['#e2587a','#a8324e']],guests=new Map();let focus=null;
+ const nameTag=g=>{const tag=sprite(1.9,.45);tag.position.set(0,2,0);g.add(tag);return tag;},hostTag=nameTag(player);hostTag.visible=false;
  const DAYC={clear:new THREE.Color('#9fd46a'),ground:new THREE.Color('#a9db6e'),sun:new THREE.Color('#fff4e0')},NIGHTC={clear:new THREE.Color('#22324a'),ground:new THREE.Color('#3f5d55'),sun:new THREE.Color('#9fb4ff')},DUSK=new THREE.Color('#ffb070'),tmpC=new THREE.Color();
  // Light of the day: bright from 9:00 to 19:00, warm at dusk, dark blue at night (the kitchen stays readable).
  function daylight(s){const h=hourOf(s),n=s.clock>=OPEN?1:h>=20?(h-20)/3*.8:h<9?(9-h)*.25:0,dusk=h>=18&&s.clock<OPEN?Math.min(1,(h-18)/2)*(1-n):0;
@@ -297,8 +300,12 @@ export function createArcadeScene(canvas,getState){
   for(const [id,g] of customers)if(!seen.has(id)){drop(g);customers.delete(id);}
   for(const p of s.popups){let g=popups.get(p.id);if(!g){g=sprite(1.8,.55);scene.add(g);pill(g,p.text,{...(POP[p.kind]??POP.money),size:.55});popups.set(p.id,g);}g.position.set(p.x,2+p.t*1.6,p.z);g.material.opacity=1-p.t/1.4;}
   for(const [id,g] of popups)if(!s.popups.some(p=>p.id===id)){drop(g);popups.delete(id);}
-  // Camera follows the player from the front-top, like a tabletop diorama.
-  const px=s.player.x,pz=s.player.z,cx=camera.userData.x??px,cz=camera.userData.z??pz,nx=cx+(px-cx)*Math.min(1,dt*4),nz=cz+(pz-cz)*Math.min(1,dt*4);camera.userData.x=nx;camera.userData.z=nz;camera.position.set(nx+6,20,nz+15);camera.lookAt(nx,0,nz-1);sun.position.set(nx-10,30,nz+12);sun.target.position.set(nx,0,nz);}
+  let me=s.player;hostTag.visible=s.guests.length>0;if(hostTag.visible)pill(hostTag,focus==null?'Vous':s.player.name||'Hôte',focus==null?{bg:'#ffe08aee'}:{});
+  for(const a of s.guests){let g=guests.get(a.id);if(!g){const [c,h]=GUEST_LOOK[a.look%GUEST_LOOK.length];g=person(c,{hat:h});g.userData.tag=nameTag(g);guests.set(a.id,g);}
+   if(a.id===focus)me=a;animate(g,a,time);pill(g.userData.tag,a.id===focus?'Vous':a.name,a.id===focus?{bg:'#ffe08aee'}:{});stackOf(g.userData.back,a.carry,carryLayout(a.carry.length));}
+  if(guests.size>s.guests.length)for(const [id,g] of guests)if(!s.guests.some(a=>a.id===id)){drop(g);guests.delete(id);}
+  // Camera follows this screen's player from the front-top, like a tabletop diorama.
+  const px=me.x,pz=me.z,cx=camera.userData.x??px,cz=camera.userData.z??pz,nx=cx+(px-cx)*Math.min(1,dt*4),nz=cz+(pz-cz)*Math.min(1,dt*4);camera.userData.x=nx;camera.userData.z=nz;camera.position.set(nx+6,20,nz+15);camera.lookAt(nx,0,nz-1);sun.position.set(nx-10,30,nz+12);sun.target.position.set(nx,0,nz);}
  function resize(){const r=canvas.getBoundingClientRect(),aspect=r.width/Math.max(1,r.height),half=aspect<1?(r.width<500?8.6:10):(r.height<500?6.6:8.5);camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(r.width,r.height,false);}
  const ro=new ResizeObserver(resize);ro.observe(canvas);resize();
- return {three:scene,camera,setShowMissions(v){showMissions=!!v;},update(dt){sync(dt);renderer.render(scene,camera);},reset(){for(const m of [customers,helpers,popups,tiles])for(const [id,g] of m){drop(g);m.delete(id);}shownTiles=null;}};}
+ return {three:scene,camera,setShowMissions(v){showMissions=!!v;},setFocus(id){focus=id??null;},update(dt){sync(dt);renderer.render(scene,camera);},reset(){for(const m of [customers,helpers,popups,tiles,guests])for(const [id,g] of m){drop(g);m.delete(id);}shownTiles=null;}};}
