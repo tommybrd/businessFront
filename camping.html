@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#9fd46a">
- <title>Camping du Paradis — alpha</title><link rel="icon" href="./icon-180.png">
+ <title>CampingFront — alpha</title><link rel="icon" href="./icon-180.png">
  <style>
   html,body{margin:0;height:100%;overflow:hidden;background:#9fd46a;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;-webkit-user-select:none;user-select:none}
   canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
@@ -15,6 +15,7 @@
   #reset{position:fixed;left:12px;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;border:0;border-radius:12px;background:#ffffffd0;padding:8px 10px;font:inherit;font-size:12px;font-weight:700;color:#26343f;cursor:pointer}
   #dock{position:fixed;right:12px;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;display:flex;gap:8px}
   #hint{max-width:min(calc(100vw - 470px),520px);left:calc(50% - 120px)}
+  .brand{font-size:13px;letter-spacing:.3px;max-width:200px}.brand small{letter-spacing:0}
   #hands.filtered{background:#ffe08a}#multi.on{background:#bfe8c8}
   #reviewlist .rev{padding:8px 0;border-top:1px solid #e3e8eb;font-size:13.5px}#reviewlist .rev b{display:block;font-size:14px;color:#e0a020;letter-spacing:1px}#reviewlist .rev small{color:#6b7a84;font-weight:700}#reviewlist .rev.bad b{color:#e8483a}
   #multipanel label{display:block;font-size:12.5px;font-weight:700;margin-top:10px}#multipanel input{width:100%;box-sizing:border-box;border:2px solid #dde4e8;border-radius:10px;padding:8px 10px;font:inherit;font-size:16px;font-weight:700;color:#26343f;margin-top:5px}
@@ -48,7 +49,7 @@
 </head>
 <body>
  <canvas id="arcade" aria-label="Jeu : déplacez le directeur avec ZQSD, les flèches ou en glissant le doigt."></canvas>
- <div class="brand">CAMPING DU PARADIS ★★★<small>alpha · ZQSD / flèches / doigt · X vider</small></div>
+ <div class="brand">CAMPINGFRONT<small>Camping du Paradis · alpha · ZQSD / doigt</small></div>
  <div class="hud"><div class="chip money" title="Argent sur le compte et espèces encore dans les caisses de l’accueil et de l’épicerie"><small><span class="long">Compte · </span>💵 <b id="cashwait">0 $</b><span class="long"> en caisse</span></small><span id="money">0 $</span></div><div class="chip" title="Emplacements occupés sur emplacements ouverts"><small>Places</small><span id="pitches">0/4</span></div><div class="chip" title="Heure du camping : arrivées l’après-midi, extinction des feux à 23 h. Chaque jour est un épisode !"><small id="day">Épisode 1</small><span id="clock">13:00</span></div><div class="chip bills" id="billchip" hidden title="Factures à payer au bureau 🧾 avant l’échéance"><small>Factures</small><span id="bills">0 $</span></div><div class="chip wait" title="Humeur moyenne des campeurs installés : en dessous de 35, les avis seront cruels"><small><span class="long">Humeur · </span><b id="lost">0 partis</b></small><span id="mood">—</span><div class="gauge"><i id="gauge"></i></div></div><div class="chip" title="Réputation : moyenne des avis laissés par les campeurs"><small><span class="long">Avis · </span><b id="traffic">×1.0</b></small><span id="rep">★ 2.5</span></div></div>
  <div id="event" hidden></div><section id="report" hidden aria-live="polite"></section>
  <div id="hint" hidden></div><button id="reset">↺ Recommencer</button>

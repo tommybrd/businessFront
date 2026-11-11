@@ -1,4 +1,4 @@
-// Flux Camping (alpha): the player is the manager of a campsite. Campers arrive in the afternoon, are checked in at the
+// CampingFront (alpha): the player is the manager of a campsite. Campers arrive in the afternoon, are checked in at the
 // reception, settle on their pitch for one to three nights, then live their day: showers, bread in the morning, pool and
 // ice cream in the afternoon, the evening show. The manager walks around and keeps it all going by hand: toilet paper,
 // bread, chlorine, rubbish bags, breakdowns, noisy neighbours at night. Staff take over the same jobs. Campers leave a

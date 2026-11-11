@@ -1,8 +1,8 @@
 // "Entreprises" menu shared by the games: one card per business, with where the player stands in each one (read from its
 // local save, read-only). Each business is its own page with its own save; this only links them. Adding a business is one line.
 export const COMPANIES=[
- {id:'arcade',name:'Flux Burger',icon:'🍔',kind:'Restaurant-ferme',href:'./arcade.html',key:'flux-arcade-v1',intro:'Cultivez, grillez, servez : un restaurant de burgers sans fin.'},
- {id:'camping',name:'Camping du Paradis',icon:'🌴',kind:'Camping ★★★',href:'./camping.html',key:'flux-camping-v1',day:'Épisode',intro:'Soleil, ragots et karaoké : dirigez un camping de vacances, façon sitcom.'}];
+ {id:'arcade',name:'BurgerFront',icon:'🍔',kind:'Restaurant-ferme',href:'./arcade.html',key:'flux-arcade-v1',intro:'Cultivez, grillez, servez : un restaurant de burgers sans fin.'},
+ {id:'camping',name:'CampingFront',icon:'🌴',kind:'Camping du Paradis ★★★',href:'./camping.html',key:'flux-camping-v1',day:'Épisode',intro:'Soleil, ragots et karaoké : dirigez un camping de vacances, façon sitcom.'}];
 const CSS=`#cobtn{border:0;border-radius:12px;background:#ffffffe8;padding:9px 13px;font:inherit;font-size:14px;font-weight:800;color:#26343f;cursor:pointer;box-shadow:0 3px 0 #0002}
 #copanel{position:fixed;right:12px;bottom:max(64px,calc(env(safe-area-inset-bottom) + 64px));z-index:7;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 140px);overflow:auto;background:#fffffff5;color:#26343f;border-radius:16px;box-shadow:0 8px 30px #0003;padding:14px;box-sizing:border-box}
 #copanel header{display:flex;justify-content:space-between;align-items:center;font-size:16px}#copanel header button{border:0;background:#eef2f4;border-radius:8px;width:30px;height:30px;font-size:14px;cursor:pointer}#copanel p{margin:8px 0;font-size:12.5px;color:#5b6a73}

@@ -1,4 +1,4 @@
-// Network transport of Flux Arcade: players' browsers talk to each other directly (WebRTC data channels, opened with PeerJS).
+// Network transport of the MarketFront games (BurgerFront, CampingFront): players' browsers talk to each other directly (WebRTC data channels, opened with PeerJS).
 // The public PeerJS service only puts the browsers in touch; the game itself never goes through a server.
 // A room is the host's browser, reached with a short code. Everything exchanged is JSON text; what it means is the game's business.
 const PREFIXES={arcade:'flux-arcade-',camping:'flux-camping-'},ALPHABET='ABCDEFGHJKMNPQRSTUVWXYZ23456789',LEN=5;

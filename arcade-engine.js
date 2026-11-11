@@ -1,4 +1,4 @@
-// Flux Arcade (alpha): the player walks around a burger farm-restaurant, carries stacks of goods by hand from the field,
+// BurgerFront (alpha, dist/arcade*): the player walks around a burger farm-restaurant, carries stacks of goods by hand from the field,
 // the farm and the deliveries to the machines and the shelves, serves customers, collects cash and spends it on unlock
 // tiles. Helpers and robots take over the same loops. Every chain can be scaled up forever through levelled upgrades.
 // The simulation runs in real seconds; the 3D view only draws this state.
