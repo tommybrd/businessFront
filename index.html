@@ -60,12 +60,12 @@
   <p>Banque fictive du jeu. Chaque nuit : l’épargne rapporte 2 %, le crédit coûte 5 %, et le fourgon verse le coffre sur le compte.</p>
   <div id="bankbody"></div></section>
  <section id="multipanel" class="panel" hidden aria-label="Jouer à plusieurs"><header><b>👥 Jouer à plusieurs</b><button id="multiclose" aria-label="Fermer">✕</button></header>
-  <div id="mp-idle"><p>Jusqu’à 4 joueurs dans le même restaurant, chacun son personnage. L’un crée la partie et donne son code aux autres.</p>
+  <div id="mp-idle"><p>Jusqu’à 4 joueurs dans la même partie : chacun va où il veut, de BurgerFront à CampingFront, et tout le monde a les mêmes droits. L’un crée la partie et donne son code aux autres.</p>
    <label for="mname">Votre prénom</label><input id="mname" maxlength="12" autocomplete="off" placeholder="Prénom">
-   <button id="mhost" class="big go">Créer une partie <small>(dans mon restaurant)</small></button>
+   <button id="mhost" class="big go">Créer une partie <small>(avec mes entreprises)</small></button>
    <label for="mcode">Ou rejoindre avec un code</label><div class="row"><input id="mcode" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CODE"><button id="mjoin">Rejoindre</button></div></div>
-  <div id="mp-host" hidden><p>Donnez ce code ou le lien aux autres joueurs. La partie dure tant que cette page reste ouverte chez vous.</p><div id="mshare"></div><div class="row"><button id="mcopy">🔗 Copier le lien</button></div><ul id="mplayers"></ul><button id="mstop" class="big">Arrêter la partie</button></div>
-  <div id="mp-guest" hidden><p>Vous jouez dans le restaurant d’un autre joueur. Le vôtre est gardé : vous le retrouverez en quittant.</p><ul id="mplayers2"></ul><button id="mleave" class="big">Quitter la partie</button></div>
+  <div id="mp-host" hidden><p>Donnez ce code ou le lien aux autres joueurs. La partie dure tant que cet onglet reste ouvert chez vous (changer d’entreprise est possible : la partie suit).</p><div id="mshare"></div><div class="row"><button id="mcopy">🔗 Copier le lien</button></div><ul id="mplayers"></ul><button id="mstop" class="big">Arrêter la partie</button></div>
+  <div id="mp-guest" hidden><p>Vous jouez dans la partie d’un autre joueur, avec toutes ses entreprises : passez de l’une à l’autre avec 🏢. La vôtre est gardée : vous la retrouverez en quittant.</p><ul id="mplayers2"></ul><button id="mleave" class="big">Quitter la partie</button></div>
   <p id="mstatus" role="status"></p></section>
  <div id="stick" hidden><div id="knob"></div></div>
  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script><script type="module" src="./arcade.js"></script>

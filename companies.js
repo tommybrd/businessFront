@@ -11,13 +11,14 @@ const CSS=`#cobtn{border:0;border-radius:12px;background:#ffffffe8;padding:9px 1
 @media(max-width:600px){#cobtn{font-size:14px;padding:10px 10px;white-space:nowrap}#copanel{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 52px)}}`;
 // What the other save says, in a few words (a business never opened has no save).
 function summary(c){try{const raw=localStorage.getItem(c.key);if(!raw)return 'Pas encore ouverte · gratuite';const o=JSON.parse(raw);if(typeof o?.money!=='number')return 'Partie en cours';return `${c.day??'Jour'} ${o.day??1} · ${Math.floor(o.money).toLocaleString('fr-FR')} $`;}catch{return 'Partie en cours';}}
-export function mountCompanies(currentId,dock){
+export function mountCompanies(currentId,dock,session=()=>null){
  const st=document.createElement('style');st.textContent=CSS;document.head.append(st);
  const btn=document.createElement('button');btn.id='cobtn';btn.type='button';btn.title='Changer d’entreprise';btn.setAttribute('aria-label','Mes entreprises');dock.prepend(btn);
  const phone=matchMedia('(max-width:600px)'),label=()=>btn.textContent=phone.matches?'🏢':'🏢 Entreprises';label();phone.addEventListener?.('change',label);
  const panel=document.createElement('section');panel.id='copanel';panel.hidden=true;panel.setAttribute('aria-label','Mes entreprises');document.body.append(panel);
  const render=()=>{panel.textContent='';const head=document.createElement('header'),b=document.createElement('b');b.textContent='🏢 Mes entreprises';const x=document.createElement('button');x.type='button';x.textContent='✕';x.setAttribute('aria-label','Fermer');x.onclick=()=>panel.hidden=true;head.append(b,x);
   const p=document.createElement('p');p.textContent='Chaque entreprise a sa propre partie, sauvegardée sur cet appareil : vous retrouvez l’autre exactement où vous l’avez laissée.';panel.append(head,p);
+  const code=session();if(code){const m=document.createElement('p');m.textContent=`👥 Partie à plusieurs en cours (code ${code}) : vous pouvez passer d’une entreprise à l’autre, les autres joueurs aussi. La partie vous suit.`;m.style.fontWeight='800';panel.append(m);}
   for(const c of COMPANIES){const here=c.id===currentId,a=document.createElement(here?'div':'a');a.className='cocard'+(here?' here':'');if(!here)a.href=c.href;
    const ico=document.createElement('span');ico.className='ico';ico.textContent=c.icon;const n=document.createElement('b');n.textContent=c.name+' · '+c.kind;const s=document.createElement('small');s.textContent=c.intro;const go=document.createElement('span');go.className='go';go.textContent=here?'Vous êtes ici':summary(c)+' → Y aller';a.append(ico,n,s,go);panel.append(a);}};
  btn.addEventListener('click',()=>{panel.hidden=!panel.hidden;if(!panel.hidden){render();for(const id of ['handspanel','teampanel','bankpanel','multipanel','reviewspanel'])document.getElementById(id)&&(document.getElementById(id).hidden=true);}});
