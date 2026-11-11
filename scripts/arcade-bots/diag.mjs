@@ -1,4 +1,4 @@
-// Flux Arcade — late-game diagnosis: everything bought (minus the unlocks given to leave out), the player idle, the
+// BurgerFront — late-game diagnosis: everything bought (minus the unlocks given to leave out), the player idle, the
 // helpers on their default missions plus a few "Employé" hires. Prints how often each shelf was empty, customers
 // served and lost, and the takings per minute of opening time. Random events are off (a breakdown needs the player).
 // Usage: node scripts/arcade-bots/diag.mjs [unlocks to leave out, comma-separated] [days=3] [seed=1]

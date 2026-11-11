@@ -41,7 +41,7 @@ export function createArcadeScene(canvas,getState){
  const noteTex=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');const gr=x.createLinearGradient(0,0,256,128);gr.addColorStop(0,'#9fd3a8');gr.addColorStop(1,'#5aa874');x.fillStyle=gr;x.fillRect(0,0,256,128);
   x.strokeStyle='#2f6b45';x.lineWidth=6;x.strokeRect(6,6,244,116);x.lineWidth=1.5;for(let i=0;i<14;i++){x.beginPath();x.arc(128,64,10+i*4,0,Math.PI*2);x.stroke();}
   x.fillStyle='#e8f5e6';x.beginPath();x.ellipse(176,64,32,40,0,0,Math.PI*2);x.fill();x.fillStyle='#3c7a52';x.beginPath();x.arc(176,52,13,0,Math.PI*2);x.fill();x.fillRect(158,68,36,26);
-  x.fillStyle='#1f4d33';x.font='900 40px system-ui';x.fillText('20',18,50);x.font='900 26px system-ui';x.fillText('20',214,116);x.font='800 15px system-ui';x.fillText('FLUX BANK',20,104);x.font='600 11px monospace';x.fillText('FB 0420 7731',20,82);
+  x.fillStyle='#1f4d33';x.font='900 40px system-ui';x.fillText('20',18,50);x.font='900 26px system-ui';x.fillText('20',214,116);x.font='800 15px system-ui';x.fillText('MARKET BANK',20,104);x.font='600 11px monospace';x.fillText('FB 0420 7731',20,82);
   const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;return t;})();
  const noteMats=[mat('#cfe6cf'),mat('#cfe6cf'),new THREE.MeshStandardMaterial({map:noteTex,roughness:.8}),mat('#cfe6cf'),mat('#cfe6cf'),mat('#cfe6cf')];
  const coinGeo=merge([0,1,2,3,4].map(i=>part(C(.07,.07,14),{y:.008+i*.017,sy:.015,x:(i%2)*.006})));
@@ -239,7 +239,7 @@ export function createArcadeScene(canvas,getState){
  cyl(mega,.05,1.6,.75,.8,-.45,'#59646b');const horn=new THREE.Mesh(new THREE.ConeGeometry(.28,.6,14,1,true),mat('#e8483a'));horn.material.side=THREE.DoubleSide;horn.rotation.z=Math.PI/2;horn.position.set(.6,1.65,-.45);mega.add(horn);
  const megaTag=sprite(2.2,.55);megaTag.position.set(0,2.3,0);mega.add(megaTag);
  const board=new THREE.Group();board.position.set(15.2,0,7.4);board.rotation.y=.38;scene.add(board);for(const x of [-1.1,1.1])box(board,.14,2.6,.14,x,1.3,-.14,'#59646b');
- const panels=[0,1,2].map(i=>{const c=document.createElement('canvas');c.width=256;c.height=128;const ctx=c.getContext('2d');ctx.fillStyle=['#e8483a','#f6a23a','#3aa0d8'][i];ctx.fillRect(0,0,256,128);ctx.fillStyle='#fff';ctx.font='900 46px system-ui';ctx.textAlign='center';ctx.fillText(['FLUX BURGER','FRITES MAISON','-20% MIDI'][i],128,62,236);ctx.font='70px system-ui';ctx.fillText(['🍔','🍟','⭐'][i],128,120);const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;
+ const panels=[0,1,2].map(i=>{const c=document.createElement('canvas');c.width=256;c.height=128;const ctx=c.getContext('2d');ctx.fillStyle=['#e8483a','#f6a23a','#3aa0d8'][i];ctx.fillRect(0,0,256,128);ctx.fillStyle='#fff';ctx.font='900 46px system-ui';ctx.textAlign='center';ctx.fillText(['BURGERFRONT','FRITES MAISON','-20% MIDI'][i],128,62,236);ctx.font='70px system-ui';ctx.fillText(['🍔','🍟','⭐'][i],128,120);const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;
   const m=new THREE.Mesh(new THREE.BoxGeometry(2.6,1.3,.12),[mat('#ffffff'),mat('#ffffff'),mat('#ffffff'),mat('#ffffff'),new THREE.MeshStandardMaterial({map}),mat('#ffffff')]);m.position.set(0,1.9+i*1.4,0);m.castShadow=true;board.add(m);if(i){const pole=box(board,.14,1.4,.14,0,1.9+i*1.4-.7,-.14,'#59646b');m.userData.pole=pole;}return m;});
 
  // Unlock tiles: dashed square, name and price, filling as the player pays; levelled upgrades show what the level brings.

@@ -1,4 +1,4 @@
-// Flux Camping — checks of the simulation (dist/camping-engine.js): the first days played by hand, a fully built campsite
+// CampingFront — checks of the simulation (dist/camping-engine.js): the first days played by hand, a fully built campsite
 // left to its staff, a save/load round trip, and the network guests. Usage: node scripts/arcade-bots/camping.mjs
 let seed = 11; Math.random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const E = await import('../../dist/camping-engine.js');

@@ -1,4 +1,4 @@
-// Flux Arcade — check of the soda and ice-cream robots: their tiles show up after the helpers, stay clear of machines,
+// BurgerFront — check of the soda and ice-cream robots: their tiles show up after the helpers, stay clear of machines,
 // deliveries and other tiles, are bought by standing on them; the robots then work their leg, feed the shelves, take
 // missions (single legs only), survive a save/load and get the "Robots" level.
 // Usage: node scripts/arcade-bots/robots.mjs   (ENGINE=<path> to check another copy of arcade-engine.js, e.g. the site's)
