@@ -7,16 +7,16 @@ const still = { x: 0, z: 0 };
 
 // 1. The first days, played by hand: serve the reception, collect the cash, clear the rubbish bags, buy the cheapest tile when affordable.
 { const s = E.createCamping(), P = s.player;
-  // Walks like a person: along the main alley (x = 0), then along the lane of the destination.
-  const nav = ([tx, tz]) => Math.abs(P.z - tz) > .7 ? (Math.abs(P.x) > .3 ? [0, P.z] : [0, tz]) : [tx, tz];
+  // Walks like a person: out to the nearest lane, along the main alley (x = 0), then along the lane of the destination.
+  const LANES = [4.4, 2.15, -1.85, -5.85, -9.85, -15.85], nav = ([tx, tz]) => { if (Math.abs(P.z - tz) <= .7) return [tx, tz]; if (Math.abs(P.x) <= .3) return [0, tz]; const lane = LANES.reduce((a, b) => Math.abs(b - P.z) < Math.abs(a - P.z) ? b : a); return Math.abs(P.z - lane) > .3 ? [P.x, lane] : [0, lane]; };
   for (let t = 0; t < E.DAY * 3; t += .05) {
     const tile = E.visibleUnlocks(s).slice().sort((a, b) => a.price - b.price)[0], afford = tile && s.money >= tile.price - (s.paid[tile.key] ?? 0);
-    const dirty = s.pitches.map((p, i) => p.trash > 0 ? i : -1).filter(i => i >= 0), queue = s.campers.some(c => c.phase === 'queue');
+    const dirty = s.pitches.map((p, i) => p.trash > 0 ? i : -1).filter(i => i >= 0), queue = s.campers.some(c => c.phase === 'queue' && !c.blocked);
     let target = [...E.RECEPTION.serve];
     if (s.player.carry.length && !queue) target = [...E.DUMP.spot];
     else if (dirty.length && !queue) target = [...E.doorOf(dirty[0])];
     else if (s.piles[0] > 0 && Math.floor(t) % 6 < 2) target = [...E.RECEPTION.cash];
-    if (afford && !queue) target = [...tile.pos];
+    if (afford && !queue && !dirty.length && !s.player.carry.length) target = [...tile.pos];
     const wp = nav(target), dx = wp[0] - P.x, dz = wp[1] - P.z, d = Math.hypot(dx, dz);
     E.stepCamping(s, .05, d > .25 ? { x: dx / d, z: dz / d } : still);
   }
@@ -40,6 +40,8 @@ const still = { x: 0, z: 0 };
   }
   assert(s.arrivals >= 15, `10 jours : ${s.arrivals} arrivées, ${s.today.departures + s.reviews.length} avis, réputation ${s.rep.toFixed(2)}`);
   assert(s.reviews.length > 3 && s.reviews.every(r => r.stars >= 1 && r.stars <= 5 && r.text), 'les campeurs laissent des avis');
+  assert(typeof s.lastDay?.title === 'string' && s.lastDay.title.length > 8, `chaque jour est un épisode titré : « ${s.lastDay?.title} »`);
+  assert(new Set(s.campers.map(c => c.type)).size >= 1 && Object.keys(E.TYPES).includes('beaufrere') && Object.keys(E.TYPES).includes('mamie'), 'les nouveaux campeurs existent');
   assert(s.rep > 1.5, `la réputation reste correcte avec l’équipe (${s.rep.toFixed(2)})`);
   assert(events.size >= 2, `des imprévus arrivent : ${[...events].join(', ')}`);
   assert(shows > 0, 'la soirée spectacle a lieu');
