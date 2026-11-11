@@ -90,7 +90,7 @@ export const traffic=s=>(.5+.15*s.rep)*(1+.2*lvl(s,'pub'));
 const arrivalHours=s=>{const h=hourOf(s);return h>=11.5&&h<20.5;};
 export const avgMood=s=>{const l=s.campers.filter(c=>c.in);return l.length?l.reduce((t,c)=>t+c.mood,0)/l.length:null;};
 
-const newDay=()=>({revenue:0,arrivals:0,departures:0,stars:0,lost:0,bills:0,fixed:0});
+const newDay=()=>({revenue:0,arrivals:0,departures:0,stars:0,lost:0,bills:0,fixed:0,show:null});
 export function createCamping(){const s={schema:SAVE_SCHEMA,game:GAME,t:0,money:40,piles:[0,0],nextId:1,
  player:{id:0,role:'player',x:1.6,z:6.2,heading:0,carry:[],cap:6,speed:4.2,cool:0,moving:false},
  guests:[],helpers:[],posts:{},pitches:[],campers:[],sanit:{paper:8,dirt:0},shop:{bread:0,ice:0},sources:{},pool:{chlor:1},dump:0,
@@ -227,7 +227,9 @@ function stepEvents(s,dt){if(s.event||s.replica||s.arrivals<5)return;s.eventTime
  // At night a wild boar sometimes knocks the bins over: rubbish on a few pitches, nothing to repair.
  if(!isDay(s)){if(Math.random()<.5){const l=PITCHES.map((p,i)=>i).filter(i=>pitchOpen(s,i)).sort(()=>Math.random()-.5).slice(0,3);for(const i of l)s.pitches[i].trash++;popup(s,'🐗 Un sanglier a renversé les poubelles',s.player.x,s.player.z,'bad');}return;}
  const kinds=Object.keys(EVENTS).filter(k=>!EVENTS[k].needs||s.unlocked[EVENTS[k].needs]),kind=kinds[Math.floor(Math.random()*kinds.length)],spots=EVENTS[kind].spots(s);if(!spots)return;
- s.event={kind,label:EVENTS[kind].label,t:0,spots:spots.map(p=>({...p,fix:0}))};popup(s,EVENTS[kind].label.split(' : ')[0],s.player.x,s.player.z,'bad');}
+ s.event={kind,label:EVENTS[kind].label,t:0,spots:spots.map(p=>({...p,fix:0}))};popup(s,EVENTS[kind].label.split(' : ')[0],s.player.x,s.player.z,'bad');
+ popup(s,`« ${QUIPS[Math.floor(Math.random()*QUIPS.length)]} »`,s.player.x,s.player.z-.8,'info');}
+const QUIPS=['Pas de panique, c’est un classique !','Tout est sous contrôle… ou presque.','C’est pas moi, c’est le camping.','Ça, c’est pour le directeur !','Un directeur, ça ne dort jamais.'];
 
 // Day clock. Things happen at fixed hours: the dustcart and the baker at dawn, stale bread thrown at 22:00, lights out
 // at 23:00. When the night ends the report of the day is kept, the bills arrive and the campers plan their day.
@@ -238,7 +240,7 @@ function stepDay(s,dt){const h0=hourOf(s);s.clock+=dt;s.report=Math.max(0,s.repo
  if(at(23)){popup(s,'🌙 Extinction des feux',s.player.x,s.player.z,'info');if(!s.replica)for(const c of stayers(s))if(Math.random()<TYPES[c.type].party)c.party=23.3+Math.random()*4;}
  if(at(30)&&s.dump>0){s.supply+=3+.5*s.dump;s.dump=0;popup(s,'🚛 Les éboueurs sont passés',DUMP.pos[0],DUMP.pos[1],'info');}
  if(at(30.5)&&s.unlocked.shop){const n=breadOrder(s);s.sources.bread.n=n;s.supply+=n*SUPPLY.bread;popup(s,`🥖 Le boulanger a livré ${n} baguettes`,SOURCES.bread.pos[0],SOURCES.bread.pos[1],'info');}
- if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.report=10;s.day++;s.today=newDay();issueBills(s);
+ if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();issueBills(s);
   for(const p of s.pitches)p.noisy=false;for(const c of s.campers)if(c.in){c.party=null;c.left--;planDay(s,c,7);}popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
  for(const b of s.bills)if(!b.late&&s.t>b.due){b.late=true;b.amount=Math.round(b.amount*LATE_FEE);s.rep=Math.max(0,s.rep-.3);popup(s,`🧾 Retard : ${b.label} +25 %`,DESK[0],DESK[1],'bad');}
  for(const [k,def] of Object.entries(SOURCES)){if(!def.every||!sourceOpen(s,k))continue;const src=s.sources[k];if(src.n<sourceCap(s,k)){src.timer+=dt;if(src.timer>=def.every){src.timer=0;src.n++;s.supply+=SUPPLY[k];}}}
@@ -247,19 +249,30 @@ function issueBills(s){const L=s.lastDay,list=[['Eau et électricité',Math.roun
  for(const [label,amount] of list)if(amount>0)s.bills.push({id:s.nextId++,label,amount,due:s.t+BILL_DELAY,late:false});}
 export const billsDue=s=>s.bills.reduce((t,b)=>t+b.amount,0);
 
+// Every day is an "episode" of the holiday sitcom, titled after what happened in it.
+const EPISODES=['Un été presque parfait','Les Vacances de M. le Directeur','Chaud devant !','Le Retour du beau-frère','Tout est sous contrôle (enfin presque)','Sable dans les sandales','Panique à la réception','Le Secret de la baguette'];
+export function episodeTitle(L){const d=L.day??1;
+ if(L.show)return `La Soirée ${L.show} de la discorde`;
+ if((L.fixed??0)>=3)return 'Le Jour où tout est tombé en panne';
+ if((L.lost??0)>=2)return 'Le Grand Malentendu';
+ if(L.stars&&L.stars>=4.5)return 'Tout le monde est content (ça ne durera pas)';
+ if(L.revenue>=500)return 'Complet !';
+ if(!L.departures&&L.arrivals)return 'Les Nouveaux Voisins';
+ return EPISODES[(d*5)%EPISODES.length];}
 // Evening show: called at 20:30, it starts when someone stands on the stage pad (or the entertainer is hired), lasts a
 // while, and every camper who came spends at the bar. Not started by 22:30, it is cancelled and the campers sulk.
 export const SHOWS=['Karaoké','Loto','Concours de pétanque','Soirée disco','Élection de Mister Camping','Quiz musical'],SHOW_LEN=14;
 function stepShow(s,dt){const S=s.show,h=hourOf(s);if(!s.unlocked.stage)return;
  if(S.state==='idle'&&S.day!==s.day&&h>=20.5&&h<22.5&&!s.replica){s.show={day:s.day,state:'call',t:0,kind:Math.floor(Math.random()*SHOWS.length),bar:0};popup(s,`🎤 ${SHOWS[s.show.kind]} : montez sur scène !`,s.player.x,s.player.z,'info');return;}
- if(S.state==='call'){if(s.posts.stage||anyBody(s,STAGE.pad,1.2))S.t+=dt;if(S.t>=1.5){S.state='on';S.t=SHOW_LEN;popup(s,`🎉 ${SHOWS[S.kind]} !`,STAGE.pos[0],STAGE.pos[1],'info');}
+ if(S.state==='call'){if(s.posts.stage||anyBody(s,STAGE.pad,1.2))S.t+=dt;if(S.t>=1.5){S.state='on';S.t=SHOW_LEN;s.today.show=SHOWS[S.kind];popup(s,`🎉 ${SHOWS[S.kind]} !`,STAGE.pos[0],STAGE.pos[1],'info');}
   else if(h>=22.5){S.state='idle';for(const c of stayers(s))sad(c,4,'noshow');popup(s,'😴 Pas de soirée ce soir…',STAGE.pos[0],STAGE.pos[1],'bad');}return;}
  if(S.state==='on'){S.t-=dt;if(S.t<=0){S.state='idle';if(S.bar>0){s.money+=S.bar;s.today.revenue+=S.bar;popup(s,`🍹 Buvette +${Math.round(S.bar)} $`,STAGE.pos[0],STAGE.pos[1]);}}}}
 
 // Campers. Each group is one walking character with a mood from 0 to 100; what goes wrong is remembered for the review.
 export const TYPES={hiker:{name:'Randonneur',icon:'🎒',nights:[1,1],party:.05},family:{name:'Famille',icon:'👨‍👩‍👧',nights:[1,3],party:.03},youth:{name:'Bande de copains',icon:'🎸',nights:[1,2],party:.7},
- retired:{name:'Retraités',icon:'🧓',nights:[2,3],party:0},couple:{name:'Couple',icon:'💑',nights:[1,2],party:.05}};
-const TYPE_OF={tent:['hiker','family','youth','couple','hiker'],caravan:['retired','retired','family'],mobil:['family','couple','family']};
+ retired:{name:'Retraités',icon:'🧓',nights:[2,3],party:0},couple:{name:'Couple',icon:'💑',nights:[1,2],party:.05},
+ beaufrere:{name:'Beau-frère qui sait tout',icon:'🧔',nights:[1,2],party:.35},mamie:{name:'Mamie et les petits-enfants',icon:'👵',nights:[2,3],party:0}};
+const TYPE_OF={tent:['hiker','family','youth','couple','hiker','beaufrere'],caravan:['retired','retired','family','mamie'],mobil:['family','couple','family','mamie','beaufrere']};
 const sad=(c,v,why)=>{c.mood=clamp(c.mood-v,0,100);c.gripe=why;},glad=(c,v,why)=>{c.mood=clamp(c.mood+v,0,100);if(why)c.joy=why;};
 const say=(s,c,text,kind='bad')=>popup(s,text,c.x,c.z,kind);
 function stepSpawn(s,dt){s.spawnTimer-=dt;if(s.replica||s.spawnTimer>0||!arrivalHours(s))return;
@@ -347,7 +360,7 @@ const WORDS={paper:['Plus de papier depuis mardi.','J’ai dû emprunter le roul
  noshow:['On attendait le karaoké, on a eu le silence.','Pas de soirée animée : les moustiques se sont chargés du spectacle.']},
  PRAISE={clean:['Sanitaires plus propres que chez moi.','Une douche chaude ET propre : on se croirait à l’hôtel.'],bread:['Le pain était chaud tous les matins.','La baguette de 8 h pile, un bonheur.'],ice:['Les glaces valent le détour.','Le cornet à 16 h a sauvé notre après-midi.'],pool:['Piscine impeccable, on y a passé la journée.','Les enfants ne sont jamais sortis de l’eau.'],
  show:['Soirée karaoké inoubliable (hélas).','On a gagné au loto !','Le directeur chante faux, mais avec le cœur.','On a dansé jusqu’à 22 h 30, un record.'],
- any:['On revient l’an prochain, même emplacement !','Accueil au top, on recommande.','Le directeur court partout, mais ça marche.','Calme, propre, et de l’ombre : parfait.','Le coin le plus sympa de la région, ne le dites à personne.','Un camping où l’on se sent comme à la maison. En plus bruyant.']};
+ any:['On revient l’an prochain, même emplacement !','Accueil au top, on recommande.','Le directeur court partout, mais ça marche.','Calme, propre, et de l’ombre : parfait.','Le coin le plus sympa de la région, ne le dites à personne.','Un camping où l’on se sent comme à la maison. En plus bruyant.','Le directeur est dépassé mais adorable : 5 étoiles pour l’effort.','Bronzés, repus, heureux. Que demander de plus ?','Mon beau-frère a tout critiqué, sauf le camping. C’est dire.','Vacances de rêve : on a même pas voulu rentrer.']};
 const oneOf=l=>l[Math.floor(Math.random()*l.length)];
 export const starsOf=mood=>mood>=86?5:mood>=72?4:mood>=55?3:mood>=35?2:1;
 function checkout(s,c){const P=s.pitches[c.pitch],stars=starsOf(c.mood),bad=stars<=3&&c.gripe,text=bad?oneOf(WORDS[c.gripe]??['Bof.']):stars>=4?oneOf(PRAISE[c.joy]??PRAISE.any):'Correct, sans plus.';

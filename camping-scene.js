@@ -46,18 +46,25 @@ export function createCampingScene(canvas,getState){
  for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,14,-5.85],[0,14,-9.85]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
  box(scene,40,.05,2.6,0,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<18;x+=2.4)box(scene,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
  box(scene,12,.04,3.2,0,.02,7.2,'#d9c79a',false);
- {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);scene.add(g);for(const x of [-2.4,2.4])box(g,.3,3.4,.3,x,1.7,0,'#8a5a35');box(g,5.4,.9,.2,0,3.4,0,'#2f7d4f');
-  const t=textPlane('CAMPING FLUX ★★★',4.8,.7,{bg:'#2f7d4f'});t.position.set(0,3.4,.11);g.add(t);box(g,.14,.14,2,-1.55,.9,0,'#f4f1ea');const arm=box(g,2.8,.12,.14,.1,1.2,0,'#e8483a');arm.rotation.z=.9;arm.position.x=-.9;arm.position.y=1.8;}
+ {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);scene.add(g);for(const x of [-2.4,2.4])box(g,.3,3.4,.3,x,1.7,0,'#8a5a35');box(g,5.4,.9,.2,0,3.4,0,'#1aa6a6');
+  const t=textPlane('CAMPING DU PARADIS ★★★',4.9,.7,{bg:'#1aa6a6',font:'900 52px system-ui'});t.position.set(0,3.4,.11);g.add(t);box(g,.14,.14,2,-1.55,.9,0,'#f4f1ea');const arm=box(g,2.8,.12,.14,.1,1.2,0,'#e8483a');arm.rotation.z=.9;arm.position.x=-.9;arm.position.y=1.8;}
  // Lamp posts along the alley: they light up when the night comes.
  const lamps=[];for(const [x,z] of [[-1.5,6],[1.5,6],[-1.5,-4],[1.5,-4],[-1.5,-14],[1.5,-14],[7,-1],[7,-12]]){const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);cyl(g,.05,2.3,0,1.15,0,'#3d454b');const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:'#fff3c4',emissive:'#ffd36b',emissiveIntensity:0}));l.scale.setScalar(.2);l.position.y=2.35;g.add(l);lamps.push(l);}
  // Trees give the place its shade.
- for(const [x,z,r] of [[-15,-2,1.4],[-15,-10,1.6],[-15.2,-16,1.3],[16.4,-1,1.5],[16.6,-8,1.7],[16.2,-13,1.4],[-14.4,3.6,1.3],[0,-21,1.6],[-6,-21,1.5],[6,-21,1.6],[-12,-21,1.4],[12,-21.2,1.5],[16.4,7,1.3],[-16,8,1.5]]){const t=new THREE.Group();t.position.set(x,0,z);scene.add(t);cyl(t,.18,1.2,0,.6,0,'#7a4a2a');ball(t,r,0,1.7,0,'#3d8a36',.9);ball(t,r*.7,.5,2.3,.1,'#4b9a3e',.9);}
+ // Palm trees, flamingos and hibiscus: it is paradise, after all.
+ function palm(x,z,h=3.4,lean=.3,ry=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(let i=0;i<4;i++)cyl(g,.17-.025*i,h/4+.05,lean*(i/3)**2*1.2,h/8+i*h/4,0,i%2?'#a97a46':'#9a6a3a');
+  const top=new THREE.Group();top.position.set(lean*1.2,h,0);g.add(top);for(let k=0;k<7;k++){const l=new THREE.Group();l.rotation.y=k*Math.PI*2/7;top.add(l);const b=box(l,1.5,.05,.42,.75,-.1,0,k%2?'#2f9e4f':'#3dbb5f');b.rotation.z=-.45;}for(const [dx,dz] of [[.15,.1],[-.12,.15],[.05,-.17]])ball(top,.1,dx,-.18,dz,'#6b4428');}
+ for(const [x,z,h,l,r] of [[-3.8,8.0,3.4,.3,0],[3.2,8.1,3.8,-.3,1],[7,8.1,3.2,.25,2],[16.4,-1,3.6,-.3,0],[16.6,-8,3.2,.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[16.2,-13,3.4,.25,1],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
+ function flamingo(x,z,ry){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(const dx of [-.05,.05])cyl(g,.015,.7,dx,.35,0,'#f47aa8');ball(g,.2,0,.8,0,'#f58db3',.85);const neck=cyl(g,.035,.5,.12,1.1,0,'#f58db3');neck.rotation.z=-.5;ball(g,.07,.26,1.32,0,'#f58db3');box(g,.14,.03,.05,.36,1.3,0,'#2b2b2b',false);}
+ for(const [x,z,r] of [[7.1,-17.3,1.2],[7.5,-16.2,2.2],[-3.4,6.9,.6],[1.3,8.1,-.4]])flamingo(x,z,r);
+ for(const [x,z] of [[-1.35,7.4],[1.35,7.4],[-1.35,5.2],[1.35,5.2],[-1.35,-.6],[1.35,-.6]]){ball(scene,.32,x,.22,z,'#3d8a36',.7);for(const [dx,dz,c] of [[.1,.1,'#ff4d6d'],[-.14,.04,'#ff8fa3'],[.02,-.14,'#ff4d6d']])ball(scene,.1,x+dx,.46,z+dz,c);}
+ for(const [x,z,r] of [[-15,-2,1.4],[-15,-10,1.6],[-15.2,-16,1.3],[16.4,-1,1.5],[16.6,-8,1.7],[16.2,-13,1.4],[-14.4,3.6,1.3],[0,-21,1.6],[-6,-21,1.5],[6,-21,1.6],[-12,-21,1.4],[12,-21.2,1.5],[16.4,7,1.3],[-16,8,1.5]].filter(([x,z])=>![[-15,-2],[-15,-10],[-15.2,-16],[16.4,-1],[16.6,-8],[16.2,-13],[6,-21]].some(([a,b])=>a===x&&b===z))){const t=new THREE.Group();t.position.set(x,0,z);scene.add(t);cyl(t,.18,1.2,0,.6,0,'#7a4a2a');ball(t,r,0,1.7,0,'#3d8a36',.9);ball(t,r*.7,.5,2.3,.1,'#4b9a3e',.9);}
 
  // Reception: an open kiosk under a striped awning, a card terminal once bought, and the pad where the cash piles up.
  const recep=new THREE.Group();scene.add(recep);{const g=recep,[x,z]=RECEPTION.pos;box(g,2.6,1,.7,x,.5,z,'#c98a4a');box(g,2.7,.08,.8,x,1.04,z,'#eadcb8');
   for(const dx of [-1.2,1.2])box(g,.1,2.4,.1,x+dx,1.2,z-1.1,'#8a5a35');for(const dx of [-1.2,1.2])box(g,.1,2.4,.1,x+dx,1.2,z+.35,'#8a5a35');
-  for(let i=0;i<8;i++)box(g,.34,.08,1.6,x-1.2+i*.34+.17,2.45,z-.38,i%2?'#ffffff':'#e8483a',false).rotation.x=-.12;
-  const sign=textPlane('ACCUEIL · TARIFS : tente 24 $',2.5,.4,{bg:'#2f7d4f',font:'900 40px system-ui'});sign.position.set(x,1.9,z+.36);g.add(sign);
+  for(let i=0;i<8;i++)box(g,.34,.08,1.6,x-1.2+i*.34+.17,2.45,z-.38,i%2?'#ffffff':'#1ec8c8',false).rotation.x=-.12;
+  const sign=textPlane('BIENVENUE AU PARADIS · tente 24 $',2.5,.4,{bg:'#1aa6a6',font:'900 38px system-ui'});sign.position.set(x,1.9,z+.36);g.add(sign);
   box(g,1.2,.04,1.2,RECEPTION.serve[0],.06,RECEPTION.serve[1],'#7fb7d9',false);padIcon(g,'🛎️',RECEPTION.serve[0],RECEPTION.serve[1],.09);
   box(g,1.3,.04,1.3,RECEPTION.cash[0],.06,RECEPTION.cash[1],'#5cc46a',false);padIcon(g,'💵',RECEPTION.cash[0],RECEPTION.cash[1],.09,.8);}
  const recTerm=new THREE.Group();recTerm.position.set(RECEPTION.pos[0]+.8,1.08,RECEPTION.pos[1]);scene.add(recTerm);box(recTerm,.18,.06,.3,0,.03,0,'#20262a');box(recTerm,.16,.22,.05,0,.15,-.08,'#2b3a44').rotation.x=-.4;
@@ -68,9 +75,9 @@ export function createCampingScene(canvas,getState){
  box(office,1.4,.04,1.2,DESK[0],.06,DESK[1],'#f6c945',false);padIcon(office,'🧾',DESK[0],DESK[1],.09,.8);const papers=new THREE.Group();papers.position.set(DESK[0],.1,DESK[1]);office.add(papers);const deskTag=sprite(2.2,.5);deskTag.position.set(DESK[0],1.7,DESK[1]);office.add(deskTag);
 
  // Shop: a wooden hut with a counter; bread and ice creams are displayed on it, and put there by whoever restocks the pads.
- const shop=new THREE.Group();scene.add(shop);{const g=shop;box(g,4.8,2,.95,-5.7,1,3.0,'#c98a4a');box(g,5.2,.2,1.4,-5.7,2.1,3.0,'#2f7d4f');const t=textPlane('ÉPICERIE · PAIN · GLACES',3.3,.4,{bg:'#f4f1ea',fg:'#8a3a2a',font:'900 40px system-ui'});t.position.set(-5.7,1.55,3.5);g.add(t);
+ const shop=new THREE.Group();scene.add(shop);{const g=shop;box(g,4.8,2,.95,-5.7,1,3.0,'#c98a4a');box(g,5.2,.2,1.4,-5.7,2.1,3.0,'#2f7d4f');const t=textPlane('ÉPICERIE DU PARADIS',3.3,.4,{bg:'#f4f1ea',fg:'#8a3a2a',font:'900 40px system-ui'});t.position.set(-5.7,1.55,3.5);g.add(t);
   box(g,4.8,1,.7,-5.75,.5,5.6,'#d9a35a');box(g,4.9,.08,.8,-5.75,1.04,5.6,'#eadcb8');for(const dx of [-2.3,2.3])box(g,.1,2.4,.1,-5.75+dx,1.2,6.0,'#8a5a35');
-  for(let i=0;i<10;i++)box(g,.5,.08,1.6,-8+i*.5+.25,2.45,5.3,i%2?'#ffffff':'#f0a830',false).rotation.x=-.12;
+  for(let i=0;i<10;i++)box(g,.5,.08,1.6,-8+i*.5+.25,2.45,5.3,i%2?'#ffffff':'#ff8fa3',false).rotation.x=-.12;
   box(g,.6,.4,.4,SHOP.till[0],1.28,SHOP.till[1],'#3d454b');
   box(g,1.2,.04,1.2,SHOP.serve[0],.06,SHOP.serve[1],'#7fb7d9',false);padIcon(g,'🛒',SHOP.serve[0],SHOP.serve[1],.09);
   box(g,1.3,.04,1.3,SHOP.cash[0],.06,SHOP.cash[1],'#5cc46a',false);padIcon(g,'💵',SHOP.cash[0],SHOP.cash[1],.09,.8);}
@@ -102,12 +109,13 @@ export function createCampingScene(canvas,getState){
   const water=box(pool,W,.04,D,cx,.32,cz,'#43b5e8',false);water.material=new THREE.MeshStandardMaterial({color:'#43b5e8',transparent:true,opacity:.82,roughness:.2});pool.userData.water=water;
   for(const [x,z] of [[10.4,-14.9],[12.2,-14.9]]){const l=box(pool,.7,.14,1.6,x,.24,z,'#f6c945');l.position.z=z;}
   box(pool,1.1,.04,1.1,POOL.pad[0],.06,POOL.pad[1],'#3a8ee0',false);padIcon(pool,'🧪',POOL.pad[0],POOL.pad[1],.09);
+  for(const [x,c] of [[10.4,'#ff6f61'],[12.2,'#1ec8c8']]){cyl(pool,.04,1.9,x,1.0,-15.4,'#f4f1ea');const u=new THREE.Mesh(new THREE.ConeGeometry(1.05,.5,10),mat(c));u.position.set(x,2.05,-15.4);u.castShadow=true;pool.add(u);}
   box(pool,.5,1.5,.5,15.1,.75,-16.5,'#e8483a');box(pool,.8,.1,.8,15.1,1.55,-16.5,'#f4f1ea');}
  const poolTag=sprite(1.9,.45);poolTag.position.set(POOL.pad[0],1.3,POOL.pad[1]);pool.add(poolTag);
  const ducks=Array.from({length:4},(_,i)=>{const d=new THREE.Group();ball(d,.18,0,.2,0,'#f6d23a',.8);ball(d,.1,.16,.34,0,'#f6d23a');box(d,.1,.04,.08,.27,.32,0,'#f08a3a',false);d.userData.i=i;pool.add(d);return d;});
  // Stage for the evening show.
  const stage=new THREE.Group();stage.position.set(STAGE.pos[0],0,STAGE.pos[1]);scene.add(stage);box(stage,3.6,.4,1.8,0,.2,0,'#8a5a35');box(stage,3.6,2.4,.1,0,1.6,-.85,'#8a2b3a');box(stage,.8,1.1,.6,-1.9,.55,.2,'#20262a');box(stage,.8,1.1,.6,1.9,.55,.2,'#20262a');
- const sbanner=textPlane('SOIRÉE ANIMÉE',2.6,.4,{bg:'#f6c945',fg:'#8a2b3a'});sbanner.position.set(0,2.0,-.79);stage.add(sbanner);const spots=[0,1,2].map(i=>{const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:['#ff4a6a','#4aa8ff','#ffe04a'][i],emissive:['#ff4a6a','#4aa8ff','#ffe04a'][i],emissiveIntensity:.1}));l.scale.setScalar(.14);l.position.set(-1.2+i*1.2,3.0,-.2);stage.add(l);return l;});
+ const sbanner=textPlane('SOIRÉES DU PARADIS',2.6,.4,{bg:'#f6c945',fg:'#8a2b3a'});sbanner.position.set(0,2.0,-.79);stage.add(sbanner);const spots=[0,1,2].map(i=>{const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:['#ff4a6a','#4aa8ff','#ffe04a'][i],emissive:['#ff4a6a','#4aa8ff','#ffe04a'][i],emissiveIntensity:.1}));l.scale.setScalar(.14);l.position.set(-1.2+i*1.2,3.0,-.2);stage.add(l);return l;});
  box(scene,1.3,.04,1.3,STAGE.pad[0],.06,STAGE.pad[1],'#f6c945',false);padIcon(scene,'🎤',STAGE.pad[0],STAGE.pad[1],.09,.85);const stageTag=sprite(3.4,.5);stageTag.position.set(STAGE.pos[0],3.5,STAGE.pos[1]);scene.add(stageTag);
  // Pitches: a patch of ground and a number; tents and caravans come and go with the campers; mobile homes stay.
  const CAMP=['#e86a7a','#6a8ee8','#e8b86a','#8ad06a','#b06ae8','#6ad0c8'];
@@ -196,7 +204,7 @@ export function createCampingScene(canvas,getState){
   if(guests.size>s.guests.length)for(const [id,g] of guests)if(!s.guests.some(a=>a.id===id)){drop(g);guests.delete(id);}
   // Camera follows this screen's player from the front-top, like a tabletop diorama.
   const px=me.x,pz=me.z,cx=camera.userData.x??px,cz=camera.userData.z??pz,nx=cx+(px-cx)*Math.min(1,dt*4),nz=cz+(pz-cz)*Math.min(1,dt*4);camera.userData.x=nx;camera.userData.z=nz;camera.position.set(nx+6,20,nz+15);camera.lookAt(nx,0,nz-1);sun.position.set(nx-10,30,nz+12);sun.target.position.set(nx,0,nz);}
- const TYPESICON=c=>({hiker:'🎒',family:'👨‍👩‍👧',youth:'🎸',retired:'🧓',couple:'💑'})[c.type]??'⛺';
+ const TYPESICON=c=>({hiker:'🎒',family:'👨‍👩‍👧',youth:'🎸',retired:'🧓',couple:'💑',beaufrere:'🧔',mamie:'👵'})[c.type]??'⛺';
  function resize(){const r=canvas.getBoundingClientRect(),aspect=r.width/Math.max(1,r.height),half=aspect<1?(r.width<500?8.6:10):(r.height<500?6.6:8.5);camera.left=-half*aspect;camera.right=half*aspect;camera.top=half;camera.bottom=-half;camera.updateProjectionMatrix();renderer.setSize(r.width,r.height,false);}
  const ro=new ResizeObserver(resize);ro.observe(canvas);resize();
  return {three:scene,camera,setShowMissions(v){showMissions=!!v;},setFocus(id){focus=id??null;},update(dt){sync(dt);renderer.render(scene,camera);},reset(){for(const m of [campers,helpers,popups,tiles,guests])for(const [id,g] of m){drop(g);m.delete(id);}shownTiles=null;for(const v of pitches){v.made=null;}}};}
