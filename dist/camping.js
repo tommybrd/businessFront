@@ -4,7 +4,7 @@ import {hostRoom,joinRoom,cleanCode,netError} from './arcade-net.js';
 import {mountCompanies} from './companies.js';
 
 // Input (keyboard + touch joystick), HUD and local save of the campsite.
-const KEY='flux-camping-v1',$=id=>document.getElementById(id);
+const KEY='flux-camping-v1',$=id=>document.getElementById(id),phone=matchMedia('(max-width:600px)');
 let state;try{state=loadCamping(localStorage.getItem(KEY));}catch{state=createCamping();}
 const scene=createCampingScene($('arcade'),()=>state);
 mountCompanies('camping',$('dock'));
@@ -45,10 +45,11 @@ $('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hi
 const PICK_ICON={paper:'🧻',bread:'🥖',ice:'🍦',chlor:'🧪',trash:'🗑️'};
 function renderPicks(){const box=$('picks');box.textContent='';const pick=me().pick??{};let off=0;
  for(const k of PICKABLE){const on=pick[k]!==false;if(!on)off++;const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',on);b.title=(on?'Ne plus ramasser : ':'Ramasser : ')+ITEMS[k].name;b.innerHTML=`${PICK_ICON[k]}<small></small>`;b.querySelector('small').textContent=ITEMS[k].name;b.onclick=()=>{doPick(k,!on);renderPicks();};box.append(b);}
- $('hands').classList.toggle('filtered',off>0);$('hands').textContent=off===PICKABLE.length?'✋ Rien':off?'✋ Filtre':'✋ Mains';}
+ $('hands').classList.toggle('filtered',off>0);$('hands').textContent=off===PICKABLE.length?'✋ Rien':off?'✋ Filtre':phone.matches?'✋':'✋ Mains';}
+const labels=()=>{$('reviews').textContent=phone.matches?'📖':'📖 Avis';$('team').textContent=phone.matches?'👷':'👷 Équipe';renderPicks();};
 $('hands').addEventListener('click',()=>{$('handspanel').hidden=!$('handspanel').hidden;$('teampanel').hidden=$('reviewspanel').hidden=true;scene.setShowMissions(false);renderPicks();});$('handsclose').addEventListener('click',()=>$('handspanel').hidden=true);
 $('empty').addEventListener('click',doEmpty);$('pickall').addEventListener('click',()=>{doPick('all');renderPicks();});$('picknone').addEventListener('click',()=>{doPick('none');renderPicks();});
-renderPicks();
+labels();phone.addEventListener?.('change',labels);
 // Guest book: the latest reviews left by campers when they leave.
 let reviewKey='';function renderReviews(){const s=state,key=JSON.stringify(s.reviews.slice(0,3))+s.reviews.length;if(key===reviewKey)return;reviewKey=key;const list=$('reviewlist');list.textContent='';
  $('reviewsum').textContent=s.reviews.length?`Note moyenne du camping : ★ ${s.rep.toFixed(1)} sur 5 · ${s.reviews.length} dernier${s.reviews.length>1?'s':''} avis`:'Pas encore d’avis : ils arrivent quand les premiers campeurs repartent.';
@@ -72,7 +73,7 @@ let reportKey='';function hud2(){const s=state,h=hourOf(s)%24,hh=Math.floor(h),m
   for(const [k,v] of [['Recettes',`${Math.round(L.revenue).toLocaleString('fr-FR')} $`],['Arrivées',L.arrivals],['Départs',L.departures],['Note des départs',L.stars?`★ ${L.stars.toFixed(1)}`:'—'],['Problèmes réglés',L.fixed],['Campeurs repartis fâchés',L.lost],['Factures payées',`${Math.round(L.bills).toLocaleString('fr-FR')} $`]]){const dt=document.createElement('dt');dt.textContent=k;const dd=document.createElement('dd');dd.textContent=v;dl.append(dt,dd);}r.append(h2,dl);}}}
 const fmt=v=>Math.round(v).toLocaleString('fr-FR')+' $';void fmt;void starsOf;void PATIENCE;
 // Two taps to restart (no browser dialog, which embedded pages cannot show).
-const phone=matchMedia('(max-width:600px)'),resetLabel=()=>phone.matches?'↺':'↺ Recommencer';$('reset').textContent=resetLabel();phone.addEventListener?.('change',()=>{if(!armed)$('reset').textContent=resetLabel();});
+const resetLabel=()=>phone.matches?'↺':'↺ Recommencer';$('reset').textContent=resetLabel();phone.addEventListener?.('change',()=>{if(!armed)$('reset').textContent=resetLabel();});
 let armed=0;$('reset').addEventListener('click',()=>{const b=$('reset');if(performance.now()-armed>3000){armed=performance.now();b.textContent=phone.matches?'Encore ?':'Touchez encore pour recommencer';setTimeout(()=>{if(performance.now()-armed>=2900){armed=0;b.textContent=resetLabel();}},3000);return;}armed=0;b.textContent=resetLabel();state=createCamping();scene.reset();try{localStorage.removeItem(KEY);}catch{}});
 // ---- Network play -------------------------------------------------------------------------------------------------------------
 // The host's game is the only real one: it sends its whole state to the guests ten times a second; guests send back their stick,
