@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"><meta name="theme-color" content="#9fd46a">
+ <title>Flux Camping — alpha</title><link rel="icon" href="./icon-180.png">
+ <style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#9fd46a;font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;-webkit-user-select:none;user-select:none}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .hud{position:fixed;top:max(12px,env(safe-area-inset-top));right:12px;display:flex;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 24px);gap:8px;z-index:2}
+  .chip{background:#ffffffe8;color:#26343f;border-radius:14px;padding:7px 13px;font-weight:900;font-size:20px;box-shadow:0 3px 0 #0002}
+  .wait{min-width:96px}.gauge{height:7px;border-radius:4px;background:#e3e8eb;margin-top:4px;overflow:hidden}.gauge i{display:block;height:100%;width:0;border-radius:4px;background:#4fbf5a;transition:width .3s,background .3s}
+  .chip small{display:block;font-size:10px;font-weight:700;color:#6b7a84}
+  .brand{position:fixed;top:max(12px,env(safe-area-inset-top));left:12px;z-index:2;background:#ffffffe8;color:#26343f;border-radius:14px;padding:7px 12px;font-weight:900;letter-spacing:1px;box-shadow:0 3px 0 #0002}.brand small{display:block;font-size:10px;letter-spacing:0;color:#6b7a84}
+  #hint{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);background:#26343fdd;color:#fff;padding:10px 16px;border-radius:12px;font-weight:700;font-size:15px;max-width:min(92vw,560px);text-align:center;z-index:2;pointer-events:none}
+  #reset{position:fixed;left:12px;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;border:0;border-radius:12px;background:#ffffffd0;padding:8px 10px;font:inherit;font-size:12px;font-weight:700;color:#26343f;cursor:pointer}
+  #dock{position:fixed;right:12px;bottom:max(18px,env(safe-area-inset-bottom));z-index:3;display:flex;gap:8px}
+  #hands.filtered{background:#ffe08a}#multi.on{background:#bfe8c8}
+  #reviewlist .rev{padding:8px 0;border-top:1px solid #e3e8eb;font-size:13.5px}#reviewlist .rev b{display:block;font-size:14px;color:#e0a020;letter-spacing:1px}#reviewlist .rev small{color:#6b7a84;font-weight:700}#reviewlist .rev.bad b{color:#e8483a}
+  #multipanel label{display:block;font-size:12.5px;font-weight:700;margin-top:10px}#multipanel input{width:100%;box-sizing:border-box;border:2px solid #dde4e8;border-radius:10px;padding:8px 10px;font:inherit;font-size:16px;font-weight:700;color:#26343f;margin-top:5px}
+  #multipanel .row{margin-top:5px}#multipanel .row input{margin:0;flex:1.3;min-width:0;text-transform:uppercase;letter-spacing:3px;text-align:center}#multipanel .big.go{background:#2f9e4f}#multipanel button:disabled{opacity:.5}
+  #mshare{font-size:34px;font-weight:900;letter-spacing:6px;text-align:center;margin:4px 0;user-select:all;-webkit-user-select:all}#mstatus{min-height:1.2em;font-weight:700;color:#26343f;overflow-wrap:anywhere}
+  #mplayers,#mplayers2{list-style:none;margin:8px 0 0;padding:0}#mplayers li,#mplayers2 li{padding:6px 9px;background:#eef2f4;border-radius:8px;margin-top:4px;font-weight:700;font-size:14px}
+  .panel{max-height:calc(100vh - 140px);overflow:auto;position:fixed;right:12px;bottom:max(64px,calc(env(safe-area-inset-bottom) + 64px));z-index:5;width:min(340px,calc(100vw - 24px));background:#fffffff5;color:#26343f;border-radius:16px;box-shadow:0 8px 30px #0003;padding:14px;box-sizing:border-box}
+  .panel header{display:flex;justify-content:space-between;align-items:center;font-size:16px}.panel header button{border:0;background:#eef2f4;border-radius:8px;width:30px;height:30px;font-size:14px;cursor:pointer}
+  .panel p{margin:8px 0;font-size:12.5px;color:#5b6a73}.panel .big{width:100%;margin-top:10px;border:0;border-radius:12px;background:#e8483a;color:#fff;font:inherit;font-weight:800;font-size:15px;padding:11px;cursor:pointer}.panel .big small{font-weight:600;opacity:.85}
+  #picks{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}#picks button{border:2px solid #d3dbe0;background:#fff;border-radius:10px;padding:6px 2px;font-size:20px;cursor:pointer;line-height:1.1}#picks button small{display:block;font-size:10px;font-weight:700;color:#5b6a73}#picks button[aria-pressed="false"]{opacity:.35;border-style:dashed}
+  .panel .row{display:flex;gap:6px;margin-top:8px}.panel .row button{flex:1;border:0;background:#eef2f4;border-radius:9px;padding:8px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+  #bankbody h3{font-size:14px;margin:12px 0 6px;display:flex;justify-content:space-between;gap:8px}#bankbody h3 small{font-weight:700;color:#6b7a84}
+  .sum{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13.5px}.sum b{text-align:right;font-variant-numeric:tabular-nums}
+  .btns{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.btns button{border:0;background:#eef2f4;border-radius:9px;padding:8px 4px;font:inherit;font-size:12.5px;font-weight:800;color:#26343f;cursor:pointer}.btns button:disabled{opacity:.4;cursor:default}
+  .stock{display:grid;grid-template-columns:1fr 84px;gap:2px 8px;align-items:center;padding:8px 0;border-top:1px solid #e3e8eb;font-size:13px}.stock .up{color:#2f9e4f}.stock .down{color:#e8483a}.stock svg{grid-row:span 2}.stock .btns{grid-column:1/-1}
+  #multi,#reviews,#bankbtn,#hands,#team{border:0;border-radius:12px;background:#ffffffe8;padding:9px 13px;font:inherit;font-size:14px;font-weight:800;color:#26343f;cursor:pointer;box-shadow:0 3px 0 #0002}
+  #teampanel{position:fixed;right:12px;bottom:max(64px,calc(env(safe-area-inset-bottom) + 64px));z-index:5;width:min(360px,calc(100vw - 24px));max-height:min(70vh,560px);overflow:auto;background:#fffffff5;color:#26343f;border-radius:16px;box-shadow:0 8px 30px #0003;padding:14px;box-sizing:border-box}
+  #teampanel header{display:flex;justify-content:space-between;align-items:center;font-size:16px}#teampanel header button{border:0;background:#eef2f4;border-radius:8px;width:30px;height:30px;font-size:14px;cursor:pointer}
+  #teampanel p{margin:6px 0 10px;font-size:12.5px;color:#5b6a73}
+  .worker{display:grid;grid-template-columns:32px 1fr;gap:4px 10px;align-items:center;padding:8px 0;border-top:1px solid #e3e8eb}.worker .ico{grid-row:span 2;font-size:22px;text-align:center}.worker b{font-size:14px}.worker small{color:#6b7a84;font-weight:700}
+  .worker select{grid-column:2;width:100%;font:inherit;font-size:14px;padding:6px 8px;border-radius:9px;border:1.5px solid #d3dbe0;background:#fff;color:#26343f}
+  #team:focus-visible,#teampanel select:focus-visible,#teampanel button:focus-visible{outline:3px solid #e8483a;outline-offset:2px}
+  .chip.bills.late{background:#e8483a;color:#fff}.chip.bills.late small{color:#ffe1dc}
+  #event{position:fixed;left:50%;transform:translateX(-50%);top:calc(max(12px,env(safe-area-inset-top)) + 70px);z-index:2;background:#e8483aee;color:#fff;padding:9px 14px;border-radius:12px;font-weight:800;font-size:14px;max-width:min(92vw,560px);text-align:center;pointer-events:none}
+  #report{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:6;background:#fffffff5;color:#26343f;border-radius:18px;box-shadow:0 10px 40px #0004;padding:18px 22px;min-width:240px;text-align:center;pointer-events:none}
+  #report h2{margin:0 0 8px;font-size:20px}#report dl{display:grid;grid-template-columns:auto auto;gap:4px 18px;margin:0;text-align:left;font-size:15px}#report dd{margin:0;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+  #stick{position:fixed;width:110px;height:110px;margin:-55px 0 0 -55px;border-radius:50%;background:#ffffff40;border:3px solid #ffffff90;z-index:4;pointer-events:none}
+  #knob{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:50%;background:#ffffffd8;transform:translate(-50%,-50%)}
+  @media(max-width:600px){.brand{display:none}.hud{top:max(6px,env(safe-area-inset-top));left:6px;right:6px;max-width:none;flex-wrap:nowrap;gap:4px}.chip{flex:1 1 0;min-width:0;font-size:14px;padding:4px 6px;border-radius:10px;white-space:nowrap;overflow:hidden;box-shadow:0 2px 0 #0002}.chip.money{flex:1.8 1 0}.chip small{font-size:8.5px;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px}.wait{min-width:0}.gauge{height:4px;margin-top:2px}.chip .long{display:none}#event{top:calc(max(6px,env(safe-area-inset-top)) + 50px);font-size:12px;padding:5px 10px;border-radius:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:calc(100vw - 12px)}#hint{font-size:12.5px;padding:6px 10px;border-radius:10px;bottom:calc(max(10px,env(safe-area-inset-bottom)) + 54px);max-width:calc(100vw - 24px)}#reset{bottom:max(10px,env(safe-area-inset-bottom));left:8px;font-size:15px;padding:10px 12px;border-radius:12px}#dock{bottom:max(10px,env(safe-area-inset-bottom));right:8px;left:62px;justify-content:flex-end;gap:5px}#multi,#reviews,#bankbtn,#hands,#team{font-size:14px;padding:10px 10px;white-space:nowrap}.panel,#teampanel{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 52px);max-height:calc(100vh - 130px)}#picks button{font-size:26px;padding:9px 2px}#stick{width:130px;height:130px;margin:-65px 0 0 -65px}#knob{width:56px;height:56px}}
+ </style>
+</head>
+<body>
+ <canvas id="arcade" aria-label="Jeu : déplacez le directeur avec ZQSD, les flèches ou en glissant le doigt."></canvas>
+ <div class="brand">FLUX CAMPING<small>alpha · ZQSD / flèches / doigt · X vider</small></div>
+ <div class="hud"><div class="chip money" title="Argent sur le compte et espèces encore dans les caisses de l’accueil et de l’épicerie"><small><span class="long">Compte · </span>💵 <b id="cashwait">0 $</b><span class="long"> en caisse</span></small><span id="money">0 $</span></div><div class="chip" title="Emplacements occupés sur emplacements ouverts"><small>Emplacements</small><span id="pitches">0/4</span></div><div class="chip" title="Heure du camping : arrivées l’après-midi, extinction des feux à 23 h"><small id="day">Jour 1</small><span id="clock">13:00</span></div><div class="chip bills" id="billchip" hidden title="Factures à payer au bureau 🧾 avant l’échéance"><small>Factures</small><span id="bills">0 $</span></div><div class="chip wait" title="Humeur moyenne des campeurs installés : en dessous de 35, les avis seront cruels"><small><span class="long">Humeur · </span><b id="lost">0 partis</b></small><span id="mood">—</span><div class="gauge"><i id="gauge"></i></div></div><div class="chip" title="Réputation : moyenne des avis laissés par les campeurs"><small><span class="long">Avis · </span><b id="traffic">×1.0</b></small><span id="rep">★ 2.5</span></div></div>
+ <div id="event" hidden></div><section id="report" hidden aria-live="polite"></section>
+ <div id="hint" hidden></div><button id="reset">↺ Recommencer</button>
+ <div id="dock"><button id="multi" title="Jouer à plusieurs" aria-label="Jouer à plusieurs">👥 Multi</button><button id="reviews">📖 Avis</button><button id="hands">✋ Mains</button><button id="team" hidden>👷 Équipe</button></div>
+ <section id="handspanel" class="panel" hidden aria-label="Mains et ramassage"><header><b>Mains et ramassage</b><button id="handsclose" aria-label="Fermer">✕</button></header>
+  <button id="empty" class="big">🗑️ Vider les mains <small>(touche X)</small></button>
+  <p>Ce que vous ramassez en passant. Décochez ce que vous ne voulez plus prendre ; vous pouvez toujours déposer ce que vous portez.</p>
+  <div id="picks"></div><div class="row"><button id="pickall">Tout ramasser</button><button id="picknone">Ne rien ramasser</button></div></section>
+ <section id="teampanel" hidden aria-label="Missions de l’équipe"><header><b>Missions de l’équipe</b><button id="teamclose" aria-label="Fermer">✕</button></header><p>Choisissez la tâche de chaque membre du personnel. Réception, épicerie et scène sont tenues par leur titulaire.</p><div id="teamlist"></div></section>
+ <section id="reviewspanel" class="panel" hidden aria-label="Livre d’or"><header><b>📖 Livre d’or</b><button id="reviewsclose" aria-label="Fermer">✕</button></header><p id="reviewsum"></p><div id="reviewlist"></div></section>
+ <section id="multipanel" class="panel" hidden aria-label="Jouer à plusieurs"><header><b>👥 Jouer à plusieurs</b><button id="multiclose" aria-label="Fermer">✕</button></header>
+  <div id="mp-idle"><p>Jusqu’à 4 joueurs dans le même camping, chacun son personnage. L’un crée la partie et donne son code aux autres.</p>
+   <label for="mname">Votre prénom</label><input id="mname" maxlength="12" autocomplete="off" placeholder="Prénom">
+   <button id="mhost" class="big go">Créer une partie <small>(dans mon camping)</small></button>
+   <label for="mcode">Ou rejoindre avec un code</label><div class="row"><input id="mcode" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CODE"><button id="mjoin">Rejoindre</button></div></div>
+  <div id="mp-host" hidden><p>Donnez ce code ou le lien aux autres joueurs. La partie dure tant que cette page reste ouverte chez vous.</p><div id="mshare"></div><div class="row"><button id="mcopy">🔗 Copier le lien</button></div><ul id="mplayers"></ul><button id="mstop" class="big">Arrêter la partie</button></div>
+  <div id="mp-guest" hidden><p>Vous jouez dans le camping d’un autre joueur. Le vôtre est gardé : vous le retrouverez en quittant.</p><ul id="mplayers2"></ul><button id="mleave" class="big">Quitter la partie</button></div>
+  <p id="mstatus" role="status"></p></section>
+ <div id="stick" hidden><div id="knob"></div></div>
+ <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script><script type="module" src="./camping.js"></script>
+</body>
+</html>
