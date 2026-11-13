@@ -45,20 +45,20 @@ export function createCampingScene(canvas,getState){
  box(scene,2,.05,30,0,.03,-5.8,'#eadcb8',false);
  for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,14,-5.85],[0,14,-9.85]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
  box(scene,40,.05,2.6,0,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<18;x+=2.4)box(scene,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
- box(scene,12,.04,3.2,0,.02,7.2,'#d9c79a',false);
- {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);scene.add(g);for(const x of [-2.4,2.4])box(g,.3,3.4,.3,x,1.7,0,'#8a5a35');box(g,5.4,.9,.2,0,3.4,0,'#1aa6a6');
-  const t=textPlane('CAMPING DU PARADIS ★★★',4.9,.7,{bg:'#1aa6a6',font:'900 52px system-ui'});t.position.set(0,3.4,.11);g.add(t);box(g,.14,.14,2,-1.55,.9,0,'#f4f1ea');const arm=box(g,2.8,.12,.14,.1,1.2,0,'#e8483a');arm.rotation.z=.9;arm.position.x=-.9;arm.position.y=1.8;}
+ box(scene,12,.04,3.2,0,.02,7.2,'#eadcb8',false);
+ {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);scene.add(g);for(const x of [-2.1,2.1])box(g,.22,2.6,.22,x,1.3,0,'#8a5a35');box(g,4.5,.6,.16,0,2.7,0,'#1aa6a6');
+  const t=textPlane('CAMPING DU PARADIS ★★★',4.3,.5,{bg:'#1aa6a6',font:'900 50px system-ui'});t.position.set(0,2.7,.09);g.add(t);}
  // Lamp posts along the alley: they light up when the night comes.
- const lamps=[];for(const [x,z] of [[-1.5,6],[1.5,6],[-1.5,-4],[1.5,-4],[-1.5,-14],[1.5,-14],[7,-1],[7,-12]]){const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);cyl(g,.05,2.3,0,1.15,0,'#3d454b');const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:'#fff3c4',emissive:'#ffd36b',emissiveIntensity:0}));l.scale.setScalar(.2);l.position.y=2.35;g.add(l);lamps.push(l);}
+ const lamps=[];for(const [x,z] of [[-1.5,6],[1.5,-4],[-1.5,-14],[7,-8]]){const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);cyl(g,.05,2.3,0,1.15,0,'#3d454b');const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:'#fff3c4',emissive:'#ffd36b',emissiveIntensity:0}));l.scale.setScalar(.2);l.position.y=2.35;g.add(l);lamps.push(l);}
  // Trees give the place its shade.
  // Palm trees, flamingos and hibiscus: it is paradise, after all.
  function palm(x,z,h=3.4,lean=.3,ry=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(let i=0;i<4;i++)cyl(g,.17-.025*i,h/4+.05,lean*(i/3)**2*1.2,h/8+i*h/4,0,i%2?'#a97a46':'#9a6a3a');
   const top=new THREE.Group();top.position.set(lean*1.2,h,0);g.add(top);for(let k=0;k<7;k++){const l=new THREE.Group();l.rotation.y=k*Math.PI*2/7;top.add(l);const b=box(l,1.5,.05,.42,.75,-.1,0,k%2?'#2f9e4f':'#3dbb5f');b.rotation.z=-.45;}for(const [dx,dz] of [[.15,.1],[-.12,.15],[.05,-.17]])ball(top,.1,dx,-.18,dz,'#6b4428');}
- for(const [x,z,h,l,r] of [[-3.8,8.0,3.4,.3,0],[3.2,8.1,3.8,-.3,1],[7,8.1,3.2,.25,2],[16.4,-1,3.6,-.3,0],[16.6,-8,3.2,.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[16.2,-13,3.4,.25,1],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
+ for(const [x,z,h,l,r] of [[-9.6,8.2,3.4,.3,0],[11,8.2,3.6,-.3,1],[16.4,-1,3.6,-.3,0],[16.6,-8,3.2,.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[16.2,-13,3.4,.25,1],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
  function flamingo(x,z,ry){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(const dx of [-.05,.05])cyl(g,.015,.7,dx,.35,0,'#f47aa8');ball(g,.2,0,.8,0,'#f58db3',.85);const neck=cyl(g,.035,.5,.12,1.1,0,'#f58db3');neck.rotation.z=-.5;ball(g,.07,.26,1.32,0,'#f58db3');box(g,.14,.03,.05,.36,1.3,0,'#2b2b2b',false);}
- for(const [x,z,r] of [[7.1,-17.3,1.2],[7.5,-16.2,2.2],[-3.4,6.9,.6],[1.3,8.1,-.4]])flamingo(x,z,r);
- for(const [x,z] of [[-1.35,7.4],[1.35,7.4],[-1.35,5.2],[1.35,5.2],[-1.35,-.6],[1.35,-.6]]){ball(scene,.32,x,.22,z,'#3d8a36',.7);for(const [dx,dz,c] of [[.1,.1,'#ff4d6d'],[-.14,.04,'#ff8fa3'],[.02,-.14,'#ff4d6d']])ball(scene,.1,x+dx,.46,z+dz,c);}
- for(const [x,z,r] of [[-15,-2,1.4],[-15,-10,1.6],[-15.2,-16,1.3],[16.4,-1,1.5],[16.6,-8,1.7],[16.2,-13,1.4],[-14.4,3.6,1.3],[0,-21,1.6],[-6,-21,1.5],[6,-21,1.6],[-12,-21,1.4],[12,-21.2,1.5],[16.4,7,1.3],[-16,8,1.5]].filter(([x,z])=>![[-15,-2],[-15,-10],[-15.2,-16],[16.4,-1],[16.6,-8],[16.2,-13],[6,-21]].some(([a,b])=>a===x&&b===z))){const t=new THREE.Group();t.position.set(x,0,z);scene.add(t);cyl(t,.18,1.2,0,.6,0,'#7a4a2a');ball(t,r,0,1.7,0,'#3d8a36',.9);ball(t,r*.7,.5,2.3,.1,'#4b9a3e',.9);}
+ for(const [x,z,r] of [[7.1,-17.3,1.2],[7.5,-16.2,2.2]])flamingo(x,z,r);
+
+ for(const [x,z,r] of [[-15,-2,1.4],[-15,-10,1.6],[-15.2,-16,1.3],[16.4,-1,1.5],[16.6,-8,1.7],[16.2,-13,1.4],[-6,-21,1.5],[6,-21,1.6],[-12,-21,1.4]].filter(([x,z])=>![[-15,-2],[-15,-10],[-15.2,-16],[16.4,-1],[16.6,-8],[16.2,-13],[6,-21]].some(([a,b])=>a===x&&b===z))){const t=new THREE.Group();t.position.set(x,0,z);scene.add(t);cyl(t,.18,1.2,0,.6,0,'#7a4a2a');ball(t,r,0,1.7,0,'#3d8a36',.9);ball(t,r*.7,.5,2.3,.1,'#4b9a3e',.9);}
 
  // Reception: an open kiosk under a striped awning, a card terminal once bought, and the pad where the cash piles up.
  const recep=new THREE.Group();scene.add(recep);{const g=recep,[x,z]=RECEPTION.pos;box(g,2.6,1,.7,x,.5,z,'#c98a4a');box(g,2.7,.08,.8,x,1.04,z,'#eadcb8');
@@ -122,10 +122,9 @@ export function createCampingScene(canvas,getState){
  function tentModel(c){const g=new THREE.Group(),body=new THREE.Mesh(geo.pyr,mat(c));body.scale.set(1.15,1.15,1.15);body.position.y=.58;body.rotation.y=Math.PI/4;body.castShadow=true;g.add(body);box(g,.5,.6,.02,0,.32,.62,'#2b3a44',false);return g;}
  function caravanModel(c){const g=new THREE.Group();box(g,2.5,1.1,1.25,0,.8,-.3,'#f4f1ea');box(g,2.52,.2,1.27,0,.62,-.3,c);box(g,2.6,.1,1.35,0,1.4,-.3,'#d8dfe3');box(g,.5,.45,.02,.5,1,.34,'#7fb7d9',false);box(g,.4,.7,.02,-.6,.85,.34,'#9a6a40',false);for(const x of [-.7,.7]){const w=cyl(g,.26,.12,x,.26,-.9,'#20262a');w.rotation.z=Math.PI/2;}box(g,.12,.12,.6,1.5,.4,-.3,'#8a959b');box(g,1.6,.06,.7,0,1.5,.3,c,false).rotation.x=.25;return g;}
  function mobilModel(){const g=new THREE.Group();box(g,3,1.5,1.8,0,.8,-.3,'#d9a35a');box(g,3.3,.2,2.1,0,1.65,-.3,'#8a4a2a');box(g,.7,1.1,.04,-.8,.65,.62,'#6b4428',false);for(const x of [.3,1.05])box(g,.5,.5,.04,x,1,.62,'#7fb7d9',false);box(g,3.1,.08,.8,0,.1,.9,'#eadcb8',false);box(g,.7,.45,.7,1.1,.3,1.1,'#e8483a');return g;}
- const pitches=PITCHES.map((P,i)=>{const g=new THREE.Group();g.position.set(P.x,0,P.z);scene.add(g);const patch=box(g,3.4,.04,3.2,0,.03,0,P.kind==='tent'?'#8fc75a':'#d9c79a',false);const num=textPlane(String(i+1),.5,.34,{bg:'#f4f1ea',fg:'#26343f',font:'900 56px system-ui'});num.position.set(-1.5,.9,.95);g.add(num);cyl(g,.04,.9,-1.5,.45,.9,'#8a5a35');
-  let unit=null;if(P.kind==='mobil'){unit=mobilModel();g.add(unit);}else unit=new THREE.Group();g.add(unit);
+ const pitches=PITCHES.map((P,i)=>{const g=new THREE.Group();g.position.set(P.x,0,P.z);scene.add(g);const patch=box(g,3,.03,2.5,0,.03,0,P.kind==='tent'?'#9ccf63':'#e2d3a8',false);  let unit=null;if(P.kind==='mobil'){unit=mobilModel();g.add(unit);}else unit=new THREE.Group();g.add(unit);
   const trash=new THREE.Group();trash.position.set(.5,0,1.4);g.add(trash);const tag=sprite(1.5,.42);tag.position.set(0,2.4,.3);g.add(tag);
-  const lamp=box(g,.12,.12,.12,1.2,.9,.85,'#f6c945',false);return {g,P,patch,unit,trash,tag,num,lamp,look:-1,made:null};});
+  return {g,P,patch,unit,trash,tag,made:null};});
  // Event markers: where somebody must stand for a moment to sort it out.
  const markers=[0,1,2].map(()=>{const g=new THREE.Group();scene.add(g);box(g,1.3,.04,1.3,0,.06,0,'#e8483a',false);const t=sprite(1.8,.5);t.position.y=1.5;g.add(t);g.visible=false;return {g,t};});
 
@@ -148,7 +147,7 @@ export function createCampingScene(canvas,getState){
  function daylight(s){const h=hourOf(s),n=s.clock>=OPEN?1:h>=20.5?(h-20.5)/2.5*.8:h<8?(8-h)*.25:0,dusk=h>=18&&s.clock<OPEN?Math.min(1,(h-18)/2)*(1-n):0;night=n;
   sun.intensity=2.6*(1-.65*n);hemi.intensity=2.1*(1-.5*n);sun.color.copy(DAYC.sun).lerp(DUSK,dusk*.6).lerp(NIGHTC.sun,n);
   renderer.setClearColor(tmpC.copy(DAYC.clear).lerp(NIGHTC.clear,n));ground.material.color.copy(DAYC.ground).lerp(NIGHTC.ground,n);for(const l of lamps)l.material.emissiveIntensity=Math.min(1,n*1.6);}
- const MOODFACE=m=>m<30?'😡':m<50?'😕':m>=85?'😄':'';
+ const MOODFACE=m=>m<30?'😡':m<45?'😕':'';
  const cashList=v=>{const n=Math.min(18,Math.floor(v/20));return [...repeat('bundle',n),...(v-n*20>=1&&n<18?['bundle']:[])];};
 
  function sync(dt){const s=getState();time+=dt;daylight(s);
@@ -163,26 +162,25 @@ export function createCampingScene(canvas,getState){
   pitches.forEach((v,i)=>{const open=pitchOpen(s,i),P=s.pitches[i];v.g.visible=open;if(!open)return;const c=byPitch.get(i),kind=v.P.kind;
    if(kind!=='mobil'){const want=c?kind+c.look:null;if(want!==v.made){v.g.remove(v.unit);v.unit=!c?new THREE.Group():kind==='tent'?tentModel(CAMP[c.look%CAMP.length]):caravanModel(CAMP[c.look%CAMP.length]);v.g.add(v.unit);v.made=want;}
     v.unit.scale.y=P.down?.28:1;v.unit.rotation.z=P.down?.5:0;}
-   v.lamp.visible=!!c;v.lamp.material=mat(c&&night>.3?'#ffd36b':'#f6c945');
    stackOf(v.trash,repeat('trash',P.trash),{cols:3,step:.42});
-   const text=P.noisy?'🎶 FIESTA':P.down?'🌬️ à replanter':c?`${TYPESICON(c)} ${Math.max(0,c.left)} nuit${c.left>1?'s':''}`:P.trash?'🗑️ à vider':'';v.tag.visible=!!text;if(text)pill(v.tag,text,P.noisy?{bg:'#b06ae8ee',fg:'#fff'}:P.down?{bg:'#e8483aee',fg:'#fff'}:{});});
+   const text=P.noisy?'🎶 FIESTA':P.down?'🌬️ à replanter':P.trash&&!c?'🗑️ à vider':c&&c.left<=0?'🧳 départ':'';v.tag.visible=!!text;if(text)pill(v.tag,text,P.noisy?{bg:'#b06ae8ee',fg:'#fff'}:P.down?{bg:'#e8483aee',fg:'#fff'}:{});});
   // Reception, office, shop.
   recTerm.visible=!!s.unlocked.terminal;shopTerm.visible=!!s.unlocked.terminal&&!!s.unlocked.shop;stackOf(recPile,cashList(s.piles[0]),{cols:2,rows:3,step:.5,dstep:.3});stackOf(shopPile,cashList(s.piles[1]),{cols:2,rows:3,step:.5,dstep:.3});shopPile.visible=!!s.unlocked.shop;
-  const waiting=s.campers.filter(c=>c.phase==='queue').length;pill(recTag,s.posts.reception?'🛎️ Accueil':waiting?`🛎️ ${waiting} à l’accueil`:'🛎️ Accueil',waiting&&!s.posts.reception?{bg:'#f6b94aee'}:{});
+  const waiting=s.campers.filter(c=>c.phase==='queue').length;recTag.visible=waiting>0;if(waiting)pill(recTag,`🛎️ ${waiting} à l’accueil`,s.posts.reception?{}:{bg:'#f6b94aee'});
   const nb=s.bills.length,late=s.bills.some(b=>b.late);while(papers.children.length>nb)papers.remove(papers.children[papers.children.length-1]);while(papers.children.length<Math.min(nb,12)){const m=box(papers,.42,.012,.3,0,papers.children.length*.014,0,'#ffffff',false);m.rotation.y=(papers.children.length%3-1)*.15;}
-  papers.children.forEach(m=>m.material=mat(late?'#ffd6d1':'#ffffff'));pill(deskTag,nb?`🧾 ${nb} facture${nb>1?'s':''} · ${billsDue(s)} $`:'🧾 Bureau · à jour',late?{bg:'#e8483aee',fg:'#fff'}:nb?{bg:'#f6b94aee'}:{});
+  papers.children.forEach(m=>m.material=mat(late?'#ffd6d1':'#ffffff'));deskTag.visible=nb>0;pill(deskTag,nb?`🧾 ${nb} facture${nb>1?'s':''} · ${billsDue(s)} $`:'🧾 Bureau · à jour',late?{bg:'#e8483aee',fg:'#fff'}:nb?{bg:'#f6b94aee'}:{});
   shop.visible=!!s.unlocked.shop;
-  for(const [k,v] of Object.entries(shelves)){const open=shelfOpen(s,k);v.g.visible=open;v.pad.visible=v.ic.visible=open;if(!open)continue;stackOf(v.st,repeat(k,s.shop[k]),{cols:4,rows:2,step:.3,dstep:.3,max:16});pill(v.tag,`${ICON[k]} ${s.shop[k]}/${shelfCap(s,k)}`);}
+  for(const [k,v] of Object.entries(shelves)){const open=shelfOpen(s,k);v.g.visible=open;v.pad.visible=v.ic.visible=open;if(!open)continue;stackOf(v.st,repeat(k,s.shop[k]),{cols:4,rows:2,step:.3,dstep:.3,max:16});v.tag.visible=s.shop[k]===0;if(!s.shop[k])pill(v.tag,`${ICON[k]} vide`,{bg:'#f6b94aee'});}
   for(const [k,v] of Object.entries(sources)){const open=sourceOpen(s,k);v.g.visible=open;if(!open)continue;const n=s.sources[k].n;stackOf(v.st,repeat(SOURCES[k].item,n),{cols:4,rows:3,step:.34,dstep:.3,max:24});
-   pill(v.tag,k==='bread'?`🥖 ${n}`:`${ICON[SOURCES[k].item]} ${n}/${sourceCap(s,k)}`,n===0?{bg:'#f6b94aee'}:{});}
+   v.tag.visible=n===0;if(n===0)pill(v.tag,`${ICON[SOURCES[k].item]} épuisé`,{bg:'#f6b94aee'});}
   // Toilet block.
   const nc=cabins(s),inside=s.campers.filter(c=>c.act?.kind==='wc'&&c.act.step===1).length;doors.forEach((d,i)=>{d.d.visible=d.lamp.visible=i<nc;d.d.position.x=d.lamp.position.x=(i-(nc-1)/2)*.54;d.lamp.material=mat(i<inside?'#e8483a':'#4fbf5a');});
   const cap=sanitCap(s),pp=s.sanit.paper;pill(paperTag,`🧻 ${Math.floor(pp)}/${cap}`,pp<2?{bg:'#e8483aee',fg:'#fff'}:pp<4?{bg:'#f6b94aee'}:{});
-  dirtPlane.material.opacity=Math.min(.7,s.sanit.dirt*.8);pill(mopTag,s.sanit.dirt>.7?'🤢 sale !':s.sanit.dirt>.35?'🧽 à nettoyer':'✨ propre',s.sanit.dirt>.7?{bg:'#e8483aee',fg:'#fff'}:s.sanit.dirt>.35?{bg:'#f6b94aee'}:{});
-  stackOf(dumpPile,repeat('trash',Math.min(s.dump,9)),{cols:3,rows:2,step:.5,dstep:.4});pill(dumpTag,`🗑️ ${s.dump}/${dumpCap(s)}`,s.dump>=dumpCap(s)?{bg:'#e8483aee',fg:'#fff'}:{});
-  elec.visible=!!s.unlocked.caravan;pill(elecTag,s.event?.kind==='disj'?'⚡ SAUTÉ':'⚡',s.event?.kind==='disj'?{bg:'#e8483aee',fg:'#fff'}:{});
+  dirtPlane.material.opacity=Math.min(.7,s.sanit.dirt*.8);mopTag.visible=s.sanit.dirt>.35;pill(mopTag,s.sanit.dirt>.7?'🤢 sale !':'🧽 à nettoyer',s.sanit.dirt>.7?{bg:'#e8483aee',fg:'#fff'}:s.sanit.dirt>.35?{bg:'#f6b94aee'}:{});
+  stackOf(dumpPile,repeat('trash',Math.min(s.dump,9)),{cols:3,rows:2,step:.5,dstep:.4});dumpTag.visible=s.dump>0;pill(dumpTag,`🗑️ ${s.dump}/${dumpCap(s)}`,s.dump>=dumpCap(s)?{bg:'#e8483aee',fg:'#fff'}:{});
+  elec.visible=!!s.unlocked.caravan;elecTag.visible=s.event?.kind==='disj';pill(elecTag,'⚡ SAUTÉ',s.event?.kind==='disj'?{bg:'#e8483aee',fg:'#fff'}:{});
   // Pool and stage.
-  pool.visible=!!s.unlocked.pool;if(pool.visible){const ch=s.pool.chlor,col=ch<.25?'#7fa84a':ch<.5?'#5fc0c0':'#43b5e8';pool.userData.water.material.color.set(col);pill(poolTag,`🧪 ${Math.round(ch*100)} %`,ch<.25?{bg:'#e8483aee',fg:'#fff'}:ch<.5?{bg:'#f6b94aee'}:{});
+  pool.visible=!!s.unlocked.pool;if(pool.visible){const ch=s.pool.chlor,col=ch<.25?'#7fa84a':ch<.5?'#5fc0c0':'#43b5e8';pool.userData.water.material.color.set(col);poolTag.visible=ch<.7;pill(poolTag,`🧪 ${Math.round(ch*100)} %`,ch<.25?{bg:'#e8483aee',fg:'#fff'}:ch<.5?{bg:'#f6b94aee'}:{});
    const du=s.event?.kind==='ducks';ducks.forEach((d,i)=>{d.visible=du;if(du){d.position.set((POOL.x0+POOL.x1)/2+Math.sin(time*.7+i*1.7)*2.2,.3,(POOL.z0+POOL.z1)/2+Math.cos(time*.55+i*2.3)*1.2);d.rotation.y=time*.7+i;}});}
   stage.visible=!!s.unlocked.stage;stageTag.visible=stage.visible;if(stage.visible){const S=s.show,on=S.state==='on';spots.forEach((l,i)=>l.material.emissiveIntensity=on?.6+.5*Math.sin(time*6+i*2):.1);
    stageTag.visible=S.state!=='idle';if(S.state==='call')pill(stageTag,`🎤 ${SHOWS[S.kind]} : montez sur scène !`,{bg:'#f6c945ee'});else if(on)pill(stageTag,`🎉 ${SHOWS[S.kind]} · ${Math.ceil(S.t)} s`,{bg:'#b06ae8ee',fg:'#fff'});}
