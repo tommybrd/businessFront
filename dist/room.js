@@ -75,7 +75,7 @@ export function createRoom(cfg){
   E[G.step](s,dt,cfg.input());if(net)share(now);}
  // Several times a second, even when the page is in the background (where frames stop): a guest reports its stick and position; the
  // host keeps both businesses running for the others and lets go of guests it no longer hears.
- setInterval(()=>{if(!net)return;const now=performance.now();if(now-beatAt>5000){beatAt=now;session();}
+ setInterval(()=>{if(!net)return;const now=performance.now();render();if(now-beatAt>5000){beatAt=now;session();}
   if(guest()){const g=E.guestOf(cfg.get(),net.me);if(g&&net.me){if(document.hidden)g.input=STILL;net.room.send({t:'in',ix:g.input.x,iz:g.input.z,x:g.x,z:g.z,h:g.heading});}if(!net.retrying&&now-net.heard>15000)lost(net);return;}
   for(const [id,t] of net.seen)if(now-t>15000){net.seen.delete(id);net.room.kick(id);}
   let moved=false;
