@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {bakeGroup} from './static-bake.js';
 import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN,LOISIRS,SHUTTLE_SLOTS,BIKES,PADDLES,BASINS,BASIN_ORDER,TECH,SPA,BAR,LIFE_CHAIR,LOUNGERS,loungeCount,guardedBasins,waterIssue,WATER_TEXT,INCIDENTS,barCap,TIERS,BOREHOLE,tankCap,powerLoad,powerCap,CLUB,RESTO,MACH} from './camping-engine.js';
 
 // Low-poly view of the campsite: pitches with their tents and caravans, the toilet block, the shop, the pool and the stage show
@@ -53,27 +54,30 @@ export function createCampingScene(canvas,getState){
 
  // Ground, alley, lanes, road and gate.
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.MeshStandardMaterial({color:'#a9db6e',roughness:.85}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
- box(scene,2,.05,43,0,.03,-12.5,'#eadcb8',false);
- for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,33.5,-5.85],[0,33.5,-9.85],[14.4,33.5,-15],[-14,0,-21.85],[-14,8,-27.85]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
- box(scene,72,.05,2.6,8,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<36;x+=2.4)box(scene,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
- box(scene,12,.04,3.2,0,.02,7.2,'#eadcb8',false);
+ // Everything fixed (paths, road, gate, lamp posts, trees, palms, flamingos) goes in `decor`, merged into a few meshes once built.
+ const decor=new THREE.Group();scene.add(decor);
+ box(decor,2,.05,43,0,.03,-12.5,'#eadcb8',false);
+ for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,33.5,-5.85],[0,33.5,-9.85],[14.4,33.5,-15],[-14,0,-21.85],[-14,8,-27.85]])box(decor,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
+ box(decor,72,.05,2.6,8,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<36;x+=2.4)box(decor,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
+ box(decor,12,.04,3.2,0,.02,7.2,'#eadcb8',false);
  let gateSign=()=>{},gateStars=1;
- {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);scene.add(g);for(const x of [-2.1,2.1])box(g,.22,2.6,.22,x,1.3,0,'#8a5a35');box(g,4.5,.6,.16,0,2.7,0,'#1aa6a6');
+ {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);decor.add(g);for(const x of [-2.1,2.1])box(g,.22,2.6,.22,x,1.3,0,'#8a5a35');box(g,4.5,.6,.16,0,2.7,0,'#1aa6a6');
   const gc=document.createElement('canvas');gc.width=512;gc.height=60;const gt=new THREE.CanvasTexture(gc);gt.colorSpace=THREE.SRGBColorSpace;
   const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.3,.5),new THREE.MeshStandardMaterial({map:gt,roughness:.6}));sign.position.set(0,2.7,.09);g.add(sign);
   // The sign shows the stars the camp has been given.
   gateSign=n=>{const x=gc.getContext('2d');x.fillStyle='#1aa6a6';x.fillRect(0,0,512,60);x.fillStyle='#fff';x.font='900 40px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText('CAMPING DU PARADIS '+'★'.repeat(n),256,32,490);gt.needsUpdate=true;};gateSign(1);}
  // Lamp posts along the alley: they light up when the night comes.
- const lamps=[];for(const [x,z] of [[-1.5,6],[1.5,-4],[-1.5,-14],[7,-8]]){const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);cyl(g,.05,2.3,0,1.15,0,'#3d454b');const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:'#fff3c4',emissive:'#ffd36b',emissiveIntensity:0}));l.scale.setScalar(.2);l.position.y=2.35;g.add(l);lamps.push(l);}
+ const lamps=[];for(const [x,z] of [[-1.5,6],[1.5,-4],[-1.5,-14],[7,-8]]){const g=new THREE.Group();g.position.set(x,0,z);decor.add(g);cyl(g,.05,2.3,0,1.15,0,'#3d454b');const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:'#fff3c4',emissive:'#ffd36b',emissiveIntensity:0}));l.userData.keep=true;l.scale.setScalar(.2);l.position.y=2.35;g.add(l);lamps.push(l);}
  // Trees give the place its shade.
  // Palm trees, flamingos and hibiscus: it is paradise, after all.
- function palm(x,z,h=3.4,lean=.3,ry=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(let i=0;i<4;i++)cyl(g,.17-.025*i,h/4+.05,lean*(i/3)**2*1.2,h/8+i*h/4,0,i%2?'#a97a46':'#9a6a3a');
+ function palm(x,z,h=3.4,lean=.3,ry=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;decor.add(g);for(let i=0;i<4;i++)cyl(g,.17-.025*i,h/4+.05,lean*(i/3)**2*1.2,h/8+i*h/4,0,i%2?'#a97a46':'#9a6a3a');
   const top=new THREE.Group();top.position.set(lean*1.2,h,0);g.add(top);for(let k=0;k<7;k++){const l=new THREE.Group();l.rotation.y=k*Math.PI*2/7;top.add(l);const b=box(l,1.5,.05,.42,.75,-.1,0,k%2?'#2f9e4f':'#3dbb5f');b.rotation.z=-.45;}for(const [dx,dz] of [[.15,.1],[-.12,.15],[.05,-.17]])ball(top,.1,dx,-.18,dz,'#6b4428');}
  for(const [x,z,h,l,r] of [[11,8.2,3.6,-.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
- function flamingo(x,z,ry){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(const dx of [-.05,.05])cyl(g,.015,.7,dx,.35,0,'#f47aa8');ball(g,.2,0,.8,0,'#f58db3',.85);const neck=cyl(g,.035,.5,.12,1.1,0,'#f58db3');neck.rotation.z=-.5;ball(g,.07,.26,1.32,0,'#f58db3');box(g,.14,.03,.05,.36,1.3,0,'#2b2b2b',false);}
+ function flamingo(x,z,ry){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;decor.add(g);for(const dx of [-.05,.05])cyl(g,.015,.7,dx,.35,0,'#f47aa8');ball(g,.2,0,.8,0,'#f58db3',.85);const neck=cyl(g,.035,.5,.12,1.1,0,'#f58db3');neck.rotation.z=-.5;ball(g,.07,.26,1.32,0,'#f58db3');box(g,.14,.03,.05,.36,1.3,0,'#2b2b2b',false);}
  for(const [x,z,r] of [[7.1,-17.3,1.2],[7.5,-16.2,2.2]])flamingo(x,z,r);
 
- for(const [x,z,r] of [[-15,-2,1.4],[-15,-10,1.6],[-15.2,-16,1.3],[16.4,-1,1.5],[16.6,-8,1.7],[16.2,-13,1.4],[-6,-21,1.5],[6,-21,1.6],[-12,-21,1.4]].filter(([x,z])=>![[-15,-2],[-15,-10],[-15.2,-16],[16.4,-1],[16.6,-8],[16.2,-13],[6,-21]].some(([a,b])=>a===x&&b===z))){const t=new THREE.Group();t.position.set(x,0,z);scene.add(t);cyl(t,.18,1.2,0,.6,0,'#7a4a2a');ball(t,r,0,1.7,0,'#3d8a36',.9);ball(t,r*.7,.5,2.3,.1,'#4b9a3e',.9);}
+ for(const [x,z,r] of [[-15,-2,1.4],[-15,-10,1.6],[-15.2,-16,1.3],[16.4,-1,1.5],[16.6,-8,1.7],[16.2,-13,1.4],[-6,-21,1.5],[6,-21,1.6],[-12,-21,1.4]].filter(([x,z])=>![[-15,-2],[-15,-10],[-15.2,-16],[16.4,-1],[16.6,-8],[16.2,-13],[6,-21]].some(([a,b])=>a===x&&b===z))){const t=new THREE.Group();t.position.set(x,0,z);decor.add(t);cyl(t,.18,1.2,0,.6,0,'#7a4a2a');ball(t,r,0,1.7,0,'#3d8a36',.9);ball(t,r*.7,.5,2.3,.1,'#4b9a3e',.9);}
+ bakeGroup(decor);
 
  // Reception: an open kiosk under a striped awning, a card terminal once bought, and the pad where the cash piles up.
  const recep=new THREE.Group();scene.add(recep);{const g=recep,[x,z]=RECEPTION.pos;box(g,2.6,1,.7,x,.5,z,'#c98a4a');box(g,2.7,.08,.8,x,1.04,z,'#eadcb8');

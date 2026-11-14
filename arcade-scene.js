@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {bakeGroup} from './static-bake.js';
 import {STATIONS,SHELVES,SOURCES,REGISTERS,KIOSKS,PICKUP,COWS,PASTURE,DOOR,PRODUCTS,registerOpen,stationTime,stationCaps,shelfCap,sourceCap,sourceOpen,shelfOpen,cowCount,kioskCount,hasTerminal,
  inZone,outZone,shelfZone,stationOpen,visibleUnlocks,MEGAPHONE,adsLevel,PATIENCE,MISSIONS,KIOSK_ORDER,TABLES,SINK,DESK,DOCK,DRIVE,hourOf,OPEN,billsDue,REPAIR,TECH_DELAY,SAFE,ATM,BUY_DELAY,plotOpen} from './arcade-engine.js';
 
@@ -91,16 +92,19 @@ export function createArcadeScene(canvas,getState){
 
  // Ground, restaurant floor, counter, field, kitchen.
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.MeshStandardMaterial({color:'#a9db6e',roughness:.85}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
- box(scene,22.4,.1,23,6.2,.05,-9,'#f7c97f',false);box(scene,22.4,2.4,.3,6.2,1.2,-20.4,'#e6eef0');box(scene,.3,2.4,1.6,-5,1.2,-11.7,'#e6eef0');box(scene,22.4,.25,.3,6.2,2.5,-20.4,'#5bbf4a',false);
- box(scene,14.4,1,.9,6,.5,-3.2,'#5fd6b4');box(scene,14.4,.08,.95,6,1.04,-3.2,'#eafaf4',false);
- box(scene,6.8,.06,8.2,DOOR[0],.09,2,'#e2b26a',false);box(scene,14,.04,2,2,.03,9.5,'#59646b',false);box(scene,7.6,.05,5.6,1,.095,1.4,'#efd9a6',false);
+ // Fixed decor (floor, walls, counter, outer fence, drive road and booth) is merged into a few meshes once built.
+ const decorA=new THREE.Group();scene.add(decorA);
+ box(decorA,22.4,.1,23,6.2,.05,-9,'#f7c97f',false);box(decorA,22.4,2.4,.3,6.2,1.2,-20.4,'#e6eef0');box(decorA,.3,2.4,1.6,-5,1.2,-11.7,'#e6eef0');box(decorA,22.4,.25,.3,6.2,2.5,-20.4,'#5bbf4a',false);
+ box(decorA,14.4,1,.9,6,.5,-3.2,'#5fd6b4');box(decorA,14.4,.08,.95,6,1.04,-3.2,'#eafaf4',false);
+ box(decorA,6.8,.06,8.2,DOOR[0],.09,2,'#e2b26a',false);box(decorA,14,.04,2,2,.03,9.5,'#59646b',false);box(decorA,7.6,.05,5.6,1,.095,1.4,'#efd9a6',false);
  // Pickup line: floor marks in front of the left part of the counter and a "Retrait" sign.
  const pickup=new THREE.Group();scene.add(pickup);for(const [x,z] of PICKUP)for(const [w,d,dx,dz] of [[.56,.04,0,-.28],[.56,.04,0,.28],[.04,.56,-.28,0],[.04,.56,.28,0]])box(pickup,w,.015,d,x+dx,.1,z+dz,'#ffffff',false);const sign=textPlane('RETRAIT · bornes',3.2,.5,{bg:'#e8483a'});sign.position.set(1.9,.55,-2.74);pickup.add(sign);
  // Potato field behind a wooden fence, open on the restaurant side; the lower part only exists once "Champ +6" is bought.
  const fence=(p,x1,z1,x2,z2)=>{const n=Math.max(1,Math.round(Math.hypot(x2-x1,z2-z1)/1.2));for(let i=0;i<=n;i++)box(p,.12,.7,.12,x1+(x2-x1)*i/n,.35,z1+(z2-z1)*i/n,'#c98a4a');for(const y of [.32,.58]){const r=box(p,Math.hypot(x2-x1,z2-z1),.07,.06,(x1+x2)/2,y,(z1+z2)/2,'#d89c5a');r.rotation.y=-Math.atan2(z2-z1,x2-x1);}};
  const FX0=-13.6,FX1=-8,fenceSmall=new THREE.Group(),fenceBig=new THREE.Group();scene.add(fenceSmall,fenceBig);
- fence(scene,FX0,-8.9,FX1,-8.9);fence(scene,FX1,-8.9,FX1,-7.2);
+ fence(decorA,FX0,-8.9,FX1,-8.9);fence(decorA,FX1,-8.9,FX1,-7.2);
  for(const [g,zb] of [[fenceSmall,-3.15],[fenceBig,0]]){fence(g,FX0,-8.9,FX0,zb);fence(g,FX0,zb,FX1,zb);fence(g,FX1,zb,FX1,zb-1.5);}
+ bakeGroup(decorA);bakeGroup(fenceSmall);bakeGroup(fenceBig);
  // Each plot: a soil bed with two ridges and four potato plants that grow back after harvest; ripe plants flower and show their potatoes.
  const plots=getState().plots.map(p=>{const g=new THREE.Group();g.position.set(p.x,0,p.z);scene.add(g);const soil=[box(g,1.42,.08,1.42,0,.04,0,'#7a4a2a',false),...[-.33,.33].map(dz=>box(g,1.3,.1,.44,0,.1,dz,'#9a6038',false))];
   const plant=new THREE.Group(),flowers=new THREE.Group(),spuds=new THREE.Group();g.add(plant,spuds);
@@ -226,6 +230,7 @@ export function createArcadeScene(canvas,getState){
  const drive=new THREE.Group();scene.add(drive);box(drive,2.6,.04,44,DRIVE.road,.03,-6,'#59646b',false);for(let z=-26;z<16;z+=2.4)box(drive,.12,.01,1.2,DRIVE.road,.06,z,'#f4f1ea',false);
  box(drive,.3,2.2,2.2,16.9,1.1,DRIVE.pad[1],'#e8483a');box(drive,.32,.7,1,16.9,1.2,DRIVE.pad[1],'#7fb7d9');const dsign=textPlane('DRIVE',1.2,.36,{bg:'#e8483a'});dsign.position.set(17.06,1.95,DRIVE.pad[1]);dsign.rotation.y=Math.PI/2;drive.add(dsign);
  box(drive,1.1,.04,1.1,DRIVE.pad[0],.12,DRIVE.pad[1],'#7fb7d9',false);padIcon(drive,'🚗',DRIVE.pad[0],DRIVE.pad[1],.15,.8);const drivePile=new THREE.Group();drivePile.position.set(DRIVE.pad[0],.14,DRIVE.pad[1]);drive.add(drivePile);
+ bakeGroup(drive);
  const cars=new Map(),CAR_COLORS=['#e8483a','#3a8ee0','#f6c945','#5fbf6a','#f4f1ea'];
  function carModel(color){const g=new THREE.Group(),b=new THREE.Group();g.add(b);box(b,1.3,.55,2.1,0,.45,0,color);box(b,1.1,.45,1.1,0,.92,.1,'#cfe6f2');box(b,1.14,.06,1.14,0,1.17,.1,color);for(const x of [-.62,.62])for(const z of [-.65,.7]){const w=cyl(g,.22,.16,x,.22,z,'#20262a');w.rotation.z=Math.PI/2;}
   const bubble=sprite(1.9,.5);bubble.position.set(0,2,0);g.add(bubble);scene.add(g);return {g,bubble};}
