@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,ITEMS,BUY_DELAY} from './camping-engine.js';
+import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY} from './camping-engine.js';
 
 // Low-poly view of the campsite: pitches with their tents and caravans, the toilet block, the shop, the pool and the stage show
 // what the simulation holds. Nothing here decides anything.
@@ -16,12 +16,17 @@ export function createCampingScene(canvas,getState){
  function textPlane(text,w,h,{bg='#26343f',fg='#fff',font='900 64px system-ui'}={}){const c=document.createElement('canvas');c.width=512;c.height=Math.round(512*h/w);const ctx=c.getContext('2d');ctx.fillStyle=bg;ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle=fg;ctx.font=font;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,c.width/2,c.height/2+4,c.width-30);const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map,roughness:.6}));}
  function padIcon(p,emoji,x=0,z=0,y=.05,size=.75){const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d');ctx.globalAlpha=.85;ctx.font='92px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(emoji,64,70);const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);p.add(m);return m;}
  const repeat=(k,n)=>Array.from({length:Math.max(0,n)},()=>k);
- const ICON={paper:'🧻',bread:'🥖',ice:'🍦',chlor:'🧪',trash:'🗑️'};
+ const ICON={paper:'🧻',dough:'🍞',bread:'🥖',ice:'🍦',drink:'🥤',cream:'🧴',gas:'🔥',souv:'🧲',chlor:'🧪',trash:'🗑️'};
 
  // Carried goods and stacks: a few small meshes sharing geometries and materials, rebuilt only when the list changes.
- const H={paper:.17,bread:.17,ice:.34,chlor:.32,trash:.4,bundle:.07};
+ const H={paper:.17,dough:.16,bread:.17,ice:.34,drink:.3,cream:.26,gas:.4,souv:.14,chlor:.32,trash:.4,bundle:.07};
  function itemMesh(k){const g=new THREE.Group();
   if(k==='paper'){cyl(g,.14,.16,0,.08,0,'#f6f6f2');cyl(g,.145,.03,0,.08,0,'#d8b27a');}
+  else if(k==='dough'){ball(g,.15,0,.1,0,'#f1e2c4',.75);ball(g,.07,.1,.16,.05,'#f6ecd6');}
+  else if(k==='drink'){cyl(g,.09,.26,0,.13,0,'#3a8ee0');cyl(g,.095,.04,0,.27,0,'#f4f2ea');}
+  else if(k==='cream'){cyl(g,.09,.2,0,.1,0,'#ff9f43');cyl(g,.05,.07,0,.23,0,'#ffffff');}
+  else if(k==='gas'){cyl(g,.12,.34,0,.17,0,'#d8432f');cyl(g,.05,.06,0,.37,0,'#8a959b');}
+  else if(k==='souv'){box(g,.26,.12,.18,0,.07,0,'#b06ae8');box(g,.2,.02,.14,0,.14,0,'#ffe08a');}
   else if(k==='bread'){const b=new THREE.Mesh(geo.cap,mat('#d9a24f'));b.scale.setScalar(.5);b.rotation.z=Math.PI/2;b.rotation.y=.4;b.position.y=.085;b.castShadow=true;g.add(b);}
   else if(k==='ice'){const c=new THREE.Mesh(new THREE.CylinderGeometry(.085,.012,1,10),mat('#d9a35a'));c.scale.y=.22;c.position.y=.11;g.add(c);ball(g,.1,0,.25,0,'#f49ac1',.9);ball(g,.06,0,.32,0,'#fff5e6');}
   else if(k==='chlor'){cyl(g,.14,.28,0,.14,0,'#3a8ee0');cyl(g,.15,.04,0,.3,0,'#f4f2ea');}
@@ -81,17 +86,31 @@ export function createCampingScene(canvas,getState){
   box(g,.6,.4,.4,SHOP.till[0],1.28,SHOP.till[1],'#3d454b');
   box(g,1.2,.04,1.2,SHOP.serve[0],.06,SHOP.serve[1],'#7fb7d9',false);padIcon(g,'🛒',SHOP.serve[0],SHOP.serve[1],.09);
   box(g,1.3,.04,1.3,SHOP.cash[0],.06,SHOP.cash[1],'#5cc46a',false);padIcon(g,'💵',SHOP.cash[0],SHOP.cash[1],.09,.8);}
+ // Bakery: a brick oven (dough goes in on the right pad, bread comes out on the left) and a stand with a striped awning for the bread.
+ const bakery=new THREE.Group();scene.add(bakery);{const g=bakery,[ox,oz]=OVEN.pos;box(g,1.8,1.5,1.2,ox,.75,oz,'#b5523b');box(g,1.9,.12,1.3,ox,1.56,oz,'#8a3a2a');const arch=box(g,.9,.7,.04,ox,.5,oz+.61,'#1f1a18',false);cyl(g,.16,1,ox+.55,2.1,oz-.3,'#7a3a2a');
+  const ol=new THREE.Mesh(geo.box,new THREE.MeshStandardMaterial({color:'#ff7a1a',emissive:'#ff5a00',emissiveIntensity:0}));ol.scale.set(.7,.3,.04);ol.position.set(ox,.45,oz+.63);g.add(ol);bakery.userData.glow=ol;
+  const sg=textPlane('FOUR À PAIN',1.4,.3,{bg:'#f4f1ea',fg:'#8a3a2a'});sg.position.set(ox,1.2,oz+.62);g.add(sg);
+  for(const [pad,ic,key] of [[OVEN.inPad,'🍞','in'],[OVEN.outPad,'🥖','out']]){box(g,1.1,.04,1.1,pad[0],.06,pad[1],key==='in'?'#f08a3a':'#5cc46a',false);padIcon(g,ic,pad[0],pad[1],.09);const st=new THREE.Group();st.position.set(pad[0],.1,pad[1]);g.add(st);bakery.userData[key]=st;}
+  const tg=sprite(1.9,.42);tg.position.set(ox,2.9,oz);g.add(tg);bakery.userData.tag=tg;
+  box(g,5,1,.7,-10.6,.5,5.6,'#d9a35a');box(g,5.1,.08,.8,-10.6,1.04,5.6,'#eadcb8');for(const dx of [-2.4,2.4])box(g,.1,2.4,.1,-10.6+dx,1.2,6.0,'#8a5a35');
+  for(let i=0;i<10;i++)box(g,.5,.08,1.6,-13+i*.5+.25,2.45,5.3,i%2?'#ffffff':'#f0c040',false).rotation.x=-.12;
+  const bs=textPlane('BOULANGERIE · PAIN CHAUD',3.4,.4,{bg:'#8a3a2a',fg:'#ffe9b8',font:'900 40px system-ui'});bs.position.set(-10.6,2.0,5.98);g.add(bs);
+  for(const dx of [-1.3,0,1.3]){const c=box(g,.8,.22,.5,-11.2+dx*.4,1.2,5.6,'#b98a52');c.visible=dx===0;}}
  const shopTerm=new THREE.Group();shopTerm.position.set(SHOP.till[0]+.7,1.08,SHOP.till[1]);scene.add(shopTerm);box(shopTerm,.18,.06,.3,0,.03,0,'#20262a');box(shopTerm,.16,.22,.05,0,.15,-.08,'#2b3a44').rotation.x=-.4;
  const shopPile=new THREE.Group();shopPile.position.set(SHOP.cash[0],.1,SHOP.cash[1]);scene.add(shopPile);
- const shelves=Object.fromEntries(Object.entries(SHELVES).map(([k,def])=>{const g=new THREE.Group();g.position.set(def.pos[0],1.1,def.pos[1]);scene.add(g);const st=new THREE.Group();g.add(st);
+ const shelves=Object.fromEntries(['bread','ice'].map(k=>{const def=SHELVES[k],g=new THREE.Group();g.position.set(def.pos[0],1.1,def.pos[1]);scene.add(g);const st=new THREE.Group();g.add(st);
   const z=shelfZone(def.pos),pad=box(scene,1.1,.04,1.1,z[0],.06,z[1],'#f08a3a',false),ic=padIcon(scene,ICON[k],z[0],z[1],.09);const tag=sprite(1.3,.4);tag.position.set(0,1.1,0);g.add(tag);return [k,{g,st,pad,ic,tag}];}));
+ // The general rack: drinks, sun cream, gas bottles and souvenirs share one display on the counter and one restocking pad.
+ const rack=new THREE.Group();rack.position.set(SHELVES.drink.pos[0],1.1,SHELVES.drink.pos[1]);scene.add(rack);const rackSt=new THREE.Group();rack.add(rackSt);box(rack,1.5,.05,.6,0,-.03,0,'#c9a46a',false);
+ {const z=SHELVES.drink.zone;box(scene,1.1,.04,1.1,z[0],.06,z[1],'#f08a3a',false);padIcon(scene,'🧺',z[0],z[1],.09);}const rackTag=sprite(1.9,.4);rackTag.position.set(0,1.1,0);rack.add(rackTag);
  // Deliveries and supplies: a crate for each; the baker's basket is filled once a day, at dawn.
  const sources=Object.fromEntries(Object.entries(SOURCES).map(([k,def])=>{const g=new THREE.Group();g.position.set(def.pos[0],0,def.pos[1]);scene.add(g);
   if(k==='ice'){box(g,1.6,.9,1.1,0,.45,0,'#f7f7f2');box(g,1.65,.08,1.15,0,.92,0,'#3a8ee0');const lg=textPlane('GLACES',1,.28,{bg:'#f7f7f2',fg:'#e0679b'});lg.position.set(0,.55,.56);g.add(lg);}
   else if(k==='bread'){box(g,1.5,.3,1,0,.15,0,'#b98a52');box(g,1.4,.04,.9,0,.31,0,'#e9d9b0',false);}
   else if(k==='chlor'){box(g,1.6,.5,1.1,0,.25,0,'#3a8ee0');box(g,1.5,.05,1,0,.52,0,'#dfe8ec',false);}
+  else if(k==='drink'||k==='cream'||k==='gas'||k==='souv'){box(g,1.6,.4,1.1,0,.2,0,{drink:'#3a8ee0',cream:'#ff9f43',gas:'#8a959b',souv:'#b06ae8'}[k]);box(g,1.5,.04,1,0,.42,0,'#dfe8ec',false);}
   else{box(g,1.6,.5,1.1,0,.25,0,'#c98a4a');box(g,1.5,.05,1,0,.52,0,'#dfe8ec',false);}
-  const st=new THREE.Group();st.position.y=k==='ice'?.95:k==='bread'?.33:.55;g.add(st);const tag=sprite(1.6,.4);tag.position.set(0,k==='ice'?1.9:1.6,0);g.add(tag);return [k,{g,st,tag}];}));
+  const st=new THREE.Group();st.position.y=k==='ice'?.95:k==='bread'?.33:k==='drink'||k==='cream'||k==='gas'||k==='souv'?.45:.55;g.add(st);const tag=sprite(1.6,.4);tag.position.set(0,k==='ice'?1.9:1.6,0);g.add(tag);return [k,{g,st,tag}];}));
  // Toilet and shower block: one door per cabin, a toilet-paper pad and a mop pad; the walls show how dirty it is.
  const sanit=new THREE.Group();sanit.position.set(SANIT.pos[0],0,SANIT.pos[1]);scene.add(sanit);box(sanit,4.5,2.2,2.6,0,1.1,0,'#dfe8ec');box(sanit,4.8,.2,2.9,0,2.3,0,'#5b8fb9');const ssign=textPlane('WC · DOUCHES',2.2,.38,{bg:'#2b6fd6'});ssign.position.set(0,1.95,1.31);sanit.add(ssign);
  const doors=Array.from({length:8},(_,i)=>{const d=box(sanit,.42,1.2,.04,(i-3.5)*.54,.62,1.31,'#5b8fb9',false);const lamp=box(sanit,.1,.07,.04,(i-3.5)*.54,1.32,1.33,'#4fbf5a',false);return {d,lamp};});
@@ -119,9 +138,9 @@ export function createCampingScene(canvas,getState){
  box(scene,1.3,.04,1.3,STAGE.pad[0],.06,STAGE.pad[1],'#f6c945',false);padIcon(scene,'🎤',STAGE.pad[0],STAGE.pad[1],.09,.85);const stageTag=sprite(3.4,.5);stageTag.position.set(STAGE.pos[0],3.5,STAGE.pos[1]);scene.add(stageTag);
  // Pitches: a patch of ground and a number; tents and caravans come and go with the campers; mobile homes stay.
  const CAMP=['#e86a7a','#6a8ee8','#e8b86a','#8ad06a','#b06ae8','#6ad0c8'];
- function tentModel(c){const g=new THREE.Group(),body=new THREE.Mesh(geo.pyr,mat(c));body.scale.set(1.15,1.15,1.15);body.position.y=.58;body.rotation.y=Math.PI/4;body.castShadow=true;g.add(body);box(g,.5,.6,.02,0,.32,.62,'#2b3a44',false);return g;}
- function caravanModel(c){const g=new THREE.Group();box(g,2.5,1.1,1.25,0,.8,-.3,'#f4f1ea');box(g,2.52,.2,1.27,0,.62,-.3,c);box(g,2.6,.1,1.35,0,1.4,-.3,'#d8dfe3');box(g,.5,.45,.02,.5,1,.34,'#7fb7d9',false);box(g,.4,.7,.02,-.6,.85,.34,'#9a6a40',false);for(const x of [-.7,.7]){const w=cyl(g,.26,.12,x,.26,-.9,'#20262a');w.rotation.z=Math.PI/2;}box(g,.12,.12,.6,1.5,.4,-.3,'#8a959b');box(g,1.6,.06,.7,0,1.5,.3,c,false).rotation.x=.25;return g;}
- function mobilModel(){const g=new THREE.Group();box(g,3,1.5,1.8,0,.8,-.3,'#d9a35a');box(g,3.3,.2,2.1,0,1.65,-.3,'#8a4a2a');box(g,.7,1.1,.04,-.8,.65,.62,'#6b4428',false);for(const x of [.3,1.05])box(g,.5,.5,.04,x,1,.62,'#7fb7d9',false);box(g,3.1,.08,.8,0,.1,.9,'#eadcb8',false);box(g,.7,.45,.7,1.1,.3,1.1,'#e8483a');return g;}
+ function tentModel(c){const g=new THREE.Group(),body=new THREE.Mesh(geo.pyr,mat(c));body.scale.set(1.15,1.15,1.15);body.position.y=.58;body.rotation.y=Math.PI/4;body.castShadow=true;g.add(body);const door=box(g,.5,.6,.02,0,.32,.62,'#2b3a44',false);door.userData.base='#2b3a44';g.userData.glow=[door];return g;}
+ function caravanModel(c){const g=new THREE.Group();box(g,2.5,1.1,1.25,0,.8,-.3,'#f4f1ea');box(g,2.52,.2,1.27,0,.62,-.3,c);box(g,2.6,.1,1.35,0,1.4,-.3,'#d8dfe3');const win=box(g,.5,.45,.02,.5,1,.34,'#7fb7d9',false);win.userData.base='#7fb7d9';g.userData.glow=[win];box(g,.4,.7,.02,-.6,.85,.34,'#9a6a40',false);for(const x of [-.7,.7]){const w=cyl(g,.26,.12,x,.26,-.9,'#20262a');w.rotation.z=Math.PI/2;}box(g,.12,.12,.6,1.5,.4,-.3,'#8a959b');box(g,1.6,.06,.7,0,1.5,.3,c,false).rotation.x=.25;return g;}
+ function mobilModel(){const g=new THREE.Group();box(g,3,1.5,1.8,0,.8,-.3,'#d9a35a');box(g,3.3,.2,2.1,0,1.65,-.3,'#8a4a2a');box(g,.7,1.1,.04,-.8,.65,.62,'#6b4428',false);g.userData.glow=[];for(const x of [.3,1.05]){const w=box(g,.5,.5,.04,x,1,.62,'#7fb7d9',false);w.userData.base='#7fb7d9';g.userData.glow.push(w);}box(g,3.1,.08,.8,0,.1,.9,'#eadcb8',false);box(g,.7,.45,.7,1.1,.3,1.1,'#e8483a');return g;}
  const pitches=PITCHES.map((P,i)=>{const g=new THREE.Group();g.position.set(P.x,0,P.z);scene.add(g);const patch=box(g,3,.03,2.5,0,.03,0,P.kind==='tent'?'#9ccf63':'#e2d3a8',false);  let unit=null;if(P.kind==='mobil'){unit=mobilModel();g.add(unit);}else unit=new THREE.Group();g.add(unit);
   const trash=new THREE.Group();trash.position.set(.5,0,1.4);g.add(trash);const tag=sprite(1.5,.42);tag.position.set(0,2.4,.3);g.add(tag);
   return {g,P,patch,unit,trash,tag,made:null};});
@@ -162,8 +181,9 @@ export function createCampingScene(canvas,getState){
   pitches.forEach((v,i)=>{const open=pitchOpen(s,i),P=s.pitches[i];v.g.visible=open;if(!open)return;const c=byPitch.get(i),kind=v.P.kind;
    if(kind!=='mobil'){const want=c?kind+c.look:null;if(want!==v.made){v.g.remove(v.unit);v.unit=!c?new THREE.Group():kind==='tent'?tentModel(CAMP[c.look%CAMP.length]):caravanModel(CAMP[c.look%CAMP.length]);v.g.add(v.unit);v.made=want;}
     v.unit.scale.y=P.down?.28:1;v.unit.rotation.z=P.down?.5:0;}
+   {const lit=!!c&&(c.sleep||night>.3);for(const m of v.unit.userData.glow??[])m.material=mat(lit?'#ffcf5a':m.userData.base);}
    stackOf(v.trash,repeat('trash',P.trash),{cols:3,step:.42});
-   const text=P.noisy?'🎶 FIESTA':P.down?'🌬️ à replanter':P.trash&&!c?'🗑️ à vider':c&&c.left<=0?'🧳 départ':'';v.tag.visible=!!text;if(text)pill(v.tag,text,P.noisy?{bg:'#b06ae8ee',fg:'#fff'}:P.down?{bg:'#e8483aee',fg:'#fff'}:{});});
+   const text=P.noisy?'🎶 FIESTA':P.down?'🌬️ à replanter':P.trash&&!c?'🗑️ à vider':c&&c.sleep?'💤':c&&c.left<=0?'🧳 départ':'';v.tag.visible=!!text;if(text)pill(v.tag,text,P.noisy?{bg:'#b06ae8ee',fg:'#fff'}:P.down?{bg:'#e8483aee',fg:'#fff'}:{});});
   // Reception, office, shop.
   recTerm.visible=!!s.unlocked.terminal;shopTerm.visible=!!s.unlocked.terminal&&!!s.unlocked.shop;stackOf(recPile,cashList(s.piles[0]),{cols:2,rows:3,step:.5,dstep:.3});stackOf(shopPile,cashList(s.piles[1]),{cols:2,rows:3,step:.5,dstep:.3});shopPile.visible=!!s.unlocked.shop;
   const waiting=s.campers.filter(c=>c.phase==='queue').length;recTag.visible=waiting>0;if(waiting)pill(recTag,`🛎️ ${waiting} à l’accueil`,s.posts.reception?{}:{bg:'#f6b94aee'});
@@ -171,11 +191,14 @@ export function createCampingScene(canvas,getState){
   papers.children.forEach(m=>m.material=mat(late?'#ffd6d1':'#ffffff'));deskTag.visible=nb>0;pill(deskTag,nb?`🧾 ${nb} facture${nb>1?'s':''} · ${billsDue(s)} $`:'🧾 Bureau · à jour',late?{bg:'#e8483aee',fg:'#fff'}:nb?{bg:'#f6b94aee'}:{});
   shop.visible=!!s.unlocked.shop;
   for(const [k,v] of Object.entries(shelves)){const open=shelfOpen(s,k);v.g.visible=open;v.pad.visible=v.ic.visible=open;if(!open)continue;stackOf(v.st,repeat(k,s.shop[k]),{cols:4,rows:2,step:.3,dstep:.3,max:16});v.tag.visible=s.shop[k]===0;if(!s.shop[k])pill(v.tag,`${ICON[k]} vide`,{bg:'#f6b94aee'});}
+  {const kinds=RACK_KINDS.filter(k=>shelfOpen(s,k));rack.visible=!!s.unlocked.shop;if(rack.visible){stackOf(rackSt,kinds.flatMap(k=>repeat(k,s.shop[k])),{cols:6,rows:2,step:.26,dstep:.3,max:24});const gone=kinds.filter(k=>s.shop[k]===0);rackTag.visible=gone.length>0;if(gone.length)pill(rackTag,`${gone.map(k=>ICON[k]).join(' ')} vide`,{bg:'#f6b94aee'});}}
+  bakery.visible=!!s.unlocked.bakery;if(bakery.visible){const O=s.oven;stackOf(bakery.userData.in,repeat('dough',O.in),{cols:3,rows:3,step:.32,dstep:.32,max:18});stackOf(bakery.userData.out,repeat('bread',O.out),{cols:3,rows:3,step:.32,dstep:.32,max:18});
+   bakery.userData.glow.material.emissiveIntensity=O.working?.5+.5*Math.sin(time*9):.05;const tg=bakery.userData.tag;tg.visible=O.in>0||O.out>0;if(tg.visible)pill(tg,O.working?`🔥 cuit ${Math.round(O.timer/OVEN.time*100)} % · ${O.in} → ${O.out}`:`🍞 ${O.in} · 🥖 ${O.out}`,O.working?{bg:'#ffb070ee'}:{});}
   for(const [k,v] of Object.entries(sources)){const open=sourceOpen(s,k);v.g.visible=open;if(!open)continue;const n=s.sources[k].n;stackOf(v.st,repeat(SOURCES[k].item,n),{cols:4,rows:3,step:.34,dstep:.3,max:24});
    v.tag.visible=n===0;if(n===0)pill(v.tag,`${ICON[SOURCES[k].item]} épuisé`,{bg:'#f6b94aee'});}
   // Toilet block.
   const nc=cabins(s),inside=s.campers.filter(c=>c.act?.kind==='wc'&&c.act.step===1).length;doors.forEach((d,i)=>{d.d.visible=d.lamp.visible=i<nc;d.d.position.x=d.lamp.position.x=(i-(nc-1)/2)*.54;d.lamp.material=mat(i<inside?'#e8483a':'#4fbf5a');});
-  const cap=sanitCap(s),pp=s.sanit.paper;pill(paperTag,`🧻 ${Math.floor(pp)}/${cap}`,pp<2?{bg:'#e8483aee',fg:'#fff'}:pp<4?{bg:'#f6b94aee'}:{});
+  const cap=sanitCap(s),pp=s.sanit.paper;pill(paperTag,`🧻 ${Math.round(pp)}/${cap}`,pp<2?{bg:'#e8483aee',fg:'#fff'}:pp<4?{bg:'#f6b94aee'}:{});
   dirtPlane.material.opacity=Math.min(.7,s.sanit.dirt*.8);mopTag.visible=s.sanit.dirt>.35;pill(mopTag,s.sanit.dirt>.7?'🤢 sale !':'🧽 à nettoyer',s.sanit.dirt>.7?{bg:'#e8483aee',fg:'#fff'}:s.sanit.dirt>.35?{bg:'#f6b94aee'}:{});
   stackOf(dumpPile,repeat('trash',Math.min(s.dump,9)),{cols:3,rows:2,step:.5,dstep:.4});dumpTag.visible=s.dump>0;pill(dumpTag,`🗑️ ${s.dump}/${dumpCap(s)}`,s.dump>=dumpCap(s)?{bg:'#e8483aee',fg:'#fff'}:{});
   elec.visible=!!s.unlocked.caravan;elecTag.visible=s.event?.kind==='disj';pill(elecTag,'⚡ SAUTÉ',s.event?.kind==='disj'?{bg:'#e8483aee',fg:'#fff'}:{});
@@ -193,7 +216,7 @@ export function createCampingScene(canvas,getState){
    animate(g,c,time);if(c.swim)g.position.y=-.5;const A=c.act,q=c.phase==='queue';let text='',style={};
    if(q){const f=c.wait/PATIENCE;text=c.blocked?'🗑️ emplacement sale…':`${c.card&&s.unlocked.terminal?'💳':'💵'} ${c.nights} nuit${c.nights>1?'s':''}`;style=f<.4?{}:f<.7?{bg:'#f6b94aee'}:{bg:'#e8483aee',fg:'#fff'};}
    else if(A?.kind==='wc')text=A.step===1?'🚿':'🚽';else if(A?.kind==='shop')text=`${A.k==='bread'?'🥖':'🍦'} ${Math.max(0,A.n-A.got)}`;else if(A?.kind==='pool')text='🏊';else if(A?.kind==='show')text='🎉';else if(c.in&&!A)text=MOODFACE(c.mood);
-   g.userData.bubble.visible=!!text;if(text)pill(g.userData.bubble,text,style);g.visible=!(c.in&&!A&&!c.moving&&false);}
+   g.userData.bubble.visible=!!text;if(text)pill(g.userData.bubble,text,style);g.visible=!c.sleep;}
   for(const [id,g] of campers)if(!seen.has(id)){drop(g);campers.delete(id);}
   for(const p of s.popups){let g=popups.get(p.id);if(!g){g=sprite(1.8,.55);scene.add(g);pill(g,p.text,{...(POP[p.kind]??POP.money),size:.55});popups.set(p.id,g);}g.position.set(p.x,2+p.t*1.6,p.z);g.material.opacity=1-p.t/1.6;}
   for(const [id,g] of popups)if(!s.popups.some(p=>p.id===id)){drop(g);popups.delete(id);}
