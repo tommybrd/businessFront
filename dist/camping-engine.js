@@ -600,7 +600,7 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    if(A.step===0){if(A.tab==null){const used=new Set(s.campers.filter(x=>x.act?.kind==='dine'&&x.act.tab!=null).map(x=>x.act.tab)),free=RESTO.tables.map((_,i)=>i).filter(i=>!used.has(i));
      if(!free.length){A.t+=dt;if(A.t>10){sad(c,4,'tablefull');c.act={kind:'back'};}continue;}A.tab=free[0];}
     if(route(c,[RESTO.counter[0]+(c.ax??0),RESTO.counter[1]],dt,.1)){A.step=1;A.t=0;}}
-   else if(A.step===1){c.moving=false;A.t+=dt;if(R.fries>0&&R.steak>0){R.fries--;R.steak--;useWater(s,.005);const fee=Math.round(12*STAR_PRICE[s.stars-1]);s.money+=fee;s.today.revenue+=fee;popup(s,`🍽️ +${fee} $`,RESTO.counter[0],RESTO.counter[1]);A.step=2;A.t=10;}
+   else if(A.step===1){c.moving=false;A.t+=dt;if(R.fries>0&&R.steak>0){R.fries--;R.steak--;useWater(s,.005);const fee=Math.round(12*STAR_PRICE[s.stars-1]*(s.syn?.menu??1));s.money+=fee;s.today.revenue+=fee;popup(s,`🍽️ +${fee} $`,RESTO.counter[0],RESTO.counter[1]);A.step=2;A.t=10;}
     else if(A.t>14){sad(c,6,'dine');say(s,c,'🍽️ Rien à manger !');c.act={kind:'back'};}}
    else{const T=RESTO.tables[A.tab];if(route(c,[T[0],T[1]+.8],dt,.1)){c.moving=false;A.t-=dt;if(A.t<=0){glad(c,7,'resto');c.act={kind:'back'};}}}
    continue;}

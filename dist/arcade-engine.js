@@ -155,7 +155,7 @@ export const avgWait=s=>{const w=[...s.waits,...s.customers.filter(c=>WAITING.in
 const leftAfter=(s,c)=>{s.waits.push(Math.round(c.wait*10)/10);if(s.waits.length>20)s.waits.shift();};
 export const RUSH={length:25,cooldown:85,boost:2.2};
 export const adsLevel=s=>['ads1','ads2','ads3'].filter(id=>s.unlocked[id]).length;
-export const traffic=s=>(1+.35*adsLevel(s)+.2*lvl(s,'pub'))*(.6+.16*s.rep)*(s.rush>0?RUSH.boost:1)*dayMul(s);
+export const traffic=s=>(1+.35*adsLevel(s)+.2*lvl(s,'pub'))*(.6+.16*s.rep)*(s.rush>0?RUSH.boost:1)*dayMul(s)*(s.syn?.burger??1);
 // The day: the restaurant opens at 8:00 and closes at 23:00 (OPEN seconds), then the night lasts NIGHT seconds with no
 // new customers. Footfall peaks at lunch and dinner. A report of the day is kept when it ends.
 export const OPEN=280,NIGHT=20,DAY=OPEN+NIGHT;

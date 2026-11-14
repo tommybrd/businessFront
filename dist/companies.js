@@ -1,6 +1,6 @@
 // "Entreprises" menu shared by the games: one card per business, with where the player stands in each one (read from its
 // local save, read-only). Each business is its own page with its own save; this only links them. Adding a business is one line.
-import {holdingMoney} from './holding.js';
+import {holdingMoney,groupReport} from './holding.js';
 export const COMPANIES=[
  {id:'arcade',name:'BurgerFront',icon:'🍔',kind:'Restaurant-ferme',href:'./arcade.html',key:'flux-arcade-v1',intro:'Cultivez, grillez, servez : un restaurant de burgers sans fin.'},
  {id:'camping',name:'CampingFront',icon:'🌴',kind:'Camping du Paradis ★★★',href:'./camping.html',key:'flux-camping-v1',day:'Épisode',intro:'Soleil, ragots et karaoké : dirigez un camping de vacances, façon sitcom.'}];
@@ -20,6 +20,11 @@ export function mountCompanies(currentId,dock,session=()=>null){
  const render=()=>{panel.textContent='';const head=document.createElement('header'),b=document.createElement('b');b.textContent='🏢 Mes entreprises';const x=document.createElement('button');x.type='button';x.textContent='✕';x.setAttribute('aria-label','Fermer');x.onclick=()=>panel.hidden=true;head.append(b,x);
   const p=document.createElement('p');p.textContent='Chaque entreprise a sa propre partie, sauvegardée sur cet appareil : vous retrouvez l’autre exactement où vous l’avez laissée.';panel.append(head,p);
   const hm=holdingMoney();if(hm!=null){const h=document.createElement('p');h.style.fontWeight='800';h.textContent=`🏛️ Compte du groupe MarketFront : ${Math.floor(hm).toLocaleString('fr-FR')} $ — le même argent pour toutes les entreprises.`;panel.append(h);}
+  const G=groupReport(),pc=x=>`+${Math.round((x-1)*100)} %`,ex=document.createElement('div');ex.className='cocard here';ex.style.gridTemplateColumns='1fr';
+  const t=document.createElement('b');t.textContent='🤝 Échanges du groupe';const l1=document.createElement('small'),l2=document.createElement('small');
+  l1.textContent=G.syn.burger>1?`🌴→🍔 Les vacanciers du camping ${G.camping.stars}★ remplissent BurgerFront : affluence ${pc(G.syn.burger)}.`:'🌴→🍔 Un camping classé 3★ ou plus enverra ses vacanciers chez BurgerFront (affluence en hausse).';
+  l2.textContent=G.syn.menu>1?`🍔→🌴 Le menu BurgerFront au restaurant du camping : repas vendus ${pc(G.syn.menu)}.`:'🍔→🌴 Dès le 3ᵉ jour de BurgerFront, son menu s’affiche au restaurant du camping (repas mieux vendus).';
+  ex.append(t,l1,l2);panel.append(ex);
   const code=session();if(code){const m=document.createElement('p');m.textContent=`👥 Partie à plusieurs en cours (code ${code}) : vous pouvez passer d’une entreprise à l’autre, les autres joueurs aussi. La partie vous suit.`;m.style.fontWeight='800';panel.append(m);}
   for(const c of COMPANIES){const here=c.id===currentId,a=document.createElement(here?'div':'a');a.className='cocard'+(here?' here':'');if(!here)a.href=c.href;
    const ico=document.createElement('span');ico.className='ico';ico.textContent=c.icon;const n=document.createElement('b');n.textContent=c.name+' · '+c.kind;const s=document.createElement('small');s.textContent=c.intro;const go=document.createElement('span');go.className='go';go.textContent=here?'Vous êtes ici':summary(c)+' → Y aller';a.append(ico,n,s,go);panel.append(a);}};

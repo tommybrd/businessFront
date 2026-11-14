@@ -2,7 +2,7 @@
 // Usage: node scripts/arcade-bots/holding.mjs
 const store = new Map();
 globalThis.localStorage = { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k) };
-const { syncMoney, holdingMoney } = await import('../../dist/holding.js');
+const { syncMoney, holdingMoney, groupReport } = await import('../../dist/holding.js');
 const assert = (c, m) => { if (!c) { console.error('ÉCHEC :', m); process.exit(1); } console.log('ok', m); };
 
 store.set('flux-arcade-v1', JSON.stringify({ money: 1500 })); store.set('flux-camping-v1', JSON.stringify({ money: 40 }));
@@ -25,4 +25,10 @@ assert(fresh.money === 25, 'une partie recommencée repart avec le compte du gro
 const copy = { money: 777, replica: true }; syncMoney(copy);
 assert(copy.money === 777 && holdingMoney() === 25, 'la copie reçue d’un hôte ne touche pas au compte');
 const bad = { money: NaN }; syncMoney(bad); assert(holdingMoney() === 25, 'un montant invalide est ignoré');
+// Exchanges between the businesses.
+let g = groupReport(); assert(g.syn.burger === 1 && g.syn.menu === 1, 'sans camping 3★ ni BurgerFront avancé, aucun échange');
+store.set('flux-camping-v1', JSON.stringify({ money: 1, stars: 4, day: 5, rep: 4 })); store.set('flux-arcade-v1', JSON.stringify({ money: 1, day: 6, rep: 3 }));
+g = groupReport(); assert(g.syn.burger === 1.1 && g.syn.menu === 1.12, 'un camping 4★ et BurgerFront au jour 6 : affluence +10 %, repas +12 %');
+const { traffic, createArcade } = await import('../../dist/arcade-engine.js');
+const a = createArcade(), t0 = traffic(a); a.syn = { burger: 1.1 }; assert(Math.abs(traffic(a) / t0 - 1.1) < 1e-9, 'l’affluence de BurgerFront suit l’échange');
 console.log('holding : tout est bon');
