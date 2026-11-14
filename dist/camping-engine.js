@@ -286,7 +286,7 @@ export const billsDue=s=>s.bills.reduce((t,b)=>t+b.amount,0);
 // Every day is an "episode" of the holiday sitcom, titled after what happened in it.
 const EPISODES=['Un été presque parfait','Les Vacances de M. le Directeur','Chaud devant !','Le Retour du beau-frère','Tout est sous contrôle (enfin presque)','Sable dans les sandales','Panique à la réception','Le Secret de la baguette'];
 export function episodeTitle(L){const d=L.day??1;
- if(L.show)return `La Soirée ${L.show} de la discorde`;
+ if(L.show)return `${L.show}, ou la soirée de tous les dangers`;
  if((L.fixed??0)>=3)return 'Le Jour où tout est tombé en panne';
  if((L.lost??0)>=2)return 'Le Grand Malentendu';
  if(L.stars&&L.stars>=4.5)return 'Tout le monde est content (ça ne durera pas)';

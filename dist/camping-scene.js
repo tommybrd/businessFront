@@ -59,7 +59,7 @@ export function createCampingScene(canvas,getState){
  // Palm trees, flamingos and hibiscus: it is paradise, after all.
  function palm(x,z,h=3.4,lean=.3,ry=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(let i=0;i<4;i++)cyl(g,.17-.025*i,h/4+.05,lean*(i/3)**2*1.2,h/8+i*h/4,0,i%2?'#a97a46':'#9a6a3a');
   const top=new THREE.Group();top.position.set(lean*1.2,h,0);g.add(top);for(let k=0;k<7;k++){const l=new THREE.Group();l.rotation.y=k*Math.PI*2/7;top.add(l);const b=box(l,1.5,.05,.42,.75,-.1,0,k%2?'#2f9e4f':'#3dbb5f');b.rotation.z=-.45;}for(const [dx,dz] of [[.15,.1],[-.12,.15],[.05,-.17]])ball(top,.1,dx,-.18,dz,'#6b4428');}
- for(const [x,z,h,l,r] of [[-9.6,8.2,3.4,.3,0],[11,8.2,3.6,-.3,1],[16.4,-1,3.6,-.3,0],[16.6,-8,3.2,.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[16.2,-13,3.4,.25,1],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
+ for(const [x,z,h,l,r] of [[11,8.2,3.6,-.3,1],[16.4,-1,3.6,-.3,0],[16.6,-8,3.2,.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[16.2,-13,3.4,.25,1],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
  function flamingo(x,z,ry){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(const dx of [-.05,.05])cyl(g,.015,.7,dx,.35,0,'#f47aa8');ball(g,.2,0,.8,0,'#f58db3',.85);const neck=cyl(g,.035,.5,.12,1.1,0,'#f58db3');neck.rotation.z=-.5;ball(g,.07,.26,1.32,0,'#f58db3');box(g,.14,.03,.05,.36,1.3,0,'#2b2b2b',false);}
  for(const [x,z,r] of [[7.1,-17.3,1.2],[7.5,-16.2,2.2]])flamingo(x,z,r);
 
