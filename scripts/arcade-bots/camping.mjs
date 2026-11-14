@@ -29,10 +29,12 @@ const still = { x: 0, z: 0 };
   assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
   for (const id of ['tents', 'caravans', 'mobils', 'sanit', 'equipe']) { const L = E.LEVELS.find(l => l.id === id); for (let i = 0; i < 3; i++) { const u = E.visibleUnlocks(s).find(u => u.id === id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, id); for (let t = 0; t < 30 && E.lvl(s, id) === before; t += .05) E.stepCamping(s, .05, still); } }
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000;
+  const seenB = new Set(); let bookedSeen = 0;
   let events = new Set(), shows = 0, maxQueue = 0, pay = 0, nightOut = 0, maxPaper = 0, minPaperOpen = 1e9, baked = 0, prevOut = 0, sleepers = 0, sleepBad = 0; const maxShop = { bread: 0, ice: 0, drink: 0, cream: 0, gas: 0, souv: 0 };
   for (let t = 0; t < E.DAY * 10; t += .05) {
     E.stepCamping(s, .05, still);
     if (s.event) events.add(s.event.kind); if (s.show.state === 'on') shows++;
+    for (const b of s.bookings) if (b.done && !seenB.has(b.id)) { seenB.add(b.id); bookedSeen++; }
     if (!E.isDay(s)) for (const c of s.campers) { if (c.act?.kind === 'pool' || c.act?.kind === 'shop') nightOut++; if (c.sleep) { sleepers++; if (c.act) sleepBad++; } }
     maxPaper = Math.max(maxPaper, s.sanit.paper); for (const k in maxShop) maxShop[k] = Math.max(maxShop[k], s.shop[k]);
     if (s.oven.out > prevOut) baked += s.oven.out - prevOut; prevOut = s.oven.out;
@@ -55,6 +57,23 @@ const still = { x: 0, z: 0 };
   assert(nightOut === 0, `personne à la piscine ni à l’épicerie après l’extinction des feux (${nightOut} présences)`);
   assert(s.campers.every(c => c.in || ['arrive', 'queue', 'toPitch', 'leave'].includes(c.phase)), 'chaque camper est dans un état connu');
   const used = new Set(s.campers.filter(c => c.phase !== 'leave').map(c => c.pitch)); assert(used.size === s.campers.filter(c => c.phase !== 'leave').length, 'un seul camper par emplacement');
+  // Classification: the inspector comes the morning after the request and gives one more star if the camp is in order.
+  { const u = E.loadCamping(JSON.parse(JSON.stringify(s))), w = E.loadCamping(JSON.parse(JSON.stringify(s)));
+    for (const x of [u, w]) { x.stars = 1; x.money = 5000; x.inspect = { state: 'idle', day: 0, t: 0, bad: 0, why: '', next: 0 }; }
+    assert(E.starsReady(u) >= 2, `le camping complet est prêt pour ${E.STAR_NAMES[E.starsReady(u) - 1]} (${E.starsReady(u)} étoiles)`);
+    const clean = (x) => { x.sanit.paper = 10; x.sanit.dirt = 0; for (const p of x.pitches) p.trash = 0; x.event = null; };
+    assert(E.manage(u, 'classify') && u.money === 5000 - E.INSPECT_FEE && u.inspect.state === 'asked', 'demander l’inspection coûte ' + E.INSPECT_FEE + ' $');
+    let guard = 0; while (u.inspect.state !== 'on' && guard++ < 6000) E.stepCamping(u, .05, still);
+    assert(u.inspect.state === 'on' && E.hourOf(u) >= 10, 'l’inspecteur arrive le lendemain matin');
+    for (let i = 0; i < (E.INSPECT_LEN + 2) / .05; i++) { clean(u); E.stepCamping(u, .05, still); }
+    assert(u.stars === 2 && u.inspect.state === 'idle', `camping en ordre : une étoile de plus (${u.stars})`);
+    assert(!E.manage(u, 'classify'), 'pas de nouvelle demande tant que les critères de l’étoile suivante ne sont pas remplis');
+    assert(E.nightPrice(u, 'tent') > E.nightPrice(w, 'tent'), 'une étoile de plus relève le tarif de la nuit');
+    E.manage(w, 'classify'); guard = 0; while (w.inspect.state !== 'on' && guard++ < 6000) E.stepCamping(w, .05, still);
+    for (let i = 0; i < (E.INSPECT_LEN + 2) / .05; i++) { clean(w); if (i === 100) w.sanit.dirt = .95; E.stepCamping(w, .05, still); }
+    assert(w.stars === 1 && w.inspect.why, `sanitaires sales pendant la visite : classement refusé (${w.inspect.why})`);
+  }
+  assert(bookedSeen > 5, `les réservations se transforment en arrivées (${bookedSeen} vues en 10 jours)`);
   // 3. Save / load keeps the game going.
   const t = E.loadCamping(JSON.parse(JSON.stringify(s)));
   assert(t.day === s.day && t.campers.length === s.campers.length && Math.round(t.money) === Math.round(s.money), 'save/load ok');
@@ -73,6 +92,24 @@ const still = { x: 0, z: 0 };
   assert(s.sanit.paper > 2 && g.carry.length < 6, 'l’invité réapprovisionne les toilettes');
   for (let i = 0; i < 3; i++) E.addGuest(s, 'q' + i, 'X'); assert(s.guests.length <= E.MAX_GUESTS, 'au plus 4 joueurs');
 }
+// 6. Seasons, prices, bookings and the director's choices.
+{ const s = E.createCamping();
+  const at = d => { s.day = d; return E.seasonOf(s); };
+  assert(at(1) === 'low' && at(10) === 'high' && at(25) === 'mid' && at(31) === 'low', 'les saisons : basse, haute, entre-saison, puis on recommence');
+  s.day = 12; const base = E.demandMul(s, 'tent'), priceBase = E.nightPrice(s, 'tent');
+  assert(E.manage(s, 'price', 'tent', 1.3) && E.nightPrice(s, 'tent') > priceBase && E.demandMul(s, 'tent') < base, 'un prix plus haut rapporte plus par nuit mais fait baisser la demande');
+  assert(E.manage(s, 'price', 'tent', 9) && s.pricing.tent === 1.8 && E.manage(s, 'price', 'tent', 0) && s.pricing.tent === .6, 'les prix restent entre ×0,6 et ×1,8');
+  assert(!E.manage(s, 'price', 'piscine', 1) && !E.manage(s, 'inconnu'), 'une action inconnue est refusée');
+  assert(E.manage(s, 'overbook', null, 17) && s.pricing.overbook === 15 && E.manage(s, 'overbook', null, 99) && s.pricing.overbook === 40, 'la surréservation va de 0 à 40 %');
+  s.pricing.tent = 1; s.money = 100; const before = E.nightPrice(s, 'tent');
+  assert(E.manage(s, 'promo') && s.money === 70 && E.nightPrice(s, 'tent') < before && !E.manage(s, 'promo'), 'la promotion baisse les prix de 20 % pendant 2 jours, une seule à la fois');
+  s.day = 1; s.pricing.overbook = 0; s.unlocked.caravan = true;
+  const f = E.forecast(s, 0); assert(f.capacity >= 6, `prévision de la journée : capacité ${f.capacity}`);
+  const full = E.createCamping(); full.day = 12; full.pricing.high = 1.8; const lowDemand = E.demandMul(full, 'tent'); full.pricing.high = .6; assert(E.demandMul(full, 'tent') > lowDemand * 2, 'une haute saison bon marché remplit beaucoup plus');
+  const open = E.openPitches(E.createCamping());
+  assert(open >= 4, 'le camping de départ a ses premiers emplacements');
+}
+
 // 5. Buying needs a deliberate stop: crossing a tile costs nothing, standing on it pays after BUY_DELAY seconds.
 { const s = E.createCamping(); s.money = 500; const u = E.visibleUnlocks(s).find(x => x.id === 'receptionist');
   s.player.x = u.pos[0]; s.player.z = u.pos[1];

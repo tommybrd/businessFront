@@ -33,6 +33,7 @@ export function createRoom(cfg){
   if(m.t==='in')en.guestInput(st,id,m);else if(m.t==='pick'&&typeof m.k==='string')en.setPick(st,m.k,!!m.on,b);else if(m.t==='empty')en.emptyHands(st,b);
   else if(m.t==='mission'&&typeof m.loop==='string')en.assignMission(st,m.id,m.loop);
   else if(m.t==='bank'&&en.bankAction&&typeof m.a==='string')en.bankAction(st,m.a,typeof m.k==='string'?m.k:null,m.n);
+  else if(m.t==='manage'&&en.manage&&typeof m.a==='string')en.manage(st,m.a,typeof m.k==='string'?m.k:null,m.n);
   else if(m.t==='reset')resetGame(g);}
  async function startHost(code,resume){busy(true);status(resume?'Retour dans la partie…':'Ouverture de la partie…');let err=null;
   try{await loadOther();const seen=new Map(),where=new Map();

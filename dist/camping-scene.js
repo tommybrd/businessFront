@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY} from './camping-engine.js';
+import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN} from './camping-engine.js';
 
 // Low-poly view of the campsite: pitches with their tents and caravans, the toilet block, the shop, the pool and the stage show
 // what the simulation holds. Nothing here decides anything.
@@ -51,8 +51,12 @@ export function createCampingScene(canvas,getState){
  for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,14,-5.85],[0,14,-9.85]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
  box(scene,40,.05,2.6,0,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<18;x+=2.4)box(scene,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
  box(scene,12,.04,3.2,0,.02,7.2,'#eadcb8',false);
+ let gateSign=()=>{},gateStars=1;
  {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);scene.add(g);for(const x of [-2.1,2.1])box(g,.22,2.6,.22,x,1.3,0,'#8a5a35');box(g,4.5,.6,.16,0,2.7,0,'#1aa6a6');
-  const t=textPlane('CAMPING DU PARADIS ★★★',4.3,.5,{bg:'#1aa6a6',font:'900 50px system-ui'});t.position.set(0,2.7,.09);g.add(t);}
+  const gc=document.createElement('canvas');gc.width=512;gc.height=60;const gt=new THREE.CanvasTexture(gc);gt.colorSpace=THREE.SRGBColorSpace;
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(4.3,.5),new THREE.MeshStandardMaterial({map:gt,roughness:.6}));sign.position.set(0,2.7,.09);g.add(sign);
+  // The sign shows the stars the camp has been given.
+  gateSign=n=>{const x=gc.getContext('2d');x.fillStyle='#1aa6a6';x.fillRect(0,0,512,60);x.fillStyle='#fff';x.font='900 40px system-ui';x.textAlign='center';x.textBaseline='middle';x.fillText('CAMPING DU PARADIS '+'★'.repeat(n),256,32,490);gt.needsUpdate=true;};gateSign(1);}
  // Lamp posts along the alley: they light up when the night comes.
  const lamps=[];for(const [x,z] of [[-1.5,6],[1.5,-4],[-1.5,-14],[7,-8]]){const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);cyl(g,.05,2.3,0,1.15,0,'#3d454b');const l=new THREE.Mesh(geo.sphere,new THREE.MeshStandardMaterial({color:'#fff3c4',emissive:'#ffd36b',emissiveIntensity:0}));l.scale.setScalar(.2);l.position.y=2.35;g.add(l);lamps.push(l);}
  // Trees give the place its shade.
@@ -153,6 +157,9 @@ export function createCampingScene(canvas,getState){
   g.userData.draw=(paid,hold=0)=>{const key=paid+':'+Math.round(hold*16);if(key===last)return;last=key;const ctx=c.getContext('2d');ctx.clearRect(0,0,256,256);ctx.fillStyle=u.level?'#fff3c455':'#ffffff55';ctx.fillRect(14,14,228,228);ctx.fillStyle='#5fd06acc';const f=paid/u.price;ctx.fillRect(14,242-228*f,228,228*f);ctx.setLineDash([26,18]);ctx.lineWidth=10;ctx.strokeStyle=u.level?'#ffe08a':'#fff';ctx.strokeRect(14,14,228,228);
    ctx.fillStyle='#2b3a44';ctx.textAlign='center';ctx.font='800 30px system-ui';ctx.fillText(u.name,128,u.tip?72:92,220);ctx.font='900 54px system-ui';ctx.fillText(`${(u.price-paid).toLocaleString('fr-FR')} $`,128,u.tip?140:168,220);if(u.tip){ctx.font='700 22px system-ui';ctx.fillText(u.tip,128,196,220);}if(hold>0){ctx.setLineDash([]);ctx.fillStyle='#26343f';ctx.fillRect(30,204,196,34);ctx.fillStyle='#2b6fd6';ctx.fillRect(30,204,196*hold,34);ctx.fillStyle='#fff';ctx.font='800 21px system-ui';ctx.fillText('Restez pour acheter…',128,229,186);}map.needsUpdate=true;};return g;}
 
+ // The inspector walks round the camp while an inspection is on.
+ const inspector=person('#f4f1ea',{hat:'#2b3a44'});inspector.visible=false;const inspTag=sprite(2.2,.5);inspTag.position.set(0,2.1,0);inspector.add(inspTag);
+ const INSPECT_PATH=[[3,4.6],[-6,4.6],[0,2],[8,-.4],[10,-14],[0,-8],[-6,-1.8],[3,4.6]];
  const campers=new Map(),helpers=new Map(),popups=new Map(),posts={};
  const POP={money:{bg:'#2f9e4fee',fg:'#fff'},card:{bg:'#2b6fd6ee',fg:'#fff'},info:{bg:'#26343fee',fg:'#fff'},bad:{bg:'#e8483aee',fg:'#fff'}};
  const player=person('#3aa0d8',{hat:'#1f6f9a'});let time=0,showMissions=false;
@@ -176,6 +183,9 @@ export function createCampingScene(canvas,getState){
   for(const h of s.helpers){let g=helpers.get(h.id);if(!g){g=person(JOB[h.loop]??JOB.fix,{hat:'#ffffff'});const tag=sprite(1.7,.45);tag.position.set(0,2,0);g.add(tag);g.userData.tag=tag;helpers.set(h.id,g);}
    animate(g,h,time);g.userData.body.material=mat(JOB[h.loop]??JOB.fix);g.userData.tag.visible=showMissions||h.loop==='rest';pill(g.userData.tag,MISSIONS.find(m=>m.id===h.loop)?.icon??'',h.loop==='rest'?{bg:'#c9d3d8ee'}:{});stackOf(g.userData.back,h.carry,carryLayout(h.carry.length));}
   for(const [id,g] of helpers)if(!s.helpers.some(h=>h.id===id)){drop(g);helpers.delete(id);}
+  if(s.stars!==gateStars){gateStars=s.stars;gateSign(s.stars);}
+  {const I=s.inspect,on=I.state==='on';inspector.visible=on;if(on){const f=Math.min(.999,1-I.t/INSPECT_LEN)*(INSPECT_PATH.length-1),i=Math.floor(f),a=INSPECT_PATH[i],b=INSPECT_PATH[i+1],u=f-i,x=a[0]+(b[0]-a[0])*u,z=a[1]+(b[1]-a[1])*u;
+   animate(inspector,{x,z,heading:Math.atan2(b[0]-a[0],b[1]-a[1]),moving:true},time);pill(inspTag,I.why?`🧑‍⚕️ ${I.why}`:`🧑‍⚕️ ${Math.ceil(I.t)} s`,I.why?{bg:'#e8483aee',fg:'#fff'}:{bg:'#26343fee',fg:'#fff'});}}
   // Pitches.
   const byPitch=new Map();for(const c of s.campers)if(c.in)byPitch.set(c.pitch,c);
   pitches.forEach((v,i)=>{const open=pitchOpen(s,i),P=s.pitches[i];v.g.visible=open;if(!open)return;const c=byPitch.get(i),kind=v.P.kind;
