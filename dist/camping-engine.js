@@ -6,7 +6,7 @@
 // holds plain JSON; the 3D view only draws this state.
 export const SAVE_SCHEMA=1,GAME='camping',RADIUS=1.05,PLAYER_R=.32;
 export const WORLD={minX:-15.3,maxX:33.5,minZ:-34,maxZ:8.4};
-export const ITEMS={paper:{name:'Papier toilette'},dough:{name:'Pâton'},bread:{name:'Baguette',price:2},ice:{name:'Glace',price:3},ph:{name:'pH moins'},towel:{name:'Serviette propre'},drink:{name:'Boisson fraîche',price:2},cream:{name:'Crème solaire',price:7},gas:{name:'Bouteille de gaz',price:16},souv:{name:'Souvenir',price:6},chlor:{name:'Chlore'},trash:{name:'Sac poubelle'}};
+export const ITEMS={paper:{name:'Papier toilette'},dough:{name:'Pâton'},bread:{name:'Baguette',price:2},ice:{name:'Glace',price:3},potato:{name:'Pomme de terre'},raw:{name:'Viande crue'},fries:{name:'Frites'},steak:{name:'Steak grillé'},ph:{name:'pH moins'},towel:{name:'Serviette propre'},drink:{name:'Boisson fraîche',price:2},cream:{name:'Crème solaire',price:7},gas:{name:'Bouteille de gaz',price:16},souv:{name:'Souvenir',price:6},chlor:{name:'Chlore'},trash:{name:'Sac poubelle'}};
 export const PICKABLE=Object.keys(ITEMS);
 // The day: 7:00 to 23:00 lasts OPEN seconds, the night (23:00 to 7:00) NIGHT seconds. Night hours count on from 23 to 31.
 export const OPEN=130,NIGHT=20,DAY=OPEN+NIGHT;
@@ -56,6 +56,8 @@ export const SOURCES={paper:{name:'Réserve de papier',item:'paper',pos:[8.6,3.4
  ph:{name:'pH moins',item:'ph',pos:[17.2,-3.7],spot:[17.2,-4.8],cap:6,every:4,needs:'tech'},
  towel:{name:'Serviettes propres',item:'towel',pos:[25.4,-4.1],spot:[25.4,-5],cap:12,every:4,needs:'spa'},
  pdrink:{name:'Boissons du bar',item:'drink',pos:[28.4,-7.8],spot:[28.4,-6.8],cap:10,every:3,needs:'beachbar'},
+ rpotato:{name:'Pommes de terre',item:'potato',pos:[8.8,-31.6],spot:[8.8,-30.7],cap:14,every:2,needs:'resto'},
+ rmeat:{name:'Viande livrée',item:'raw',pos:[23.6,-31.6],spot:[23.6,-30.7],cap:10,every:3,needs:'resto'},
  pice:{name:'Glaces du bar',item:'ice',pos:[26.4,-7.8],spot:[26.4,-6.8],cap:8,every:3,needs:'beachbar'}};
 // East quarter: the leisure services, along an avenue that continues the caravan lane. Each has its own tile.
 export const LOISIRS={laundry:{pos:[20.5,-2.6],pad:[20.5,-.5]},wifi:{pos:[24.8,-2.2],pad:[24.8,-.4]},bikes:{pos:[28.8,-2.6],pad:[28.8,-.5]},
@@ -64,6 +66,12 @@ export const SHUTTLE_SLOTS=[10.2,14.6],SHUTTLE_WAIT=14,SHUTTLE_TRIP=36,MACHINES=
 // The aquatic centre. The old pool is the "grand bassin"; four more basins are bought one by one east of it. Each basin has its
 // own entrance (gate), a capacity, and the kinds of campers who like it best. It opens only if a lifeguard can watch it (each
 // lifeguard watches two basins, in the order of BASIN_ORDER). Water quality is kept in the technical room.
+// Kids' club (two sessions a day, someone must run them: a monitor, or the director in the mascot costume) and the snack-restaurant,
+// which has its own fryer and grill (the machines of BurgerFront) and serves a plate of fries and grilled steak.
+export const CLUB={pos:[17.4,.9],door:[17.4,2.5],mascot:[19.9,1.1],slots:[10,15.2],wait:10,len:14};
+export const RESTO={counter:[16,-27.9],pass:[16,-30.5],tables:[[11.4,-26.2],[13.8,-26.2],[16.2,-26.2],[18.6,-26.2],[21,-26.2],[23.4,-26.2]],cap:10};
+export const MACH={fryer:{name:'Friteuse',in:'potato',out:'fries',pos:[12.4,-32.4],inPad:[11.1,-30.85],outPad:[13.7,-30.85],time:3,batch:4,cap:12},
+ grill:{name:'Grill',in:'raw',out:'steak',pos:[19.6,-32.4],inPad:[18.3,-30.85],outPad:[20.9,-30.85],time:4,batch:3,cap:12}};
 export const BOREHOLE={pos:[32.4,.5],spot:[32.4,2.1]};
 export const BASIN_ORDER=['pool','paddling','slides','lazy','lagoon'];
 export const BASINS={pool:{name:'Grand bassin',icon:'🏊',rect:[8,-19.6,14.4,-15.6],gate:[11.2,-14.7],cap:8,who:['retired','couple','hiker','beaufrere','youth','family','mamie']},
@@ -112,6 +120,9 @@ export const UNLOCKS=[
  {id:'beachbar',name:'Bar de plage',price:300,pos:[31.4,-7.8],after:'pool'},
  {id:'spa',name:'Espace bien-être',price:1100,pos:[22.2,-7.8],after:'slides'},
  {id:'borehole',name:'Forage + château d’eau',price:500,pos:[32.4,2.3],after:'shop'},
+ {id:'kidsclub',name:'Club enfants',price:400,pos:[17.4,4.4],after:'playground'},
+ {id:'monitor',name:'Animateur du club',price:250,pos:[21.4,1.0],after:'kidsclub'},
+ {id:'resto',name:'Bar-restaurant',price:900,pos:[16,-24.4],after:'slides'},
  {id:'stage',name:'Scène + sono',price:480,pos:[4.2,-17.7],after:'pool'},
  {id:'animateur',name:'Animateur',price:350,pos:[1.4,-18.2],after:'stage'},
  {id:'mobil',name:'Quartier des locatifs',price:900,pos:[-5.4,-17.8],after:'pool'},
@@ -190,6 +201,7 @@ function fill(s){s.guests=[];delete s.replica;s.pitches??=[];PITCHES.forEach((p,
  s.rent??=Array.from({length:8},()=>({tier:null,cond:100,broken:null,t:0,fixp:0}));s.owners??=Array.from({length:6},()=>({on:false,mood:70,sublet:false,complained:false}));s.debt??=0;s.work??=0;
  if(!s.rentFix){s.rentFix=true;if(s.unlocked.mobil)for(let n=0;n<2+lvl(s,'mobils')&&n<8;n++)s.rent[n]={tier:'confort',cond:100,broken:null,t:0,fixp:0};}
  s.water??={tank:1,leak:null,leakTimer:80,drought:0,ban:false,units:0};s.power??={kwh:0,load:0,cap:30,trip:0};
+ s.club??={state:'idle',t:0,last:'',kids:[],ok:0};s.mach??={fryer:{in:0,out:0,timer:0,working:false},grill:{in:0,out:0,timer:0,working:false}};s.resto??={fries:0,steak:0};
  s.promo??=0;s.bookings??=[];s.booked??={};s.inspect??={state:'idle',day:0,t:0,bad:0,why:'',next:0};for(let d=1;d<=3;d++)planBookings(s,s.day+d);return s;}
 
 // Tiles to show now: one-off unlocks whose prerequisite is bought, plus the next level of each levelled upgrade. What is
@@ -224,6 +236,7 @@ const fixedBoxes=memo(s=>{const o=[[3.2,5.25,5.8,5.95],[2.8,2.2,6.2,3.6],[SANIT.
  boxAt(o,DUMP.pos,2,1.2);for(const [k,def] of Object.entries(SOURCES))if(sourceOpen(s,k))boxAt(o,def.pos,1.6,1.2);
  if(s.unlocked.shop)o.push([-8.1,5.25,-3.4,5.95],[-8,2.55,-3.4,3.5]);if(s.unlocked.bakery)o.push([-13,5.25,-8.1,5.95],[OVEN.pos[0]-.9,OVEN.pos[1]-.6,OVEN.pos[0]+.9,OVEN.pos[1]+.6]);if(s.unlocked.pool)o.push([POOL.x0-.25,POOL.z0-.25,POOL.x1+.25,POOL.z1+.25]);
  if(s.unlocked.stage)boxAt(o,STAGE.pos,3.6,1.8);
+ if(s.unlocked.kidsclub)boxAt(o,CLUB.pos,3.2,2);if(s.unlocked.resto){o.push([RESTO.counter[0]-4.2,-29.7,RESTO.counter[0]+4.2,-28.7]);for(const M of Object.values(MACH))boxAt(o,M.pos,1.8,1.2);}
  if(s.unlocked.laundry)boxAt(o,LOISIRS.laundry.pos,3.4,2);if(s.unlocked.wifi)boxAt(o,LOISIRS.wifi.pos,.6,.6);if(s.unlocked.bikes)boxAt(o,LOISIRS.bikes.pos,2.8,1.4);if(s.unlocked.caravan)boxAt(o,ELEC,.6,.5);
  PITCHES.forEach((p,i)=>{if((p.kind==='mobil'||p.kind==='owner')&&pitchOpen(s,i))o.push([p.x-1.5,p.z-1.2,p.x+1.5,p.z+.6]);});return o;});
 export function obstacles(s){const o=[...fixedBoxes(s)];for(const c of s.campers){if(!c.in)continue;const p=PITCHES[c.pitch];if(p.kind==='tent')o.push([p.x-.9,p.z-1.15,p.x+.9,p.z+.45]);else if(p.kind==='caravan')o.push([p.x-1.35,p.z-1.05,p.x+1.35,p.z+.35]);}return o;}
@@ -243,6 +256,8 @@ function interact(s,a,dt){a.cool-=dt;if(a.cool>0)return;let did=false;const room
  if(!did&&near(a,DUMP.pos,1.7)&&s.dump<dumpCap(s)&&drop(a,'trash')){s.dump++;did=true;}
  if(!did&&s.unlocked.pool&&(near(a,POOL.pad)||(s.unlocked.tech&&near(a,TECH.chlor)))&&s.pool.chlor<=.62&&drop(a,'chlor')){s.pool.chlor=Math.min(1,s.pool.chlor+.35);did=true;}
  if(!did&&s.unlocked.tech&&near(a,TECH.ph)&&s.aqua.ph>.3&&drop(a,'ph')){s.aqua.ph=Math.max(0,s.aqua.ph-.3);did=true;}
+ if(!did&&s.unlocked.resto){for(const [id,M] of Object.entries(MACH)){const m=s.mach[id];if(room&&m.out>0&&near(a,M.outPad)&&takes(a,M.out)){m.out--;a.carry.push(M.out);did=true;break;}if(m.in<M.cap&&near(a,M.inPad)&&drop(a,M.in)){m.in++;did=true;break;}}
+  if(!did&&near(a,RESTO.pass))for(const k of ['fries','steak'])if(s.resto[k]<RESTO.cap&&drop(a,k)){s.resto[k]++;did=true;break;}}
  if(!did&&s.unlocked.spa&&near(a,SPA.pad)&&s.aqua.spa.towels<14&&drop(a,'towel')){s.aqua.spa.towels++;did=true;}
  if(!did&&s.unlocked.beachbar&&near(a,BAR.pad))for(const k of ['drink','ice'])if(s.aqua.bar[k]<barCap(s)&&drop(a,k)){s.aqua.bar[k]++;did=true;break;}
  if(did)a.cool=.11;}
@@ -263,6 +278,7 @@ function applyUnlock(s,id){s.player.cap=playerCap(s);s.player.speed=s.unlocked.c
  if(id==='cleaner')s.helpers.push(helper(s,'clean','Agent d’entretien'));if(id==='handyman')s.helpers.push(helper(s,'fix','Homme à tout faire'));if(id==='lifeguard')s.helpers.push(helper(s,'pool','Maître-nageur'));
  if(id==='pool')s.pool.chlor=1;
  if(id==='tech'){s.aqua.ph=.5;s.aqua.filter=0;}
+ if(id==='monitor'){const h=helper(s,'club','Animateur du club');s.helpers.push(h);}
  if(id==='owners')syncOwners(s);}
 function applyLevel(s,id){s.player.cap=playerCap(s);if(id==='sac')for(const h of s.helpers)h.cap=helperCap(s);
  if(id.startsWith('t_')){const i=freeRental(s);if(i>=0)s.rent[i]={tier:id.slice(2),cond:100,broken:null,t:0,fixp:0};}
@@ -277,13 +293,15 @@ export const MISSIONS=[
  {id:'sanit',label:'Sanitaires : papier et ménage',icon:'🧻🧽',needs:null},
  {id:'shop',label:'Épicerie : four, pain, glaces et rayons',icon:'🥖🍦🥤→🛒',needs:'shop'},
  {id:'pool',label:'Piscine : chlore et canards',icon:'🧪→🏊',needs:'pool'},
+ {id:'club',label:'Club enfants : animer les séances',icon:'🧒🎈',needs:'kidsclub'},
+ {id:'resto',label:'Restaurant : cuisine et service',icon:'🍟🥩→🍽️',needs:'resto'},
  {id:'fix',label:'Dépannages et tapage nocturne',icon:'🔧🤫',needs:null},
  {id:'rest',label:'Pause',icon:'💤',needs:null}];
 export const missionsFor=(s,h)=>MISSIONS.filter(m=>!m.needs||s.unlocked[m.needs]);
 export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if(!h||!MISSIONS.some(m=>m.id===loop))return false;putBack(s,h.carry);h.carry=[];h.loop=loop;h.phase=null;h.idle=0;h.moving=false;return true;}
 function helper(s,loop,name){return {id:s.nextId++,role:'helper',name,loop,x:1.2,z:7.6,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null,phase:null,ax:(Math.random()-.5)*1.2};}
 // A new seasonal worker takes the job with the fewest hands among those the campsite has, the busiest jobs first.
-function mostNeeded(s){const jobs=['sanit','clean',...(s.unlocked.shop?['shop']:[]),'fix',...(s.unlocked.pool?['pool']:[])],n=j=>s.helpers.filter(h=>h.loop===j).length;return jobs.slice().sort((a,b)=>n(a)-n(b))[0];}
+function mostNeeded(s){const jobs=['sanit','clean',...(s.unlocked.shop?['shop']:[]),'fix',...(s.unlocked.pool?['pool']:[]),...(s.unlocked.resto?['resto']:[])],n=j=>s.helpers.filter(h=>h.loop===j).length;return jobs.slice().sort((a,b)=>n(a)-n(b))[0];}
 function move(a,[x,z],dt,stop=.1){const dx=x-a.x,dz=z-a.z,d=Math.hypot(dx,dz);if(d<=stop){a.moving=false;return true;}const step=Math.min(d,a.speed*dt);a.x+=dx/d*step;a.z+=dz/d*step;a.heading=Math.atan2(dx,dz);a.moving=true;return d-step<=stop;}
 // Tidy walk: along the current lane to the main alley, up or down the alley, then along the lane of the destination.
 function route(a,[x,z],dt,stop=.1){const ax=a.ax??0;
@@ -333,6 +351,8 @@ function stepHelper(s,h,dt){h.wants=null;h.max=h.cap;const L=h.loop;if(L==='rest
   open.sort((a,b)=>b[3]-a[3]);const J=mine?open.find(j=>j[0]===mine):open[0];h.job=J?J[0]:null;
   if(J&&J[2]&&carryJob(s,h,dt,J[0],J[1],J[2],mine?1:(J[0]==='drink'||J[0]==='ice'?barCap(s)-A[J[0]==='towel'?'spa':'bar'][J[0]]:J[0]==='towel'?14-A.spa.towels:1),true))return;
   const idx=Math.max(0,s.helpers.filter(o=>o.loop==='pool').indexOf(h));go(h,[LIFE_CHAIR[0]+(idx%3)*.9,LIFE_CHAIR[1]+Math.floor(idx/3)*.9],dt);return;}
+ if(L==='club'){if(!s.unlocked.kidsclub){h.moving=false;return;}go(h,[CLUB.door[0]+(s.helpers.filter(o=>o.loop==='club').indexOf(h))*.9,CLUB.door[1]+.3],dt);return;}
+ if(L==='resto'){if(!s.unlocked.resto){h.moving=false;return;}if(h.carry.length&&h.idle>4){putBack(s,h.carry);h.carry=[];h.phase=null;h.idle=0;}const j=restoJob(s,h);if(j&&carryJob(s,h,dt,j.item,j.from,j.to,j.need,j.avail))return;go(h,RESTO.pass,dt);return;}
  if(L==='fix'){const sp=s.event?.spots.find(p=>p.fix<REPAIR),rb=sp?-1:RENTAL_PITCH.find((pi,n)=>s.rent[n].tier&&s.rent[n].broken),i=sp||rb>=0?-1:s.pitches.findIndex(p=>p.noisy);if(rb>=0){go(h,doorOf(rb),dt);return;}if(sp)go(h,[sp.x,sp.z],dt);else if(i>=0)go(h,doorOf(i),dt);else h.moving=false;}}
 
 // Work done by standing somewhere: mopping the toilets, repairing, telling noisy campers to be quiet.
@@ -384,7 +404,7 @@ const QUIPS=['Pas de panique, c’est un classique !','Tout est sous contrôle�
 // Day clock. Things happen at fixed hours: the dustcart and the baker at dawn, stale bread thrown at 22:00, lights out
 // at 23:00. When the night ends the report of the day is kept, the bills arrive and the campers plan their day.
 export const BILL_DELAY=160,LATE_FEE=1.25;
-const SUPPLY={paper:.4,bread:.35,ice:1,chlor:3,drink:.6,cream:3,gas:8,souv:3.5,ph:2,towel:.5,pdrink:.6,pice:1};
+const SUPPLY={paper:.4,bread:.35,ice:1,chlor:3,drink:.6,cream:3,gas:8,souv:3.5,ph:2,towel:.5,pdrink:.6,pice:1,rpotato:.3,rmeat:.9};
 function stepDay(s,dt){const h0=hourOf(s);s.clock+=dt;s.report=Math.max(0,s.report-dt);const h1=hourOf(s),at=h=>h0<h&&h1>=h;
  if(at(22)&&s.unlocked.bakery){const n=s.shop.bread+s.oven.out+s.oven.in+s.sources.bread.n;s.shop.bread=s.oven.out=s.oven.in=s.sources.bread.n=0;s.oven.working=false;if(n)popup(s,`🥖 ${n} pain${n>1?'s':''} rassis jeté${n>1?'s':''}`,SHELVES.bread.pos[0],SHELVES.bread.pos[1],'info');}
  // Lights out: what was not done today is dropped (nobody goes for bread or a swim in the middle of the night).
@@ -468,6 +488,9 @@ function planDay(s,c,from){const todo=[],add=(h,act)=>{if(h>=from)todo.push({h,a
  if(s.unlocked.souvenirs&&Math.random()<.3)add(13+Math.random()*6,'souv');
 
  if(s.unlocked.spa&&['retired','couple','beaufrere','mamie'].includes(c.type)&&Math.random()<.4)add(15+Math.random()*4,'spa');
+ if(s.unlocked.kidsclub&&(c.type==='family'||c.type==='mamie')&&Math.random()<.6)add(CLUB.slots[Math.random()<.5?0:1]-.3,'club');
+ if(s.unlocked.resto&&Math.random()<.5)add(12+Math.random()*1.5,'dine');
+ if(s.unlocked.resto&&Math.random()<.45)add(19+Math.random()*1.3,'dine');
  if(s.unlocked.laundry&&c.nights>=2&&Math.random()<.35)add(9+Math.random()*7,'laundry');
  if(s.unlocked.bikes&&Math.random()<.3)add(10+Math.random()*6,'bike');
  if(s.unlocked.playground&&(c.type==='family'||c.type==='mamie')&&Math.random()<.6)add(9.5+Math.random()*8,'play');
@@ -478,7 +501,7 @@ function planDay(s,c,from){const todo=[],add=(h,act)=>{if(h>=from)todo.push({h,a
  c.todo=todo.sort((a,b)=>a.h-b.h);}
 // Opening hours: the pool shuts at 20:00 and the shop at 21:00, well before lights out.
 export const POOL_CLOSE=20,SHOP_CLOSE=21;
-const SIMPLE_ACTS=['laundry','bike','play','sport','beach','spa'],home=c=>doorOf(c.pitch);
+const SIMPLE_ACTS=['laundry','bike','play','sport','beach','spa','club','dine'],home=c=>doorOf(c.pitch);
 const OUT={bread:'🥖 Plus de pain !',ice:'🍦 Plus de glaces !',drink:'🥤 Plus de boissons !',cream:'🧴 Plus de crème solaire !',gas:'🔥 Plus de gaz !',souv:'🧲 Plus de souvenirs !'};
 const begin=(c,act,extra)=>{c.act={kind:act,step:0,t:0,...extra};};
 function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)||(h>=18&&h<20),ev=s.event;let rq=0,sq=0,gone=false,inside=0,swimmers=0,crowd=0;
@@ -515,7 +538,7 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    continue;}
   if(A.kind==='back'){if(route(c,home(c),dt,.05)){c.act=null;c.heading=0;}continue;}
   // Closing time: swimmers get out of the water, the shop serves what is in hand and sends its queue home.
-  if(night&&['sun','bar','laundry','bike','play','sport','beach','spa'].includes(A.kind)){if(A.kind==='sun'&&A.l!=null)s.aqua.lounge[A.l]=0;if(A.kind==='bike'&&A.what&&A.step>=1){s.svc[A.what]++;c.speed=c.ride??2.6;c.ride=null;}if(A.kind==='laundry'&&A.m!=null)s.svc.machines[A.m]=0;c.lying=false;c.act={kind:'back'};continue;}
+  if(night&&['sun','bar','laundry','bike','play','sport','beach','spa','club','dine'].includes(A.kind)){if(A.kind==='sun'&&A.l!=null)s.aqua.lounge[A.l]=0;if(A.kind==='bike'&&A.what&&A.step>=1){s.svc[A.what]++;c.speed=c.ride??2.6;c.ride=null;}if(A.kind==='laundry'&&A.m!=null)s.svc.machines[A.m]=0;c.lying=false;c.act={kind:'back'};continue;}
   if(A.kind==='pool'&&h>=POOL_CLOSE){if(A.step===0){c.act={kind:'back'};continue;}if(A.step===1){A.step=2;glad(c,8,'pool');}}
   if(A.kind==='shop'&&h>=SHOP_CLOSE){if(A.got>0){sale(s,c,A);glad(c,5,A.k);}c.act={kind:'back'};continue;}
   if(A.kind==='wc'){
@@ -572,6 +595,15 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    const k=AQ.bar.drink>0&&(Math.random()<.6||AQ.bar.ice<=0)?'drink':AQ.bar.ice>0?'ice':null;
    if(!k){sad(c,4,'bar');say(s,c,'🍹 Le bar est vide !');}else{AQ.bar[k]--;const fee=k==='drink'?2:3;s.money+=fee;s.today.revenue+=fee;popup(s,`${k==='drink'?'🥤':'🍦'} +${fee} $`,BAR.pos[0],BAR.pos[1]);glad(c,5,'bar');}
    c.act={kind:'back'};continue;}
+  if(A.kind==='club'){if(A.step===0&&route(c,[CLUB.door[0]+(c.ax??0)*1.2,CLUB.door[1]+.5],dt,.2))A.step=1;else if(A.step===1)c.moving=false;continue;}
+  if(A.kind==='dine'){const R=s.resto;
+   if(A.step===0){if(A.tab==null){const used=new Set(s.campers.filter(x=>x.act?.kind==='dine'&&x.act.tab!=null).map(x=>x.act.tab)),free=RESTO.tables.map((_,i)=>i).filter(i=>!used.has(i));
+     if(!free.length){A.t+=dt;if(A.t>10){sad(c,4,'tablefull');c.act={kind:'back'};}continue;}A.tab=free[0];}
+    if(route(c,[RESTO.counter[0]+(c.ax??0),RESTO.counter[1]],dt,.1)){A.step=1;A.t=0;}}
+   else if(A.step===1){c.moving=false;A.t+=dt;if(R.fries>0&&R.steak>0){R.fries--;R.steak--;useWater(s,.005);const fee=Math.round(12*STAR_PRICE[s.stars-1]);s.money+=fee;s.today.revenue+=fee;popup(s,`🍽️ +${fee} $`,RESTO.counter[0],RESTO.counter[1]);A.step=2;A.t=10;}
+    else if(A.t>14){sad(c,6,'dine');say(s,c,'🍽️ Rien à manger !');c.act={kind:'back'};}}
+   else{const T=RESTO.tables[A.tab];if(route(c,[T[0],T[1]+.8],dt,.1)){c.moving=false;A.t-=dt;if(A.t<=0){glad(c,7,'resto');c.act={kind:'back'};}}}
+   continue;}
   if(A.kind==='spa'){const AQ=s.aqua;
    if(A.step===0){if(!route(c,[SPA.door[0]+(c.ax??0)*.5,SPA.door[1]],dt,.1))continue;A.t+=dt;
     if(AQ.spa.towels<1){sad(c,6,'towel');say(s,c,'🧖 Plus de serviettes propres !');c.act={kind:'back'};}
@@ -586,6 +618,7 @@ const WORDS={paper:['Plus de papier depuis mardi.','J’ai dû emprunter le roul
  dirty:['Sanitaires à visiter en apnée.','La douche se méritait.','J’ai croisé une araignée qui payait aussi son emplacement.','On y entre en tongs, on en ressort en prière.'],
  queue:['Vingt minutes de queue pour une douche froide.','On a rencontré tous nos voisins… dans la file des WC.'],clog:['Les WC bouchés, un grand classique.','Le plombier a désormais sa chaise à l’accueil.'],
  water:['Plus d’eau au robinet en pleine journée : on s’est lavés au pastis.','Le château d’eau était vide, pas nous.'],ban:['Douche de trente secondes chrono, vacances ou caserne ?'],
+ club:['Le club enfants ? Pas d’animateur, mes gamins ont fait le club tout seuls.'],dine:['On a commandé, on attend encore : le steak a dû s’échapper.'],tablefull:['Pas une table de libre au restaurant.'],
  rental:['Pas d’eau chaude dans le mobil-home : la douche était une épreuve.','La climatisation en panne par 35 degrés, on a dormi dehors.','La terrasse s’est effondrée sous l’apéritif.'],
  eyes:['L’eau piquait tellement qu’on a pleuré en sortant.','Les yeux rouges toute la semaine, merci la piscine.'],cloudy:['On voyait à peine ses pieds dans le bassin.'],cold:['L’eau de la piscine : parfaite pour un pingouin.'],closed:['Baignade interdite en pleine canicule, faute de maître-nageur.'],incident:['Un toboggan coincé et personne pour nous aider.'],transat:['Tous les transats réservés dès 7 h par des serviettes fantômes.'],bar:['Le bar de la piscine était vide, comme notre verre.'],towel:['Au spa, plus une serviette propre : on s’est essuyé avec nos espoirs.'],spafull:['Le spa était complet, on a attendu devant la porte.'],spa:['Le spa nous a remis les vertèbres en place.'],
  wifi:['Le wifi ? Une légende locale.','Impossible de regarder mon match : la box a rendu l’âme.'],laundry:['Trois machines pour tout le camping, on a fait la queue avec nos slips.'],bike:['On voulait louer des vélos, il n’y en avait plus.'],late:['La navette est partie sans nous. Magnifique.'],
@@ -615,7 +648,7 @@ export const sunny=s=>{const h=hourOf(s);return isDay(s)&&h>=8&&h<19;};
 export const powerCap=s=>30+14*lvl(s,'transfo')+(sunny(s)?7*lvl(s,'solar'):0);
 export function powerLoad(s){let n=3;for(const c of s.campers)if(c.in&&c.kind!=='tent')n+=c.kind==='mobil'?1.6:1.2;
  if(s.unlocked.shop)n+=3;if(s.unlocked.bakery&&s.oven.working)n+=5;if(s.unlocked.pool)n+=2+1.5*Math.max(0,basinCount(s)-1);if(s.unlocked.tech)n+=4*lvl(s,'heating');if(s.unlocked.spa)n+=4;
- if(s.unlocked.laundry)n+=2*s.svc.machines.filter(x=>x).length;if(s.unlocked.wifi)n+=1;if(s.unlocked.borehole&&s.water.tank<tankCap(s)-.02)n+=2;if(s.show.state==='on')n+=4;if(!isDay(s))n+=4;
+ if(s.unlocked.laundry)n+=2*s.svc.machines.filter(x=>x).length;if(s.unlocked.wifi)n+=1;if(s.unlocked.borehole&&s.water.tank<tankCap(s)-.02)n+=2;if(s.show.state==='on')n+=4;if(s.unlocked.resto)n+=3+(s.mach.fryer.working?3:0)+(s.mach.grill.working?3:0);if(!isDay(s))n+=4;
  for(const o of s.owners)if(o.on)n+=.8;return n;}
 const useWater=(s,u)=>{const W=s.water;u*=W.ban?.6:1;W.units+=u;if(s.unlocked.borehole)W.tank=Math.max(0,W.tank-u/tankCap(s));};
 export const waterCut=s=>s.unlocked.borehole&&s.water.tank<.06;
@@ -630,6 +663,29 @@ function stepResources(s,dt){if(s.replica)return;const W=s.water,P=s.power;P.cap
   else if(L.t>=85){W.leak=null;W.leakTimer=90+Math.random()*60;s.bills.push({id:s.nextId++,label:'Plombier : fuite d’eau',amount:90,due:s.t+BILL_DELAY,late:false});popup(s,'🔧 Plombier : facture 90 $',L.x,L.z,'bad');}}
  else if(isDay(s)&&s.day>=3&&(s.unlocked.shop||s.unlocked.pool)){W.leakTimer-=dt;if(W.leakTimer<=0){const far=LEAK_SPOTS.filter(p=>Math.hypot(p[0]-s.player.x,p[1]-s.player.z)>9),p=pick(far.length?far:LEAK_SPOTS);
   W.leak={x:p[0],z:p[1],a:Math.random()*Math.PI*2,t:0,fix:0,found:false};popup(s,'💧 Une fuite d’eau ! Suivez les flaques…',p[0],p[1],'bad');}}}
+function stepKitchen(s,dt){if(!s.unlocked.resto)return;for(const [id,M] of Object.entries(MACH)){const m=s.mach[id];
+ if(m.in>0&&m.out<M.cap){m.working=true;m.timer+=dt;if(m.timer>=M.time){m.timer=0;const n=Math.min(m.in,M.batch,M.cap-m.out);m.in-=n;m.out+=n;}}else{m.working=false;m.timer=0;}}}
+// What the restaurant staff does next: potatoes and meat into the machines, cooked food to the pass.
+function restoJob(s,h){const best=[];
+ for(const [id,M] of Object.entries(MACH)){const m=s.mach[id],src=id==='fryer'?'rpotato':'rmeat';
+  if(m.out>0&&s.resto[M.out]<RESTO.cap)best.push([2+(1-s.resto[M.out]/RESTO.cap),{item:M.out,from:M.outPad,to:RESTO.pass,need:Math.min(m.out,RESTO.cap-s.resto[M.out]),avail:true}]);
+  if(s.sources[src].n>0&&m.in<M.cap)best.push([1+(1-m.in/M.cap)*.5,{item:M.in,from:SOURCES[src].spot,to:M.inPad,need:Math.min(s.sources[src].n,M.cap-m.in),avail:true}]);}
+ const held=h.carry.find(k=>['potato','raw','fries','steak'].includes(k));
+ if(held){const mine=best.find(([,j])=>j.item===held);if(mine)return mine[1];const M=Object.values(MACH).find(m=>m.in===held||m.out===held);return {item:held,from:null,to:M.out===held?RESTO.pass:M.inPad,need:1,avail:true};}
+ best.sort((a,b)=>b[0]-a[0]);return best[0]?.[1]??null;}
+// The kids' club opens twice a day. Parents bring their children; the session is a success only if someone ran it most of the time.
+function stepClub(s,dt){if(!s.unlocked.kidsclub||s.replica)return;const C=s.club,h=hourOf(s);for(const b of bodies(s))b.costume=near(b,CLUB.mascot,1.2);
+ const monitor=crewAt(s,['club'],CLUB.door,3.4)||bodies(s).some(b=>b.costume);
+ if(C.state==='idle'){const k=CLUB.slots.findIndex((x,i)=>h>=x&&h<x+.4&&C.last!==`${s.day}-${i}`);
+  if(k>=0){C.state='wait';C.t=CLUB.wait;C.last=`${s.day}-${k}`;popup(s,'🧒 Le club enfants ouvre ses portes',CLUB.door[0],CLUB.door[1],'info');
+   for(const c of s.campers)if(c.in&&!c.act&&!c.sleep&&c.todo[0]?.act==='club'){c.todo.shift();c.act={kind:'club',step:0,t:0};}}}
+ else if(C.state==='wait'){C.t-=dt;if(C.t<=0){C.kids=[];for(const c of s.campers)if(c.act?.kind==='club'){if(c.act.step===1){c.away=true;c.act=null;C.kids.push(c.id);}else c.act={kind:'back'};}C.state=C.kids.length?'on':'idle';C.t=CLUB.len;C.ok=0;}}
+ else if(C.state==='on'){C.t-=dt;if(monitor)C.ok+=dt;
+  if(C.t<=0){const good=C.ok>=CLUB.len*.7,hunt=C.last.endsWith('-1')&&good;
+   for(const c of s.campers)if(C.kids.includes(c.id)){c.away=false;c.x=CLUB.door[0];c.z=CLUB.door[1]+.2;c.act={kind:'back'};
+    if(good){glad(c,hunt?15:10,'club');s.money+=4;s.today.revenue+=4;}else{sad(c,9,'club');say(s,c,'🧒 Pas d’animateur au club !');}}
+   if(good)popup(s,hunt?`🗺️ Chasse au trésor réussie ! ${C.kids.length} enfants ravis`:`🧒 Club : ${C.kids.length} enfant${C.kids.length>1?'s':''} ravi${C.kids.length>1?'s':''} (+${4*C.kids.length} $)`,CLUB.door[0],CLUB.door[1],'money');
+   C.kids=[];C.state='idle';}}}
 // ---- Rentals and owners.
 function syncOwners(s){s.owners.forEach((o,i)=>{if(i<ownerCount(s)&&!o.on&&!o.left){o.on=true;o.mood=70;}});}
 // Every night: owners pay their lease (and the sublet share), a broken rental may appear, a loan costs interest, a tenant may leave.
@@ -776,7 +832,7 @@ export function stepCamping(s,dt,input){dt=Math.min(dt,.1);s.t+=dt;const p=s.pla
  walk(s,p,p.input??STILL,dt,boxes);interact(s,p,dt);playerExtras(s,p,dt);
  for(const g of s.guests){g.cap=p.cap;g.speed=p.speed;walk(s,g,g.input,dt,boxes);interact(s,g,dt);playerExtras(s,g,dt);}
  for(const h of s.helpers)stepHelper(s,h,dt);
- stepDay(s,dt);stepOven(s,dt);stepShuttle(s,dt);stepAqua(s,dt);stepRentals(s,dt);stepResources(s,dt);stepInspect(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
+ stepDay(s,dt);stepOven(s,dt);stepKitchen(s,dt);stepClub(s,dt);stepShuttle(s,dt);stepAqua(s,dt);stepRentals(s,dt);stepResources(s,dt);stepInspect(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
  if(s.popups.length){let old=false;for(const pp of s.popups){pp.t+=dt;if(pp.t>=1.6)old=true;}if(old)s.popups=s.popups.filter(pp=>pp.t<1.6);}}
 
 export function loadCamping(json){const o=typeof json==='string'?JSON.parse(json):json;if(!o||o.game!==GAME||o.schema!==SAVE_SCHEMA||!o.player||!Array.isArray(o.campers))throw Error('Sauvegarde illisible.');

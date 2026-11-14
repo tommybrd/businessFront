@@ -26,10 +26,11 @@ const still = { x: 0, z: 0 };
 // 2. A campsite with everything bought, the player idle: the staff keep it alive for ten days without an error.
 { const s = E.createCamping(); s.money = 1e5;
   for (let g = 0; g < 80; g++) { const u = E.visibleUnlocks(s).filter(u => !u.level)[0]; if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[u.id]; t += .05) E.stepCamping(s, .05, still); }
-  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'borehole', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
+  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'borehole', 'kidsclub', 'monitor', 'resto', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
   for (const L of E.LEVELS) for (let i = 0; i < (L.id === 'equipe' ? 8 : ({ t_eco: 2, t_confort: 2, t_premium: 1, t_lodge: 2, t_cabane: 1 })[L.id] ?? L.max ?? 2); i++) { const u = E.visibleUnlocks(s).find(u => u.id === L.id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, L.id); for (let t = 0; t < 40 && E.lvl(s, L.id) === before; t += .05) E.stepCamping(s, .05, still); }
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000; E.manage(s, 'daypass', 'quota', 20);
   const basinsUsed = new Set(), incSeen = new Set(), spaSeen = new Set(), visSeen = new Set(); let sunSeen = 0, barSeen = 0, towelSeen = 0, maxPh = 0, minChlor = 1, issues = 0, closedSeen = 0;
+  const clubJoy = new Set(), dineSeen = new Set(); let friesOut = 0, steakOut = 0, prevF = 0, prevS = 0;
   let leaks = 0, leakGone = 0, tripSeen = 0, minTank = 9, wasLeak = false, wasEv = false; const billLabels = new Set();
   let brokenSeen = 0, fixedSeen = 0; const wasBroken = new Set();
   const seenB = new Set(); let bookedSeen = 0, laundered = 0, rides = 0, played = 0, sported = 0, beach = 0, wifiDown = 0; const svcSeen = new Set();
@@ -43,6 +44,8 @@ const still = { x: 0, z: 0 };
     { const A = s.aqua; for (const c of s.campers) { if (c.act?.kind === 'pool' && c.act.b && c.act.step >= 1) basinsUsed.add(c.act.b); if (c.act?.kind === 'sun' && c.act.step === 2) sunSeen++; if (c.act?.kind === 'bar') barSeen++; }
       for (const i of A.incidents) incSeen.add(i.id); for (const x of A.spa.sessions) spaSeen.add(x.id + ':' + s.day); for (const v of A.visitors) visSeen.add(v.id);
       if (A.lounge.some(x => x === 1)) towelSeen++; maxPh = Math.max(maxPh, A.ph); minChlor = Math.min(minChlor, s.pool.chlor); if (E.waterIssue(s)) issues++; }
+    for (const c of s.campers) { if (c.joy === 'club') clubJoy.add(c.id + ':' + s.day); if (c.act?.kind === 'dine' && c.act.step === 2) dineSeen.add(c.id + ':' + s.day); }
+    if (s.mach.fryer.out > prevF) friesOut += s.mach.fryer.out - prevF; prevF = s.mach.fryer.out; if (s.mach.grill.out > prevS) steakOut += s.mach.grill.out - prevS; prevS = s.mach.grill.out;
     { const lk = !!s.water.leak; if (lk && !wasLeak) leaks++; if (!lk && wasLeak) leakGone++; wasLeak = lk; const ev = s.event?.kind === 'disj'; if (ev && !wasEv) tripSeen++; wasEv = ev; minTank = Math.min(minTank, s.water.tank); for (const b of s.bills) billLabels.add(b.label); }
     s.rent.forEach((R, n) => { if (R.broken && !wasBroken.has(n)) { wasBroken.add(n); brokenSeen++; } else if (!R.broken && wasBroken.has(n)) { wasBroken.delete(n); fixedSeen++; } });
     for (const b of s.bookings) if (b.done && !seenB.has(b.id)) { seenB.add(b.id); bookedSeen++; }
@@ -68,6 +71,11 @@ const still = { x: 0, z: 0 };
   assert(nightOut === 0, `personne à la piscine ni à l’épicerie après l’extinction des feux (${nightOut} présences)`);
   assert(s.campers.every(c => c.in || ['arrive', 'queue', 'toPitch', 'leave'].includes(c.phase)), 'chaque camper est dans un état connu');
   const used = new Set(s.campers.filter(c => c.phase !== 'leave').map(c => c.pitch)); assert(used.size === s.campers.filter(c => c.phase !== 'leave').length, 'un seul camper par emplacement');
+  assert(clubJoy.size >= 2, `le club enfants est animé : ${clubJoy.size} familles contentes`);
+  assert(dineSeen.size >= 10 && friesOut > 20 && steakOut > 20, `le restaurant sert ${dineSeen.size} repas (${friesOut} frites et ${steakOut} steaks sortis des machines)`);
+  { const q = E.loadCamping(JSON.parse(JSON.stringify(s))); for (const h of q.helpers) if (h.loop === 'club') h.loop = 'rest'; q.player.x = 1.6; q.player.z = 6.2; const gripes = new Set();
+    for (let i = 0; i < E.DAY * 20 * 2.2; i++) { E.stepCamping(q, .05, still); for (const c of q.campers) if (c.gripe === 'club') gripes.add(c.id); }
+    assert(gripes.size >= 1, `sans animateur, les parents se plaignent du club (${gripes.size})`); }
   assert(leaks >= 1 && leakGone === leaks || leakGone >= leaks - 1, `des fuites surviennent (${leaks}) et sont arrêtées (${leakGone})`);
   assert(minTank > .05 && E.powerCap(s) > 60, `le château d’eau ne se vide pas (mini ${minTank.toFixed(2)}) et la puissance suit (${E.powerCap(s)} kW), ${tripSeen} disjonction(s)`);
   assert(billLabels.has('Électricité') && billLabels.has('Eau'), 'les factures d’électricité et d’eau arrivent séparément');
