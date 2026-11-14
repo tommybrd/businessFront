@@ -5,7 +5,7 @@
 // review when they go; the average is the reputation of the campsite. The simulation runs in real seconds and only
 // holds plain JSON; the 3D view only draws this state.
 export const SAVE_SCHEMA=1,GAME='camping',RADIUS=1.05,PLAYER_R=.32;
-export const WORLD={minX:-15.3,maxX:17.3,minZ:-21,maxZ:8.4};
+export const WORLD={minX:-15.3,maxX:33.5,minZ:-21,maxZ:8.4};
 export const ITEMS={paper:{name:'Papier toilette'},dough:{name:'Pâton'},bread:{name:'Baguette',price:2},ice:{name:'Glace',price:3},drink:{name:'Boisson fraîche',price:2},cream:{name:'Crème solaire',price:7},gas:{name:'Bouteille de gaz',price:16},souv:{name:'Souvenir',price:6},chlor:{name:'Chlore'},trash:{name:'Sac poubelle'}};
 export const PICKABLE=Object.keys(ITEMS);
 // The day: 7:00 to 23:00 lasts OPEN seconds, the night (23:00 to 7:00) NIGHT seconds. Night hours count on from 23 to 31.
@@ -43,6 +43,10 @@ export const SOURCES={paper:{name:'Réserve de papier',item:'paper',pos:[8.6,3.4
  souv:{name:'Souvenirs',item:'souv',pos:[-2.2,7.8],spot:[-2.2,8.35],cap:6,every:6,needs:'souvenirs'},
  ice:{name:'Congélateur',item:'ice',pos:[-9.4,4.4],spot:[-8.3,4.4],cap:10,every:1.5,needs:'freezer'},
  chlor:{name:'Chlore',item:'chlor',pos:[10.8,3.4],spot:[10.8,4.45],cap:5,every:5,needs:'pool'}};
+// East quarter: the leisure services, along an avenue that continues the caravan lane. Each has its own tile.
+export const LOISIRS={laundry:{pos:[20.5,-2.6],pad:[20.5,-.5]},wifi:{pos:[24.8,-2.2],pad:[24.8,-.4]},bikes:{pos:[28.8,-2.6],pad:[28.8,-.5]},
+ playground:{pos:[21.8,4.2]},sports:{pos:[28.2,4.2]},shuttle:{stop:[31.4,7.6]}};
+export const SHUTTLE_SLOTS=[10.2,14.6],SHUTTLE_WAIT=14,SHUTTLE_TRIP=36,MACHINES=3,BIKES=6,PADDLES=4;
 export const SANIT={pos:[8,-3],door:[8,-1.05],paper:[6.1,-.9],mop:[9.9,-.9],cap:10,cabins:3};
 export const DUMP={pos:[-14,7.4],spot:[-12.6,7.4],cap:20};
 export const POOL={x0:8,x1:14.4,z0:-19.6,z1:-15.6,pad:[9,-14.5],gate:[11.2,-14.7],cap:6};
@@ -57,6 +61,12 @@ export const UNLOCKS=[
  {id:'shop',name:'Épicerie',price:150,pos:[-5.75,4.9],after:'receptionist'},
  {id:'shopkeeper',name:'Épicier',price:160,pos:[-2,2.9],after:'shop'},
  {id:'bakery',name:'Boulangerie : four + stand',price:180,pos:[-11.6,6.5],after:'shop'},
+ {id:'laundry',name:'Laverie à jetons',price:260,pos:[20.5,1.1],after:'shop'},
+ {id:'wifi',name:'Wifi du camping',price:180,pos:[24.8,1.1],after:'shop'},
+ {id:'bikes',name:'Vélos et paddles',price:300,pos:[28.8,1.1],after:'laundry'},
+ {id:'playground',name:'Aire de jeux',price:350,pos:[21.8,7.4],after:'laundry'},
+ {id:'sports',name:'Terrain multisports',price:420,pos:[28.2,7.4],after:'playground'},
+ {id:'shuttle',name:'Navette plage',price:500,pos:[31.4,5.7],after:'bikes'},
  {id:'souvenirs',name:'Rayon souvenirs',price:220,pos:[-9.6,6.6],after:'shop'},
  {id:'freezer',name:'Glaces',price:200,pos:[-9.4,4.4],after:'shop'},
  {id:'cart',name:'Voiturette',price:180,pos:[-2.1,-11.8],after:'cleaner'},
@@ -124,7 +134,7 @@ function fill(s){s.guests=[];delete s.replica;s.pitches??=[];PITCHES.forEach((p,
  for(const k of Object.keys(SHELVES))s.shop[k]??=0;s.oven??={in:0,out:0,timer:0,working:false};
  s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=70;s.show??={day:0,state:'idle',t:0,kind:0};s.spawnTimer??=3;
  s.posts??={};s.reviews??=[];s.popups??=[];
- s.stars??=1;s.pricing??={};for(const [k,v] of Object.entries({tent:1,caravan:1,mobil:1,low:1,high:1,overbook:0}))s.pricing[k]??=v;s.promo??=0;s.bookings??=[];s.booked??={};s.inspect??={state:'idle',day:0,t:0,bad:0,why:'',next:0};for(let d=1;d<=3;d++)planBookings(s,s.day+d);return s;}
+ s.stars??=1;s.pricing??={};for(const [k,v] of Object.entries({tent:1,caravan:1,mobil:1,low:1,high:1,overbook:0}))s.pricing[k]??=v;s.svc??={machines:[0,0,0],bikes:BIKES,paddles:PADDLES,shuttle:{state:'idle',t:0,last:'',load:[]}};s.promo??=0;s.bookings??=[];s.booked??={};s.inspect??={state:'idle',day:0,t:0,bad:0,why:'',next:0};for(let d=1;d<=3;d++)planBookings(s,s.day+d);return s;}
 
 // Tiles to show now: one-off unlocks whose prerequisite is bought, plus the next level of each levelled upgrade. What is
 // bought only ever grows, so the list is rebuilt when this signature changes. Callers must not modify the array.
@@ -157,7 +167,8 @@ const boxAt=(o,[x,z],w,d)=>o.push([x-w/2,z-d/2,x+w/2,z+d/2]);
 const fixedBoxes=memo(s=>{const o=[[3.2,5.25,5.8,5.95],[2.8,2.2,6.2,3.6],[SANIT.pos[0]-2.25,SANIT.pos[1]-1.3,SANIT.pos[0]+2.25,SANIT.pos[1]+1.3]];
  boxAt(o,DUMP.pos,2,1.2);for(const [k,def] of Object.entries(SOURCES))if(sourceOpen(s,k))boxAt(o,def.pos,1.6,1.2);
  if(s.unlocked.shop)o.push([-8.1,5.25,-3.4,5.95],[-8,2.55,-3.4,3.5]);if(s.unlocked.bakery)o.push([-13,5.25,-8.1,5.95],[OVEN.pos[0]-.9,OVEN.pos[1]-.6,OVEN.pos[0]+.9,OVEN.pos[1]+.6]);if(s.unlocked.pool)o.push([POOL.x0-.25,POOL.z0-.25,POOL.x1+.25,POOL.z1+.25]);
- if(s.unlocked.stage)boxAt(o,STAGE.pos,3.6,1.8);if(s.unlocked.caravan)boxAt(o,ELEC,.6,.5);
+ if(s.unlocked.stage)boxAt(o,STAGE.pos,3.6,1.8);
+ if(s.unlocked.laundry)boxAt(o,LOISIRS.laundry.pos,3.4,2);if(s.unlocked.wifi)boxAt(o,LOISIRS.wifi.pos,.6,.6);if(s.unlocked.bikes)boxAt(o,LOISIRS.bikes.pos,2.8,1.4);if(s.unlocked.caravan)boxAt(o,ELEC,.6,.5);
  PITCHES.forEach((p,i)=>{if(p.kind==='mobil'&&pitchOpen(s,i))o.push([p.x-1.5,p.z-1.2,p.x+1.5,p.z+.6]);});return o;});
 export function obstacles(s){const o=[...fixedBoxes(s)];for(const c of s.campers){if(!c.in)continue;const p=PITCHES[c.pitch];if(p.kind==='tent')o.push([p.x-.9,p.z-1.15,p.x+.9,p.z+.45]);else if(p.kind==='caravan')o.push([p.x-1.35,p.z-1.05,p.x+1.35,p.z+.35]);}return o;}
 // Push a round body out of every box it overlaps (along the shallowest axis).
@@ -242,6 +253,16 @@ function stepHelper(s,h,dt){h.wants=null;h.max=h.cap;const L=h.loop;if(L==='rest
  if(L==='fix'){const sp=s.event?.spots.find(p=>p.fix<REPAIR),i=sp?-1:s.pitches.findIndex(p=>p.noisy);if(sp)go(h,[sp.x,sp.z],dt);else if(i>=0)go(h,doorOf(i),dt);else h.moving=false;}}
 
 // Work done by standing somewhere: mopping the toilets, repairing, telling noisy campers to be quiet.
+// The beach shuttle: it waits at its stop twice a day; campers who planned the trip walk there, it leaves with those who made it
+// and brings them back later, happy, three dollars poorer.
+function stepShuttle(s,dt){const Z=s.svc.shuttle,h=hourOf(s);if(!s.unlocked.shuttle||s.replica)return;
+ if(Z.state==='idle'){const i=SHUTTLE_SLOTS.findIndex((x,k)=>h>=x&&h<x+.4&&Z.last!==`${s.day}-${k}`);
+  if(i>=0){Z.state='wait';Z.t=SHUTTLE_WAIT;Z.last=`${s.day}-${i}`;popup(s,'🚌 La navette pour la plage est arrivée',LOISIRS.shuttle.stop[0],LOISIRS.shuttle.stop[1],'info');
+   for(const c of s.campers)if(c.in&&!c.act&&!c.sleep&&c.todo[0]?.act==='beach'){c.todo.shift();c.act={kind:'beach',step:0,t:0};}}}
+ else if(Z.state==='wait'){Z.t-=dt;if(Z.t<=0){Z.load=[];for(const c of s.campers)if(c.act?.kind==='beach'){if(c.act.step===1){c.away=true;c.act=null;Z.load.push(c.id);}else{c.act={kind:'back'};sad(c,2,'late');}}
+   Z.state=Z.load.length?'away':'idle';Z.t=SHUTTLE_TRIP;}}
+ else if(Z.state==='away'){Z.t-=dt;if(Z.t<=0){for(const c of s.campers)if(Z.load.includes(c.id)){c.away=false;c.x=LOISIRS.shuttle.stop[0];c.z=LOISIRS.shuttle.stop[1]-.8;c.act={kind:'back'};glad(c,10,'beach');s.money+=3;s.today.revenue+=3;}
+   popup(s,`🏖️ ${Z.load.length} campeur${Z.load.length>1?'s':''} de retour de la plage : +${3*Z.load.length} $`,LOISIRS.shuttle.stop[0],LOISIRS.shuttle.stop[1],'money');Z.load=[];Z.state='idle';}}}
 export const REPAIR=2.5,TECH_DELAY=75,TECH_FEE=50,MOP=.2;
 // The oven bakes OVEN.batch doughs together in OVEN.time seconds, as long as there is room for the loaves.
 function stepOven(s,dt){const O=s.oven;if(!s.unlocked.bakery){return;}
@@ -258,6 +279,7 @@ function stepWork(s,dt){
 // Unforeseen events, one at a time. Each has one or more spots where someone must stand for a moment.
 export const EVENTS={
  disj:{label:'🔌 Le disjoncteur a sauté : une raclette de trop',needs:'caravan',done:'🔌 Courant rétabli',bill:'Électricien',spots:()=>[{x:ELEC[0],z:ELEC[1]}]},
+ wifi:{label:'📶 Le wifi est tombé : redémarrez la box',needs:'wifi',done:'📶 Wifi rétabli',bill:'Informaticien',spots:()=>[{x:LOISIRS.wifi.pad[0],z:LOISIRS.wifi.pad[1]}]},
  wc:{label:'🚽 WC bouchés aux sanitaires',done:'🪠 Débouché !',bill:'Plombier',spots:()=>[{x:SANIT.door[0],z:SANIT.door[1]}]},
  wasps:{label:'🐝 Nid de guêpes sur un emplacement',done:'🐝 Nid enlevé',bill:'Désinsectiseur',spots:s=>{const l=stayers(s);if(!l.length)return null;const c=l[Math.floor(Math.random()*l.length)],d=doorOf(c.pitch);return [{x:d[0],z:d[1],pitch:c.pitch,who:c.id}];}},
  ducks:{label:'🦆 Des canards squattent la piscine',needs:'pool',done:'🦆 Envolés !',bill:'Garde-chasse',spots:()=>[{x:POOL.pad[0],z:POOL.pad[1]}]},
@@ -353,12 +375,17 @@ function planDay(s,c,from){const todo=[],add=(h,act)=>{if(h>=from)todo.push({h,a
  if(s.unlocked.shop&&Math.random()<.22)add(9+Math.random()*8,'cream');
  if(s.unlocked.caravan&&c.kind!=='tent'&&Math.random()<.35)add(8+Math.random()*9,'gas');
  if(s.unlocked.souvenirs&&Math.random()<.3)add(13+Math.random()*6,'souv');
+ if(s.unlocked.laundry&&c.nights>=2&&Math.random()<.35)add(9+Math.random()*7,'laundry');
+ if(s.unlocked.bikes&&Math.random()<.3)add(10+Math.random()*6,'bike');
+ if(s.unlocked.playground&&(c.type==='family'||c.type==='mamie')&&Math.random()<.6)add(9.5+Math.random()*8,'play');
+ if(s.unlocked.sports&&(c.type==='youth'||c.type==='family'||c.type==='beaufrere')&&Math.random()<.5)add(14+Math.random()*5,'sport');
+ if(s.unlocked.shuttle&&Math.random()<.35)add(SHUTTLE_SLOTS[Math.floor(Math.random()*2)]-.4,'beach');
  if(s.unlocked.pool&&Math.random()<.7)add(11+Math.random()*7,'pool');
  if(s.unlocked.freezer&&Math.random()<.6)add(13+Math.random()*5.5,'ice');
  c.todo=todo.sort((a,b)=>a.h-b.h);}
 // Opening hours: the pool shuts at 20:00 and the shop at 21:00, well before lights out.
 export const POOL_CLOSE=20,SHOP_CLOSE=21;
-const home=c=>doorOf(c.pitch);
+const SIMPLE_ACTS=['laundry','bike','play','sport','beach'],home=c=>doorOf(c.pitch);
 const OUT={bread:'🥖 Plus de pain !',ice:'🍦 Plus de glaces !',drink:'🥤 Plus de boissons !',cream:'🧴 Plus de crème solaire !',gas:'🔥 Plus de gaz !',souv:'🧲 Plus de souvenirs !'};
 const begin=(c,act,extra)=>{c.act={kind:act,step:0,t:0,...extra};};
 function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)||(h>=18&&h<20),ev=s.event;let rq=0,sq=0,gone=false,inside=0,swimmers=0,crowd=0;
@@ -374,9 +401,10 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    continue;}
   if(c.phase==='toPitch'){if(route(c,home(c),dt,.05)){c.phase='stay';c.in=true;c.heading=0;planDay(s,c,hourOf(s));}continue;}
   if(c.phase==='leave'){const end=[(c.ax<0?-1:1)*ROAD_END,ROAD_Z];if(route(c,end,dt,.3))gone=true;continue;}
+  if(c.away)continue;
   // Staying: what weighs on the mood right now, then the current outing, or the next thing to do.
   const P=s.pitches[c.pitch];
-  if(P.down)sad(c,dt*1.1,'storm');if(ev?.kind==='wasps'&&ev.spots[0].who===c.id)sad(c,dt*1,'wasps');if(ev?.kind==='disj'&&c.kind!=='tent')sad(c,dt*.5,'power');
+  if(P.down)sad(c,dt*1.1,'storm');if(ev?.kind==='wasps'&&ev.spots[0].who===c.id)sad(c,dt*1,'wasps');if(ev?.kind==='disj'&&c.kind!=='tent')sad(c,dt*.5,'power');if(ev?.kind==='wifi'&&(c.type==='youth'||c.type==='family'||c.type==='couple'))sad(c,dt*.7,'wifi');
   if(night&&!P.noisy)for(let i=0;i<PITCHES.length;i++)if(s.pitches[i].noisy&&Math.hypot(PITCHES[i].x-PITCHES[c.pitch].x,PITCHES[i].z-PITCHES[c.pitch].z)<6.5){sad(c,dt*.9,'noise');break;}
   if(c.mood<72)c.mood+=dt*.12;
   if(night&&c.party&&h>=c.party){c.party=null;P.noisy=true;say(s,c,'🎶 Fiesta !','info');}
@@ -387,7 +415,8 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    if(next&&h>=next.h&&!night){c.todo.shift();
     if(next.act==='out'){checkout(s,c);continue;}
     // Too late to set off: the outing is given up (the pool and the shop are about to close).
-    if(next.act==='pool'){if(h<POOL_CLOSE-1.5)begin(c,'pool');}else if(h<SHOP_CLOSE-1){c.pick=0;begin(c,'shop',{k:next.act,n:next.act==='bread'||next.act==='drink'?1+Math.floor(Math.random()*3):next.act==='ice'?1+Math.floor(Math.random()*2):1,got:0,pay:0});}}
+    if(SIMPLE_ACTS.includes(next.act)){if(h<20)begin(c,next.act);}
+    else if(next.act==='pool'){if(h<POOL_CLOSE-1.5)begin(c,'pool');}else if(h<SHOP_CLOSE-1){c.pick=0;begin(c,'shop',{k:next.act,n:next.act==='bread'||next.act==='drink'?1+Math.floor(Math.random()*3):next.act==='ice'?1+Math.floor(Math.random()*2):1,got:0,pay:0});}}
    else if(s.show.state==='on'&&s.show.t>3&&c.show!==s.day){c.show=s.day;begin(c,'show');}
    else{c.wc-=dt*(night?.12:rushH?1.8:1);if(c.wc<=0){c.wc=28+Math.random()*30;begin(c,'wc');}else{c.moving=false;}}
    continue;}
@@ -411,6 +440,20 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
     if(A.got>=A.n||(A.got>0&&s.shop[A.k]<=0&&A.t>6)){sale(s,c,A);glad(c,5,A.k);c.act={kind:'back'};sq--;continue;}}
    if(A.t>26){if(A.got>0)sale(s,c,A);else{sad(c,8,A.k==='bread'?'bread':A.k==='ice'?'ice':'stock');say(s,c,shopOn?OUT[A.k]??'🛒 Rayon vide !':'🛒 Personne à la caisse !');}c.act={kind:'back'};sq--;}
    continue;}
+  if(A.kind==='laundry'){const L=LOISIRS.laundry;
+   if(A.step===0){if(!route(c,[L.pad[0]+(c.ax??0)*.6,L.pad[1]],dt,.1))continue;const m=s.svc.machines.findIndex(x=>!x);
+    if(m>=0){s.svc.machines[m]=1;A.m=m;A.step=1;A.t=8;s.money+=4;s.today.revenue+=4;popup(s,'🪙 +4 $',L.pos[0],L.pos[1]);}else{A.t+=dt;if(A.t>10){sad(c,3,'laundry');c.act={kind:'back'};}}}
+   else{A.t-=dt;if(A.t<=0){s.svc.machines[A.m]=0;glad(c,5,'laundry');c.act={kind:'back'};}}continue;}
+  if(A.kind==='bike'){const L=LOISIRS.bikes;
+   if(A.step===0){if(!route(c,[L.pad[0]+(c.ax??0)*.6,L.pad[1]],dt,.1))continue;A.what=s.svc.bikes>0?'bikes':s.svc.paddles>0?'paddles':null;
+    if(!A.what){sad(c,4,'bike');say(s,c,'🚲 Plus rien à louer !');c.act={kind:'back'};}else{s.svc[A.what]--;A.step=1;A.t=14;c.ride=c.speed;c.speed=4.4;}}
+   else if(A.step===1){A.t-=dt;move(c,[31+Math.sin(A.t)*1.6,-5.85+Math.cos(A.t*.7)*1.6],dt,.2);if(A.t<=0)A.step=2;}
+   else if(route(c,[L.pad[0]+(c.ax??0)*.6,L.pad[1]],dt,.1)){c.speed=c.ride??2.6;c.ride=null;s.svc[A.what]++;const fee=A.what==='bikes'?6:8;s.money+=fee;s.today.revenue+=fee;popup(s,`${A.what==='bikes'?'🚲':'🏄'} +${fee} $`,L.pos[0],L.pos[1]);glad(c,7,'bike');c.act={kind:'back'};}
+   continue;}
+  if(A.kind==='play'||A.kind==='sport'){const L=LOISIRS[A.kind==='play'?'playground':'sports'];
+   if(A.step===0){if(route(c,[L.pos[0]+(c.ax??0)*1.4,L.pos[1]-.6],dt,.2)){A.step=1;A.t=9;}}
+   else{A.t-=dt;c.moving=Math.sin(A.t*3)>0;if(A.t<=0){glad(c,A.kind==='play'?6:7,A.kind==='play'?'playground':'sports');c.act={kind:'back'};}}continue;}
+  if(A.kind==='beach'){const S=LOISIRS.shuttle.stop;if(A.step===0&&route(c,[S[0]+(c.ax??0)*1.2,S[1]-.8],dt,.2))A.step=1;else if(A.step===1)c.moving=false;continue;}
   if(A.kind==='pool'){
    if(A.step===0){if(!route(c,[POOL.gate[0]+(c.ax??0),POOL.gate[1]],dt,.1))continue;
     if(ev?.kind==='ducks'){sad(c,4,'ducks');say(s,c,'🦆 Y a des canards…');c.act={kind:'back'};}
@@ -427,6 +470,7 @@ function sale(s,c,A){const amount=A.pay;if(!(amount>0))return;s.today.revenue+=a
 const WORDS={paper:['Plus de papier depuis mardi.','J’ai dû emprunter le rouleau du voisin.','Papier toilette : denrée rare, comme l’eau au Sahara.','On a fini par utiliser le dépliant du camping.'],
  dirty:['Sanitaires à visiter en apnée.','La douche se méritait.','J’ai croisé une araignée qui payait aussi son emplacement.','On y entre en tongs, on en ressort en prière.'],
  queue:['Vingt minutes de queue pour une douche froide.','On a rencontré tous nos voisins… dans la file des WC.'],clog:['Les WC bouchés, un grand classique.','Le plombier a désormais sa chaise à l’accueil.'],
+ wifi:['Le wifi ? Une légende locale.','Impossible de regarder mon match : la box a rendu l’âme.'],laundry:['Trois machines pour tout le camping, on a fait la queue avec nos slips.'],bike:['On voulait louer des vélos, il n’y en avait plus.'],late:['La navette est partie sans nous. Magnifique.'],
  stock:['Un rayon vide, c’est un jour de moins de vacances.','Plus de crème solaire : coup de soleil offert par la maison.','L’épicerie ? Un joli décor.'],
  bread:['La baguette ? Quelle baguette ?','Pas de pain au petit-déjeuner, vacances gâchées.','Les croissants, on nous en a parlé, on n’en a jamais vu.'],ice:['Plus de glaces en plein mois d’août !','Un camping sans glace, c’est un sapin sans guirlande.'],
  green:['Piscine verte, grenouilles en option.','L’eau avait la couleur d’une soupe de poireaux.'],ducks:['On a nagé avec les canards.','Les canards avaient réservé avant nous.'],full:['Piscine bondée, on a fait trempette debout.'],
@@ -512,7 +556,7 @@ export function stepCamping(s,dt,input){dt=Math.min(dt,.1);s.t+=dt;const p=s.pla
  walk(s,p,p.input??STILL,dt,boxes);interact(s,p,dt);playerExtras(s,p,dt);
  for(const g of s.guests){g.cap=p.cap;g.speed=p.speed;walk(s,g,g.input,dt,boxes);interact(s,g,dt);playerExtras(s,g,dt);}
  for(const h of s.helpers)stepHelper(s,h,dt);
- stepDay(s,dt);stepOven(s,dt);stepInspect(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
+ stepDay(s,dt);stepOven(s,dt);stepShuttle(s,dt);stepInspect(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
  if(s.popups.length){let old=false;for(const pp of s.popups){pp.t+=dt;if(pp.t>=1.6)old=true;}if(old)s.popups=s.popups.filter(pp=>pp.t<1.6);}}
 
 export function loadCamping(json){const o=typeof json==='string'?JSON.parse(json):json;if(!o||o.game!==GAME||o.schema!==SAVE_SCHEMA||!o.player||!Array.isArray(o.campers))throw Error('Sauvegarde illisible.');
