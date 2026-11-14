@@ -6,7 +6,7 @@
 // holds plain JSON; the 3D view only draws this state.
 export const SAVE_SCHEMA=1,GAME='camping',RADIUS=1.05,PLAYER_R=.32;
 export const WORLD={minX:-15.3,maxX:17.3,minZ:-21,maxZ:8.4};
-export const ITEMS={paper:{name:'Papier toilette'},bread:{name:'Baguette',price:2},ice:{name:'Glace',price:3},chlor:{name:'Chlore'},trash:{name:'Sac poubelle'}};
+export const ITEMS={paper:{name:'Papier toilette'},dough:{name:'Pâton'},bread:{name:'Baguette',price:2},ice:{name:'Glace',price:3},drink:{name:'Boisson fraîche',price:2},cream:{name:'Crème solaire',price:7},gas:{name:'Bouteille de gaz',price:16},souv:{name:'Souvenir',price:6},chlor:{name:'Chlore'},trash:{name:'Sac poubelle'}};
 export const PICKABLE=Object.keys(ITEMS);
 // The day: 7:00 to 23:00 lasts OPEN seconds, the night (23:00 to 7:00) NIGHT seconds. Night hours count on from 23 to 31.
 export const OPEN=130,NIGHT=20,DAY=OPEN+NIGHT;
@@ -24,15 +24,27 @@ export const doorOf=i=>[PITCHES[i].x,PITCHES[i].z+1.95];
 export const GATE=[0,8.6],ROAD_Z=10.4,ROAD_END=16.5;
 export const RECEPTION={pos:[4.5,5.6],serve:[4.5,4.4],cash:[6.6,4.4],queue:i=>[4.5+i,6.75],max:6};
 export const SHOP={pos:[-5.75,5.6],till:[-4.3,5.6],serve:[-4.3,4.4],cash:[-2.6,4.4],queue:i=>[-4.3-i,6.75],max:5};
-export const SHELVES={bread:{name:'Pain',pos:[-7.2,5.6],cap:10,needs:'shop'},ice:{name:'Glaces',pos:[-5.9,5.6],cap:8,needs:'freezer'}};
+// Shop shelves: the bakery stand, the ice-cream freezer and a general rack (drinks, sun cream, gas, souvenirs) that shares one pad.
+const RACK=[-7.3,4.4];
+export const SHELVES={bread:{name:'Pain',pos:[-11.2,5.6],cap:10,needs:'bakery'},ice:{name:'Glaces',pos:[-5.9,5.6],cap:8,needs:'freezer'},
+ drink:{name:'Boissons',pos:[-7.5,5.6],zone:RACK,cap:10,needs:'shop'},cream:{name:'Crème solaire',pos:[-7.5,5.6],zone:RACK,cap:6,needs:'shop'},
+ gas:{name:'Gaz',pos:[-7.5,5.6],zone:RACK,cap:4,needs:'caravan'},souv:{name:'Souvenirs',pos:[-7.5,5.6],zone:RACK,cap:6,needs:'souvenirs'}};
 export const shelfZone=([x,z])=>[x,z-1.2];
+export const zoneOf=def=>def.zone??shelfZone(def.pos);
+export const RACK_KINDS=['drink','cream','gas','souv'];
+// The bakery: the baker brings dough at dawn, it goes into the oven, bakes, and the bread is put on the stand.
+export const OVEN={pos:[-13.3,3.4],inPad:[-13.9,4.6],outPad:[-12.6,4.6],cap:12,batch:6,time:4};
 // Deliveries: `spot` is where staff stand to take from them. Bread only comes once a day, at dawn.
 export const SOURCES={paper:{name:'Réserve de papier',item:'paper',pos:[8.6,3.4],spot:[8.6,4.45],cap:10,every:2.4},
- bread:{name:'Pain du boulanger',item:'bread',pos:[-2.2,7.4],spot:[-1.25,7.4],cap:0,needs:'shop'},
+ bread:{name:'Pâtons du boulanger',item:'dough',pos:[-10.8,7.8],spot:[-10.8,8.35],cap:0,needs:'bakery'},
+ drink:{name:'Boissons',item:'drink',pos:[-8.2,7.8],spot:[-8.2,8.35],cap:12,every:2.2,needs:'shop'},
+ cream:{name:'Crème solaire',item:'cream',pos:[-6.2,7.8],spot:[-6.2,8.35],cap:6,every:5,needs:'shop'},
+ gas:{name:'Bouteilles de gaz',item:'gas',pos:[-4.2,7.8],spot:[-4.2,8.35],cap:4,every:9,needs:'caravan'},
+ souv:{name:'Souvenirs',item:'souv',pos:[-2.2,7.8],spot:[-2.2,8.35],cap:6,every:6,needs:'souvenirs'},
  ice:{name:'Congélateur',item:'ice',pos:[-9.4,4.4],spot:[-8.3,4.4],cap:10,every:1.5,needs:'freezer'},
  chlor:{name:'Chlore',item:'chlor',pos:[10.8,3.4],spot:[10.8,4.45],cap:5,every:5,needs:'pool'}};
 export const SANIT={pos:[8,-3],door:[8,-1.05],paper:[6.1,-.9],mop:[9.9,-.9],cap:10,cabins:3};
-export const DUMP={pos:[-12.6,7.4],spot:[-11.2,7.4],cap:20};
+export const DUMP={pos:[-14,7.4],spot:[-12.6,7.4],cap:20};
 export const POOL={x0:8,x1:14.4,z0:-19.6,z1:-15.6,pad:[9,-14.5],gate:[11.2,-14.7],cap:6};
 export const STAGE={pos:[4.2,-17.7],pad:[4.2,-15.9],crowd:i=>[1.8+(i%7)*.8,-15.2+(Math.floor(i/7)%3)*.6]};
 export const ELEC=[2,-10.8],DESK=[6.9,2.3];
@@ -42,8 +54,10 @@ export const UNLOCKS=[
  {id:'receptionist',name:'Réceptionniste',price:70,pos:[2.4,4.4],after:null},
  {id:'cleaner',name:'Agent d’entretien',price:110,pos:[-10.2,7.2],after:'receptionist'},
  {id:'terminal',name:'Terminal CB',price:90,pos:[2.6,6.7],after:'receptionist'},
- {id:'shop',name:'Épicerie + pain',price:150,pos:[-5.75,4.9],after:'receptionist'},
+ {id:'shop',name:'Épicerie',price:150,pos:[-5.75,4.9],after:'receptionist'},
  {id:'shopkeeper',name:'Épicier',price:160,pos:[-2,2.9],after:'shop'},
+ {id:'bakery',name:'Boulangerie : four + stand',price:180,pos:[-11.6,6.5],after:'shop'},
+ {id:'souvenirs',name:'Rayon souvenirs',price:220,pos:[-9.6,6.6],after:'shop'},
  {id:'freezer',name:'Glaces',price:200,pos:[-9.4,4.4],after:'shop'},
  {id:'cart',name:'Voiturette',price:180,pos:[-2.1,-11.8],after:'cleaner'},
  {id:'caravan',name:'Caravanes + bornes',price:280,pos:[4.5,-7.8],after:'shop'},
@@ -77,6 +91,7 @@ export const sourceCap=(s,k)=>k==='bread'?Math.max(s.sources.bread.n,breadOrder(
 export const shelfOpen=(s,k)=>!!s.unlocked[SHELVES[k].needs];
 export const shelfCap=(s,k)=>Math.round(SHELVES[k].cap*stockMul(s));
 export const sanitCap=s=>Math.round(SANIT.cap*stockMul(s));
+export const ovenCap=s=>Math.round(OVEN.cap*stockMul(s));
 export const cabins=s=>SANIT.cabins+lvl(s,'sanit');
 export const dumpCap=s=>Math.round(DUMP.cap*stockMul(s));
 export const nightPrice=(s,kind)=>Math.round(KINDS[kind].price*(1+.1*lvl(s,'confort')));
@@ -93,12 +108,13 @@ export const avgMood=s=>{const l=s.campers.filter(c=>c.in);return l.length?l.red
 const newDay=()=>({revenue:0,arrivals:0,departures:0,stars:0,lost:0,bills:0,fixed:0,show:null});
 export function createCamping(){const s={schema:SAVE_SCHEMA,game:GAME,t:0,money:40,piles:[0,0],nextId:1,
  player:{id:0,role:'player',x:1.6,z:6.2,heading:0,carry:[],cap:6,speed:4.2,cool:0,moving:false},
- guests:[],helpers:[],posts:{},pitches:[],campers:[],sanit:{paper:8,dirt:0},shop:{bread:0,ice:0},sources:{},pool:{chlor:1},dump:0,
+ guests:[],helpers:[],posts:{},pitches:[],campers:[],sanit:{paper:8,dirt:0},shop:{bread:0,ice:0,drink:0,cream:0,gas:0,souv:0},oven:{in:0,out:0,timer:0,working:false},sources:{},pool:{chlor:1},dump:0,
  unlocked:{},levels:{},paid:{},rep:2.5,reviews:[],lost:0,arrivals:0,clock:OPEN*.375,day:1,popups:[]};
  return fill(s);}
 // Fields added since the first saves get their defaults here, for new games and loaded ones alike.
 function fill(s){s.guests=[];delete s.replica;s.pitches??=[];PITCHES.forEach((p,i)=>s.pitches[i]??={by:null,trash:0,noisy:false,down:false});
  for(const k of Object.keys(SOURCES))s.sources[k]??={n:k==='paper'?6:0,timer:0};
+ for(const k of Object.keys(SHELVES))s.shop[k]??=0;s.oven??={in:0,out:0,timer:0,working:false};
  s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=70;s.show??={day:0,state:'idle',t:0,kind:0};s.spawnTimer??=3;
  s.posts??={};s.reviews??=[];s.popups??=[];return s;}
 
@@ -123,7 +139,7 @@ const crewAt=(s,loops,pos,r=1.3)=>s.helpers.some(h=>loops.includes(h.loop)&&!h.m
 const takes=(a,item)=>a.role==='player'?a.pick?.[item]!==false:a.wants===item&&count(a,item)<(a.max??a.cap);
 export function setPick(s,item,on,a=s.player){a.pick??={};if(item==='all'||item==='none'){for(const k of PICKABLE)a.pick[k]=item==='all';}else if(PICKABLE.includes(item))a.pick[item]=!!on;}
 // Put back what someone carries: deliveries take their goods back while they have room; the rest is thrown away.
-function putBack(s,list){let back=0;for(const k of list){const src=Object.entries(SOURCES).find(([,d])=>d.item===k);if(src&&sourceOpen(s,src[0])&&s.sources[src[0]].n<sourceCap(s,src[0])){s.sources[src[0]].n++;back++;}}
+function putBack(s,list){let back=0;for(const k of list){if(k==='bread'&&s.unlocked.bakery&&s.oven.out<OVEN.cap){s.oven.out++;back++;continue;}const src=Object.entries(SOURCES).find(([,d])=>d.item===k);if(src&&sourceOpen(s,src[0])&&s.sources[src[0]].n<sourceCap(s,src[0])){s.sources[src[0]].n++;back++;}}
  return {back,thrown:list.length-back};}
 export function emptyHands(s,p=s.player){if(!p.carry.length)return null;const r=putBack(s,p.carry);p.carry=[];popup(s,r.thrown?`🗑️ ${r.back} rangés · ${r.thrown} jetés`:`🗑️ ${r.back} rangés`,p.x,p.z,'info');return r;}
 
@@ -132,7 +148,7 @@ export function emptyHands(s,p=s.player){if(!p.carry.length)return null;const r=
 const boxAt=(o,[x,z],w,d)=>o.push([x-w/2,z-d/2,x+w/2,z+d/2]);
 const fixedBoxes=memo(s=>{const o=[[3.2,5.25,5.8,5.95],[2.8,2.2,6.2,3.6],[SANIT.pos[0]-2.25,SANIT.pos[1]-1.3,SANIT.pos[0]+2.25,SANIT.pos[1]+1.3]];
  boxAt(o,DUMP.pos,2,1.2);for(const [k,def] of Object.entries(SOURCES))if(sourceOpen(s,k))boxAt(o,def.pos,1.6,1.2);
- if(s.unlocked.shop)o.push([-8.1,5.25,-3.4,5.95],[-8,2.55,-3.4,3.5]);if(s.unlocked.pool)o.push([POOL.x0-.25,POOL.z0-.25,POOL.x1+.25,POOL.z1+.25]);
+ if(s.unlocked.shop)o.push([-8.1,5.25,-3.4,5.95],[-8,2.55,-3.4,3.5]);if(s.unlocked.bakery)o.push([-13,5.25,-8.1,5.95],[OVEN.pos[0]-.9,OVEN.pos[1]-.6,OVEN.pos[0]+.9,OVEN.pos[1]+.6]);if(s.unlocked.pool)o.push([POOL.x0-.25,POOL.z0-.25,POOL.x1+.25,POOL.z1+.25]);
  if(s.unlocked.stage)boxAt(o,STAGE.pos,3.6,1.8);if(s.unlocked.caravan)boxAt(o,ELEC,.6,.5);
  PITCHES.forEach((p,i)=>{if(p.kind==='mobil'&&pitchOpen(s,i))o.push([p.x-1.5,p.z-1.2,p.x+1.5,p.z+.6]);});return o;});
 export function obstacles(s){const o=[...fixedBoxes(s)];for(const c of s.campers){if(!c.in)continue;const p=PITCHES[c.pitch];if(p.kind==='tent')o.push([p.x-.9,p.z-1.15,p.x+.9,p.z+.45]);else if(p.kind==='caravan')o.push([p.x-1.35,p.z-1.05,p.x+1.35,p.z+.35]);}return o;}
@@ -144,9 +160,11 @@ function collide(a,boxes,r=PLAYER_R){for(const [x0,z0,x1,z1] of boxes){const cx=
 // One action per tick of cooldown: take from a delivery, pick up a rubbish bag, restock the toilets, a shelf or the pool, fill the skip.
 function interact(s,a,dt){a.cool-=dt;if(a.cool>0)return;let did=false;const room=a.carry.length<a.cap;
  if(room)for(const [k,def] of Object.entries(SOURCES)){const src=s.sources[k];if(sourceOpen(s,k)&&src.n>0&&near(a,def.pos,1.25)&&takes(a,def.item)){src.n--;a.carry.push(def.item);did=true;break;}}
+ if(!did&&room&&s.unlocked.bakery&&s.oven.out>0&&near(a,OVEN.outPad)&&takes(a,'bread')){s.oven.out--;a.carry.push('bread');did=true;}
+ if(!did&&s.unlocked.bakery&&near(a,OVEN.inPad)&&s.oven.in<ovenCap(s)&&drop(a,'dough')){s.oven.in++;did=true;}
  if(!did&&room&&takes(a,'trash'))for(let i=0;i<PITCHES.length;i++){const p=s.pitches[i];if(p.trash>0&&near(a,[PITCHES[i].x,PITCHES[i].z+1.4],1.3)){p.trash--;a.carry.push('trash');did=true;break;}}
- if(!did&&near(a,SANIT.paper)&&s.sanit.paper<=sanitCap(s)-1&&drop(a,'paper')){s.sanit.paper++;did=true;}
- if(!did)for(const [k,def] of Object.entries(SHELVES))if(shelfOpen(s,k)&&near(a,shelfZone(def.pos))&&s.shop[k]<shelfCap(s,k)&&drop(a,k)){s.shop[k]++;did=true;break;}
+ if(!did&&near(a,SANIT.paper)&&s.sanit.paper<sanitCap(s)-.01&&drop(a,'paper')){s.sanit.paper=Math.min(sanitCap(s),s.sanit.paper+1);did=true;}
+ if(!did)for(const [k,def] of Object.entries(SHELVES))if(shelfOpen(s,k)&&near(a,zoneOf(def))&&s.shop[k]<shelfCap(s,k)&&drop(a,k)){s.shop[k]++;did=true;break;}
  if(!did&&near(a,DUMP.pos,1.7)&&s.dump<dumpCap(s)&&drop(a,'trash')){s.dump++;did=true;}
  if(!did&&s.unlocked.pool&&near(a,POOL.pad)&&s.pool.chlor<=.75&&drop(a,'chlor')){s.pool.chlor=Math.min(1,s.pool.chlor+.4);did=true;}
  if(did)a.cool=.11;}
@@ -174,7 +192,7 @@ function applyLevel(s,id){s.player.cap=playerCap(s);if(id==='sac')for(const h of
 export const MISSIONS=[
  {id:'clean',label:'Emplacements : sacs → benne',icon:'🗑️→🚛',needs:null},
  {id:'sanit',label:'Sanitaires : papier et ménage',icon:'🧻🧽',needs:null},
- {id:'shop',label:'Épicerie : pain et glaces en rayon',icon:'🥖🍦→🛒',needs:'shop'},
+ {id:'shop',label:'Épicerie : four, pain, glaces et rayons',icon:'🥖🍦🥤→🛒',needs:'shop'},
  {id:'pool',label:'Piscine : chlore et canards',icon:'🧪→🏊',needs:'pool'},
  {id:'fix',label:'Dépannages et tapage nocturne',icon:'🔧🤫',needs:null},
  {id:'rest',label:'Pause',icon:'💤',needs:null}];
@@ -194,21 +212,32 @@ const act=(s,h,dt)=>{const b=h.carry.length;interact(s,h,dt);h.idle=h.carry.leng
 function carryJob(s,h,dt,item,from,to,need,avail){const n=count(h,item);
  if(n&&(h.phase==='deliver'||n>=Math.min(h.cap,Math.max(1,need))||!avail||h.idle>1.5)){h.phase='deliver';if(go(h,to,dt))act(s,h,dt);return true;}
  h.phase=null;if(need<1||!avail)return false;h.wants=item;h.max=Math.min(h.cap,need);if(go(h,from,dt))act(s,h,dt);return true;}
+// What the shop staff does next: bring dough to the oven, baked bread to the stand, or goods to the shelves, whichever lacks most.
+function shopJob(s,h){const open=k=>shelfOpen(s,k)&&(k!=='bread'||s.unlocked.bakery),best=[];
+ if(s.unlocked.bakery){const room=shelfCap(s,'bread')-s.shop.bread;if(s.oven.out>0&&room>=1)best.push([1.5+room/shelfCap(s,'bread'),{item:'bread',from:OVEN.outPad,to:zoneOf(SHELVES.bread),need:Math.min(s.oven.out,room),avail:true}]);
+  const r=ovenCap(s)-s.oven.in;if(s.sources.bread.n>0&&r>=1)best.push([1+(s.sources.bread.n>0?.2:0),{item:'dough',from:SOURCES.bread.spot,to:OVEN.inPad,need:Math.min(s.sources.bread.n,r),avail:true}]);}
+ for(const k of ['ice',...RACK_KINDS]){if(!open(k)||!sourceOpen(s,k))continue;const room=shelfCap(s,k)-s.shop[k];if(room>=1&&s.sources[k].n>0)best.push([room/shelfCap(s,k),{item:k,from:SOURCES[k].spot,to:zoneOf(SHELVES[k]),need:room,avail:true}]);}
+ // Hands not empty: carry on with that same job (fetch until there is enough, then deliver); if nothing needs it any more, just take it where it goes.
+ const held=h.carry.find(k=>k==='dough'||SHELVES[k]);
+ if(held){const mine=best.find(([,j])=>j.item===held);if(mine)return mine[1];return held==='dough'?{item:'dough',from:SOURCES.bread.spot,to:OVEN.inPad,need:1,avail:true}:{item:held,from:null,to:zoneOf(SHELVES[held]),need:1,avail:true};}
+ best.sort((a,b)=>b[0]-a[0]);return best[0]?.[1]??null;}
 const dirtyPitch=(s,h)=>{let best=-1,bd=Infinity;s.pitches.forEach((p,i)=>{if(p.trash>0){const d=Math.hypot(PITCHES[i].x-h.x,PITCHES[i].z-h.z);if(d<bd){bd=d;best=i;}}});return best;};
 function stepHelper(s,h,dt){h.wants=null;h.max=h.cap;const L=h.loop;if(L==='rest'){h.moving=false;return;}
  if(L==='clean'){const n=count(h,'trash'),i=dirtyPitch(s,h);
   if(n&&(n>=h.cap||i<0)){if(go(h,DUMP.spot,dt))act(s,h,dt);return;}
   if(i>=0){h.wants='trash';if(go(h,doorOf(i),dt))act(s,h,dt);return;}
   if(s.sanit.dirt>.4&&!crewAt(s,['sanit'],SANIT.mop)){go(h,SANIT.mop,dt);return;}h.moving=false;return;}
- if(L==='sanit'){if(carryJob(s,h,dt,'paper',SOURCES.paper.spot,SANIT.paper,Math.floor(sanitCap(s)-s.sanit.paper),s.sources.paper.n>0))return;go(h,SANIT.mop,dt);return;}
- if(L==='shop'){const ks=Object.keys(SHELVES).filter(k=>shelfOpen(s,k)),k=ks.find(k=>count(h,k))??ks.find(k=>shelfCap(s,k)-s.shop[k]>=1&&s.sources[k].n>0);
-  if(k&&carryJob(s,h,dt,k,SOURCES[k].spot,shelfZone(SHELVES[k].pos),shelfCap(s,k)-s.shop[k],s.sources[k].n>0))return;h.moving=false;return;}
+ if(L==='sanit'){if(carryJob(s,h,dt,'paper',SOURCES.paper.spot,SANIT.paper,Math.ceil(sanitCap(s)-s.sanit.paper-.001),s.sources.paper.n>0))return;go(h,SANIT.mop,dt);return;}
+ if(L==='shop'){if(h.carry.length&&h.idle>4){putBack(s,h.carry);h.carry=[];h.phase=null;h.idle=0;}const j=shopJob(s,h);if(j&&carryJob(s,h,dt,j.item,j.from,j.to,j.need,j.avail))return;h.moving=false;return;}
  if(L==='pool'){if(!s.unlocked.pool){h.moving=false;return;}if(s.event?.kind==='ducks'){go(h,POOL.pad,dt);return;}
   if(carryJob(s,h,dt,'chlor',SOURCES.chlor.spot,POOL.pad,s.pool.chlor<=.6?1:0,s.sources.chlor.n>0))return;go(h,POOL.pad,dt);return;}
  if(L==='fix'){const sp=s.event?.spots.find(p=>p.fix<REPAIR),i=sp?-1:s.pitches.findIndex(p=>p.noisy);if(sp)go(h,[sp.x,sp.z],dt);else if(i>=0)go(h,doorOf(i),dt);else h.moving=false;}}
 
 // Work done by standing somewhere: mopping the toilets, repairing, telling noisy campers to be quiet.
 export const REPAIR=2.5,TECH_DELAY=75,TECH_FEE=50,MOP=.2;
+// The oven bakes OVEN.batch doughs together in OVEN.time seconds, as long as there is room for the loaves.
+function stepOven(s,dt){const O=s.oven;if(!s.unlocked.bakery){return;}
+ if(O.in>0&&O.out<ovenCap(s)){O.working=true;O.timer+=dt;if(O.timer>=OVEN.time){O.timer=0;const n=Math.min(O.in,OVEN.batch,ovenCap(s)-O.out);O.in-=n;O.out+=n;}}else{O.working=false;O.timer=0;}}
 function stepWork(s,dt){
  const mops=(anyBody(s,SANIT.mop)?1:0)+s.helpers.filter(h=>(h.loop==='sanit'||h.loop==='clean')&&!h.moving&&near(h,SANIT.mop,1.3)).length*.7;if(mops)s.sanit.dirt=Math.max(0,s.sanit.dirt-MOP*mops*dt);
  s.pitches.forEach((p,i)=>{if(p.noisy&&(anyBody(s,doorOf(i),1.7)||crewAt(s,['fix'],doorOf(i),1.7))){p.noisy=false;s.today.fixed++;popup(s,'🤫 Chut !',PITCHES[i].x,PITCHES[i].z,'info');}});
@@ -238,15 +267,15 @@ const QUIPS=['Pas de panique, c’est un classique !','Tout est sous contrôle�
 // Day clock. Things happen at fixed hours: the dustcart and the baker at dawn, stale bread thrown at 22:00, lights out
 // at 23:00. When the night ends the report of the day is kept, the bills arrive and the campers plan their day.
 export const BILL_DELAY=160,LATE_FEE=1.25;
-const SUPPLY={paper:.4,bread:.7,ice:1,chlor:3};
+const SUPPLY={paper:.4,bread:.35,ice:1,chlor:3,drink:.6,cream:3,gas:8,souv:3.5};
 function stepDay(s,dt){const h0=hourOf(s);s.clock+=dt;s.report=Math.max(0,s.report-dt);const h1=hourOf(s),at=h=>h0<h&&h1>=h;
- if(at(22)&&s.unlocked.shop){const n=s.shop.bread+s.sources.bread.n;s.shop.bread=s.sources.bread.n=0;if(n)popup(s,`🥖 ${n} baguette${n>1?'s':''} rassise${n>1?'s':''} jetée${n>1?'s':''}`,SHOP.pos[0],SHOP.pos[1],'info');}
+ if(at(22)&&s.unlocked.bakery){const n=s.shop.bread+s.oven.out+s.oven.in+s.sources.bread.n;s.shop.bread=s.oven.out=s.oven.in=s.sources.bread.n=0;s.oven.working=false;if(n)popup(s,`🥖 ${n} pain${n>1?'s':''} rassis jeté${n>1?'s':''}`,SHELVES.bread.pos[0],SHELVES.bread.pos[1],'info');}
  // Lights out: what was not done today is dropped (nobody goes for bread or a swim in the middle of the night).
  if(at(23)){popup(s,'🌙 Extinction des feux',s.player.x,s.player.z,'info');for(const c of stayers(s))c.todo=[];if(!s.replica)for(const c of stayers(s))if(Math.random()<TYPES[c.type].party)c.party=23.3+Math.random()*4;}
  if(at(30)&&s.dump>0){s.supply+=3+.5*s.dump;s.dump=0;popup(s,'🚛 Les éboueurs sont passés',DUMP.pos[0],DUMP.pos[1],'info');}
- if(at(30.5)&&s.unlocked.shop){const n=breadOrder(s);s.sources.bread.n=n;s.supply+=n*SUPPLY.bread;popup(s,`🥖 Le boulanger a livré ${n} baguettes`,SOURCES.bread.pos[0],SOURCES.bread.pos[1],'info');}
+ if(at(30.5)&&s.unlocked.bakery){const n=breadOrder(s);s.sources.bread.n=n;s.supply+=n*SUPPLY.bread;popup(s,`🥖 Le boulanger a livré ${n} pâtons : au four !`,SOURCES.bread.pos[0],SOURCES.bread.pos[1],'info');}
  if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();issueBills(s);
-  for(const p of s.pitches)p.noisy=false;for(const c of s.campers)if(c.in){c.party=null;c.left--;planDay(s,c,7);}popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
+  for(const p of s.pitches)p.noisy=false;for(const c of s.campers)if(c.in){c.party=null;c.sleep=false;c.left--;planDay(s,c,7);}popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
  for(const b of s.bills)if(!b.late&&s.t>b.due){b.late=true;b.amount=Math.round(b.amount*LATE_FEE);s.rep=Math.max(0,s.rep-.3);popup(s,`🧾 Retard : ${b.label} +25 %`,DESK[0],DESK[1],'bad');}
  for(const [k,def] of Object.entries(SOURCES)){if(!def.every||!sourceOpen(s,k))continue;const src=s.sources[k];if(src.n<sourceCap(s,k)){src.timer+=dt;if(src.timer>=def.every){src.timer=0;src.n++;s.supply+=SUPPLY[k];}}}
  if(s.unlocked.pool)s.pool.chlor=Math.max(0,s.pool.chlor-dt*(s.event?.kind==='ducks'?.012:.0012));}
@@ -292,13 +321,18 @@ function stepSpawn(s,dt){s.spawnTimer-=dt;if(s.replica||s.spawnTimer>0||!arrival
 // afternoon. On the morning of the last day they pack up and leave instead.
 function planDay(s,c,from){const todo=[],add=(h,act)=>{if(h>=from)todo.push({h,act});};
  if(c.left<=0){c.todo=[{h:Math.max(from,8+Math.random()*3),act:'out'}];return;}
- if(s.unlocked.shop&&Math.random()<.85)add(7.2+Math.random()*2.6,'bread');
+ if(s.unlocked.bakery&&Math.random()<.85)add(7.2+Math.random()*2.6,'bread');
+ if(s.unlocked.shop&&Math.random()<.5)add(10+Math.random()*8,'drink');
+ if(s.unlocked.shop&&Math.random()<.22)add(9+Math.random()*8,'cream');
+ if(s.unlocked.caravan&&c.kind!=='tent'&&Math.random()<.35)add(8+Math.random()*9,'gas');
+ if(s.unlocked.souvenirs&&Math.random()<.3)add(13+Math.random()*6,'souv');
  if(s.unlocked.pool&&Math.random()<.7)add(11+Math.random()*7,'pool');
  if(s.unlocked.freezer&&Math.random()<.6)add(13+Math.random()*5.5,'ice');
  c.todo=todo.sort((a,b)=>a.h-b.h);}
 // Opening hours: the pool shuts at 20:00 and the shop at 21:00, well before lights out.
 export const POOL_CLOSE=20,SHOP_CLOSE=21;
 const home=c=>doorOf(c.pitch);
+const OUT={bread:'🥖 Plus de pain !',ice:'🍦 Plus de glaces !',drink:'🥤 Plus de boissons !',cream:'🧴 Plus de crème solaire !',gas:'🔥 Plus de gaz !',souv:'🧲 Plus de souvenirs !'};
 const begin=(c,act,extra)=>{c.act={kind:act,step:0,t:0,...extra};};
 function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)||(h>=18&&h<20),ev=s.event;let rq=0,sq=0,gone=false,inside=0,swimmers=0,crowd=0;
  for(const c of s.campers){if(c.act?.kind==='wc'&&c.act.step===1)inside++;if(c.act?.kind==='pool'&&c.act.step>=1)swimmers++;}
@@ -320,11 +354,13 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
   if(c.mood<72)c.mood+=dt*.12;
   if(night&&c.party&&h>=c.party){c.party=null;P.noisy=true;say(s,c,'🎶 Fiesta !','info');}
   const A=c.act;
-  if(!A){const next=c.todo[0];
+  if(!A){if(c.sleep){if(night){c.moving=false;continue;}c.sleep=false;}
+   const next=c.todo[0];
+   if(night&&c.party==null&&!P.noisy&&h>=23.2){c.sleep=true;c.moving=false;continue;}
    if(next&&h>=next.h&&!night){c.todo.shift();
     if(next.act==='out'){checkout(s,c);continue;}
     // Too late to set off: the outing is given up (the pool and the shop are about to close).
-    if(next.act==='pool'){if(h<POOL_CLOSE-1.5)begin(c,'pool');}else if(h<SHOP_CLOSE-1){c.pick=0;begin(c,'shop',{k:next.act,n:next.act==='bread'?1+Math.floor(Math.random()*3):1+Math.floor(Math.random()*2),got:0,pay:0});}}
+    if(next.act==='pool'){if(h<POOL_CLOSE-1.5)begin(c,'pool');}else if(h<SHOP_CLOSE-1){c.pick=0;begin(c,'shop',{k:next.act,n:next.act==='bread'||next.act==='drink'?1+Math.floor(Math.random()*3):next.act==='ice'?1+Math.floor(Math.random()*2):1,got:0,pay:0});}}
    else if(s.show.state==='on'&&s.show.t>3&&c.show!==s.day){c.show=s.day;begin(c,'show');}
    else{c.wc-=dt*(night?.12:rushH?1.8:1);if(c.wc<=0){c.wc=28+Math.random()*30;begin(c,'wc');}else{c.moving=false;}}
    continue;}
@@ -345,8 +381,8 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    const there=route(c,SHOP.queue(i),dt,.05);A.t+=dt;
    if(i===0&&there){c.heading=Math.PI;
     if(shopOn&&s.shop[A.k]>0){c.pick-=dt;if(c.pick<=0){s.shop[A.k]--;A.got++;A.pay+=price(s,A.k);c.pick=.3;}}
-    if(A.got>=A.n||(A.got>0&&s.shop[A.k]<=0&&A.t>6)){sale(s,c,A);glad(c,A.k==='bread'?5:6,A.k);c.act={kind:'back'};sq--;continue;}}
-   if(A.t>26){if(A.got>0)sale(s,c,A);else{sad(c,8,A.k==='bread'?'bread':'ice');say(s,c,shopOn?(A.k==='bread'?'🥖 Plus de pain !':'🍦 Plus de glaces !'):'🛒 Personne à la caisse !');}c.act={kind:'back'};sq--;}
+    if(A.got>=A.n||(A.got>0&&s.shop[A.k]<=0&&A.t>6)){sale(s,c,A);glad(c,5,A.k);c.act={kind:'back'};sq--;continue;}}
+   if(A.t>26){if(A.got>0)sale(s,c,A);else{sad(c,8,A.k==='bread'?'bread':A.k==='ice'?'ice':'stock');say(s,c,shopOn?OUT[A.k]??'🛒 Rayon vide !':'🛒 Personne à la caisse !');}c.act={kind:'back'};sq--;}
    continue;}
   if(A.kind==='pool'){
    if(A.step===0){if(!route(c,[POOL.gate[0]+(c.ax??0),POOL.gate[1]],dt,.1))continue;
@@ -364,6 +400,7 @@ function sale(s,c,A){const amount=A.pay;if(!(amount>0))return;s.today.revenue+=a
 const WORDS={paper:['Plus de papier depuis mardi.','J’ai dû emprunter le rouleau du voisin.','Papier toilette : denrée rare, comme l’eau au Sahara.','On a fini par utiliser le dépliant du camping.'],
  dirty:['Sanitaires à visiter en apnée.','La douche se méritait.','J’ai croisé une araignée qui payait aussi son emplacement.','On y entre en tongs, on en ressort en prière.'],
  queue:['Vingt minutes de queue pour une douche froide.','On a rencontré tous nos voisins… dans la file des WC.'],clog:['Les WC bouchés, un grand classique.','Le plombier a désormais sa chaise à l’accueil.'],
+ stock:['Un rayon vide, c’est un jour de moins de vacances.','Plus de crème solaire : coup de soleil offert par la maison.','L’épicerie ? Un joli décor.'],
  bread:['La baguette ? Quelle baguette ?','Pas de pain au petit-déjeuner, vacances gâchées.','Les croissants, on nous en a parlé, on n’en a jamais vu.'],ice:['Plus de glaces en plein mois d’août !','Un camping sans glace, c’est un sapin sans guirlande.'],
  green:['Piscine verte, grenouilles en option.','L’eau avait la couleur d’une soupe de poireaux.'],ducks:['On a nagé avec les canards.','Les canards avaient réservé avant nous.'],full:['Piscine bondée, on a fait trempette debout.'],
  noise:['Les voisins ont fait la fête jusqu’à 3 h du matin.','Nuit blanche offerte par l’emplacement d’à côté.','Quelqu’un a joué de l’accordéon à 2 h du matin. Quelqu’un devrait être puni.'],
@@ -402,7 +439,7 @@ export function stepCamping(s,dt,input){dt=Math.min(dt,.1);s.t+=dt;const p=s.pla
  walk(s,p,p.input??STILL,dt,boxes);interact(s,p,dt);playerExtras(s,p,dt);
  for(const g of s.guests){g.cap=p.cap;g.speed=p.speed;walk(s,g,g.input,dt,boxes);interact(s,g,dt);playerExtras(s,g,dt);}
  for(const h of s.helpers)stepHelper(s,h,dt);
- stepDay(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
+ stepDay(s,dt);stepOven(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
  if(s.popups.length){let old=false;for(const pp of s.popups){pp.t+=dt;if(pp.t>=1.6)old=true;}if(old)s.popups=s.popups.filter(pp=>pp.t<1.6);}}
 
 export function loadCamping(json){const o=typeof json==='string'?JSON.parse(json):json;if(!o||o.game!==GAME||o.schema!==SAVE_SCHEMA||!o.player||!Array.isArray(o.campers))throw Error('Sauvegarde illisible.');

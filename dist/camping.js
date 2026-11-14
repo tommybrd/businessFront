@@ -30,6 +30,8 @@ function hint(){const s=state,p=me(),u=visibleUnlocks(s),queue=s.campers.some(c=
  if(s.campers.some(c=>c.blocked&&c.phase==='queue'))return 'Un emplacement est sale : ramassez les sacs 🗑️ devant, puis jetez-les dans la benne verte';
  if(p.carry.includes('trash'))return 'Portez les sacs jusqu’à la benne 🚛 à l’entrée, côté épicerie';
  if(s.sanit.paper<2)return 'Plus de papier aux sanitaires : prenez des rouleaux 🧻 à la réserve, puis posez-les devant les WC';
+ if(s.unlocked.bakery&&!s.posts.shop&&s.sources.bread.n>0&&s.oven.in===0&&s.oven.out===0)return 'Le boulanger a livré les pâtons 🍞 : portez-les au four (carré orange), puis le pain cuit 🥖 sur le stand';
+ if(s.unlocked.bakery&&s.oven.out>3&&s.shop.bread<3)return 'Le pain est cuit 🥖 : prenez-le sur le carré vert du four et posez-le devant le stand';
  if(s.show.state==='call')return `Soirée « ${SHOWS[s.show.kind]} » : montez sur la scène 🎤`;
  if(s.event)return s.event.label+' — allez sur le carré rouge';
  if(s.bills.some(b=>b.late)||(s.bills.length&&s.money>=s.bills[0].amount&&s.bills[0].due-s.t<60))return 'Payez vos factures au bureau 🧾 près de l’accueil';
@@ -43,7 +45,7 @@ let teamKey='';function renderTeam(){const key=state.helpers.map(h=>h.id+h.loop+
  for(const [k,label] of [['reception','Réceptionniste'],['shop','Épicier'],['stage','Animateur']])if(state.posts[k]){const row=document.createElement('div');row.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent='🧑‍💼';const name=document.createElement('b');name.textContent=label;const sm=document.createElement('small');sm.textContent='tient son poste toute la journée';row.append(ico,name,sm);list.append(row);}}
 $('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=$('reviewspanel').hidden=true;scene.setShowMissions(!$('teampanel').hidden);teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>{$('teampanel').hidden=true;scene.setShowMissions(false);});
 // Hands panel: empty the stack in one tap, and choose which kinds of goods the player picks up while walking.
-const PICK_ICON={paper:'🧻',bread:'🥖',ice:'🍦',chlor:'🧪',trash:'🗑️'};
+const PICK_ICON={paper:'🧻',dough:'🍞',bread:'🥖',ice:'🍦',drink:'🥤',cream:'🧴',gas:'🔥',souv:'🧲',chlor:'🧪',trash:'🗑️'};
 function renderPicks(){const box=$('picks');box.textContent='';const pick=me().pick??{};let off=0;
  for(const k of PICKABLE){const on=pick[k]!==false;if(!on)off++;const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',on);b.title=(on?'Ne plus ramasser : ':'Ramasser : ')+ITEMS[k].name;b.innerHTML=`${PICK_ICON[k]}<small></small>`;b.querySelector('small').textContent=ITEMS[k].name;b.onclick=()=>{doPick(k,!on);renderPicks();};box.append(b);}
  $('hands').classList.toggle('filtered',off>0);$('hands').textContent=off===PICKABLE.length?'✋ Rien':off?'✋ Filtre':phone.matches?'✋':'✋ Mains';}
