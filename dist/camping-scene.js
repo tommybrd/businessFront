@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN} from './camping-engine.js';
+import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN,LOISIRS,SHUTTLE_SLOTS,BIKES,PADDLES} from './camping-engine.js';
 
 // Low-poly view of the campsite: pitches with their tents and caravans, the toilet block, the shop, the pool and the stage show
 // what the simulation holds. Nothing here decides anything.
@@ -48,8 +48,8 @@ export function createCampingScene(canvas,getState){
  // Ground, alley, lanes, road and gate.
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.MeshStandardMaterial({color:'#a9db6e',roughness:.85}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
  box(scene,2,.05,30,0,.03,-5.8,'#eadcb8',false);
- for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,14,-5.85],[0,14,-9.85]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
- box(scene,40,.05,2.6,0,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<18;x+=2.4)box(scene,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
+ for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,33.5,-5.85],[0,14,-9.85]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
+ box(scene,72,.05,2.6,8,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<36;x+=2.4)box(scene,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
  box(scene,12,.04,3.2,0,.02,7.2,'#eadcb8',false);
  let gateSign=()=>{},gateStars=1;
  {const g=new THREE.Group();g.position.set(GATE[0],0,GATE[1]);scene.add(g);for(const x of [-2.1,2.1])box(g,.22,2.6,.22,x,1.3,0,'#8a5a35');box(g,4.5,.6,.16,0,2.7,0,'#1aa6a6');
@@ -63,7 +63,7 @@ export function createCampingScene(canvas,getState){
  // Palm trees, flamingos and hibiscus: it is paradise, after all.
  function palm(x,z,h=3.4,lean=.3,ry=0){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(let i=0;i<4;i++)cyl(g,.17-.025*i,h/4+.05,lean*(i/3)**2*1.2,h/8+i*h/4,0,i%2?'#a97a46':'#9a6a3a');
   const top=new THREE.Group();top.position.set(lean*1.2,h,0);g.add(top);for(let k=0;k<7;k++){const l=new THREE.Group();l.rotation.y=k*Math.PI*2/7;top.add(l);const b=box(l,1.5,.05,.42,.75,-.1,0,k%2?'#2f9e4f':'#3dbb5f');b.rotation.z=-.45;}for(const [dx,dz] of [[.15,.1],[-.12,.15],[.05,-.17]])ball(top,.1,dx,-.18,dz,'#6b4428');}
- for(const [x,z,h,l,r] of [[11,8.2,3.6,-.3,1],[16.4,-1,3.6,-.3,0],[16.6,-8,3.2,.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[16.2,-13,3.4,.25,1],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
+ for(const [x,z,h,l,r] of [[11,8.2,3.6,-.3,1],[-15,-2,3.5,.3,0],[-15,-10,3.8,-.3,2],[16.2,-13,3.4,.25,1],[-15.2,-16,3.2,-.3,0],[6.6,-20.8,3.6,.3,2],[-8.5,-20.8,3.4,-.25,1]])palm(x,z,h,l,r);
  function flamingo(x,z,ry){const g=new THREE.Group();g.position.set(x,0,z);g.rotation.y=ry;scene.add(g);for(const dx of [-.05,.05])cyl(g,.015,.7,dx,.35,0,'#f47aa8');ball(g,.2,0,.8,0,'#f58db3',.85);const neck=cyl(g,.035,.5,.12,1.1,0,'#f58db3');neck.rotation.z=-.5;ball(g,.07,.26,1.32,0,'#f58db3');box(g,.14,.03,.05,.36,1.3,0,'#2b2b2b',false);}
  for(const [x,z,r] of [[7.1,-17.3,1.2],[7.5,-16.2,2.2]])flamingo(x,z,r);
 
@@ -151,6 +151,23 @@ export function createCampingScene(canvas,getState){
  // Event markers: where somebody must stand for a moment to sort it out.
  const markers=[0,1,2].map(()=>{const g=new THREE.Group();scene.add(g);box(g,1.3,.04,1.3,0,.06,0,'#e8483a',false);const t=sprite(1.8,.5);t.position.y=1.5;g.add(t);g.visible=false;return {g,t};});
 
+ // East quarter, the leisure services: each building appears when it is bought.
+ const svc={},LS=LOISIRS;
+ const tagAt=(g,x,y,z)=>{const tg=sprite(1.9,.42);tg.position.set(x,y,z);g.add(tg);return tg;};
+ svc.laundry=new THREE.Group();scene.add(svc.laundry);{const g=svc.laundry,[x,z]=LS.laundry.pos;box(g,3.4,2,2,x,1,z,'#e9f2f7');box(g,3.7,.2,2.3,x,2.1,z,'#2b6fd6');const sg=textPlane('LAVERIE · JETONS',2.2,.34,{bg:'#2b6fd6',font:'900 40px system-ui'});sg.position.set(x,1.75,z+1.01);g.add(sg);
+  svc.laundry.userData.win=[0,1,2].map(i=>box(g,.55,.55,.04,x-1.1+i*1.1,.85,z+1.02,'#7fb7d9',false));box(g,1.2,.04,1.2,LS.laundry.pad[0],.06,LS.laundry.pad[1],'#7fb7d9',false);padIcon(g,'🧺',LS.laundry.pad[0],LS.laundry.pad[1],.09);}
+ svc.wifi=new THREE.Group();scene.add(svc.wifi);{const g=svc.wifi,[x,z]=LS.wifi.pos;cyl(g,.07,2.4,x,1.2,z,'#3d454b');const rb=box(g,.5,.3,.3,x,2.5,z,'#20262a');svc.wifi.userData.led=box(g,.08,.08,.04,x,2.5,z+.17,'#4fbf5a',false);
+  for(const a of [-.18,.18])cyl(g,.015,.5,x+a,2.85,z,'#20262a');box(g,1.1,.04,1.1,LS.wifi.pad[0],.06,LS.wifi.pad[1],'#f6c945',false);padIcon(g,'📶',LS.wifi.pad[0],LS.wifi.pad[1],.09);svc.wifi.userData.tag=tagAt(g,x,3.4,z);}
+ svc.bikes=new THREE.Group();scene.add(svc.bikes);{const g=svc.bikes,[x,z]=LS.bikes.pos;box(g,2.8,1.4,1.4,x,.7,z,'#e8a23a');box(g,3.1,.15,1.7,x,1.48,z,'#c0392b');const sg=textPlane('VÉLOS · PADDLES',2.2,.3,{bg:'#f4f1ea',fg:'#8a3a2a',font:'900 38px system-ui'});sg.position.set(x,1.0,z+.71);g.add(sg);
+  svc.bikes.userData.bikes=Array.from({length:BIKES},(_,i)=>{const b=new THREE.Group();b.position.set(x-1.3+i*.52,0,z+1.25);b.rotation.y=.3;g.add(b);for(const dx of [-.28,.28]){const w=cyl(b,.2,.06,dx,.2,0,'#20262a');w.rotation.z=Math.PI/2;w.rotation.x=0;w.rotation.y=0;w.rotation.set(0,0,Math.PI/2);}box(b,.62,.05,.04,0,.4,0,['#e8483a','#3a8ee0','#5fbf6a'][i%3],false);return b;});
+  svc.bikes.userData.boards=Array.from({length:PADDLES},(_,i)=>{const b=box(g,.34,.06,1.1,x+1.7+(i%2)*.4,.5+Math.floor(i/2)*.14,z-.2,['#3ac0e0','#f6c945'][i%2]);b.rotation.z=.7;return b;});
+  box(g,1.2,.04,1.2,LS.bikes.pad[0],.06,LS.bikes.pad[1],'#7fb7d9',false);padIcon(g,'🚲',LS.bikes.pad[0],LS.bikes.pad[1],.09);svc.bikes.userData.tag=tagAt(g,x,2.4,z);}
+ svc.playground=new THREE.Group();scene.add(svc.playground);{const g=svc.playground,[x,z]=LS.playground.pos;box(g,4.4,.05,3.2,x,.04,z,'#f0d9a0',false);for(const dx of [-1.6,-.2]){box(g,.08,1.5,.08,x+dx,.75,z-.8,'#e8483a');box(g,.08,1.5,.08,x+dx,.75,z+.1,'#e8483a');}box(g,1.5,.08,.08,x-.9,1.5,z-.35,'#e8483a');
+  box(g,.4,.05,.3,x-1.3,.55,z-.35,'#3a8ee0');box(g,.4,.05,.3,x-.5,.55,z-.35,'#f6c945');const sl=box(g,.7,.08,2,x+1.4,.8,z,'#3ac0e0');sl.rotation.x=.55;box(g,.7,1.3,.08,x+1.4,.65,z-.9,'#e8483a');}
+ svc.sports=new THREE.Group();scene.add(svc.sports);{const g=svc.sports,[x,z]=LS.sports.pos;box(g,5.4,.05,3.6,x,.04,z,'#2f9e6a',false);box(g,5.2,.02,.05,x,.07,z-1.7,'#ffffff',false);box(g,5.2,.02,.05,x,.07,z+1.7,'#ffffff',false);box(g,.05,.02,3.4,x-2.6,.07,z,'#ffffff',false);box(g,.05,.02,3.4,x+2.6,.07,z,'#ffffff',false);box(g,.05,.02,3.4,x,.07,z,'#ffffff',false);
+  for(const dx of [-2.6,2.6]){box(g,.06,1.3,.06,x+dx,.65,z-.7,'#ffffff');box(g,.06,1.3,.06,x+dx,.65,z+.7,'#ffffff');box(g,.06,.06,1.4,x+dx,1.3,z,'#ffffff');}}
+ svc.shuttle=new THREE.Group();scene.add(svc.shuttle);{const g=svc.shuttle,[x,z]=LS.shuttle.stop;cyl(g,.05,2.2,x+.8,1.1,z,'#59646b');const ss=textPlane('NAVETTE PLAGE',.9,.5,{bg:'#2b6fd6',font:'900 60px system-ui'});ss.position.set(x+.8,2.1,z+.05);g.add(ss);box(g,1.6,.1,.5,x-.3,.45,z,'#8a5a35');box(g,1.2,.04,1.2,x,.06,z-.8,'#f6c945',false);padIcon(g,'🚌',x,z-.8,.09);
+  const bus=new THREE.Group();bus.position.set(x,0,ROAD_Z);g.add(bus);box(bus,3.6,1.5,1.5,0,.95,0,'#f6c945');box(bus,3.4,.5,1.52,0,1.3,0,'#cfe6f2');for(const dx of [-1.1,1.1]){const w=cyl(bus,.3,.2,dx,.3,.8,'#20262a');w.rotation.x=Math.PI/2;}box(bus,.1,.1,.1,1.85,.8,0,'#ff4a4a');svc.shuttle.userData.bus=bus;svc.shuttle.userData.tag=tagAt(g,x,2.8,ROAD_Z);}
  // Unlock tiles: dashed square, name and price, filling as the player pays.
  const holdOf=(s,key)=>{let h=0;if(!(s.paid[key]>0))for(const b of [s.player,...s.guests])if(b.buyKey===key)h=Math.max(h,Math.min(1,(b.buyT??0)/BUY_DELAY));return h>=1?0:h;};
  const tiles=new Map();let shownTiles=null;function tile(u){const g=new THREE.Group();g.position.set(u.pos[0],.13,u.pos[1]);const c=document.createElement('canvas');c.width=c.height=256;const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const plane=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.8),new THREE.MeshBasicMaterial({map,transparent:true}));plane.rotation.x=-Math.PI/2;g.add(plane);scene.add(g);let last='';
@@ -194,6 +211,12 @@ export function createCampingScene(canvas,getState){
    {const lit=!!c&&(c.sleep||night>.3);for(const m of v.unit.userData.glow??[])m.material=mat(lit?'#ffcf5a':m.userData.base);}
    stackOf(v.trash,repeat('trash',P.trash),{cols:3,step:.42});
    const text=P.noisy?'🎶 FIESTA':P.down?'🌬️ à replanter':P.trash&&!c?'🗑️ à vider':c&&c.sleep?'💤':c&&c.left<=0?'🧳 départ':'';v.tag.visible=!!text;if(text)pill(v.tag,text,P.noisy?{bg:'#b06ae8ee',fg:'#fff'}:P.down?{bg:'#e8483aee',fg:'#fff'}:{});});
+  // Leisure services.
+  for(const k of Object.keys(svc))svc[k].visible=!!s.unlocked[k];
+  if(s.unlocked.laundry)svc.laundry.userData.win.forEach((w,i)=>w.material=mat(s.svc.machines[i]?(Math.sin(time*10+i)>0?'#ffe08a':'#ffb347'):'#7fb7d9'));
+  if(s.unlocked.wifi){const down=s.event?.kind==='wifi',u=svc.wifi.userData;u.led.material=mat(down?'#e8483a':'#4fbf5a');u.tag.visible=down;if(down)pill(u.tag,'📶 en panne',{bg:'#e8483aee',fg:'#fff'});}
+  if(s.unlocked.bikes){const u=svc.bikes.userData;u.bikes.forEach((b,i)=>b.visible=i<s.svc.bikes);u.boards.forEach((b,i)=>b.visible=i<s.svc.paddles);u.tag.visible=s.svc.bikes+s.svc.paddles===0;pill(u.tag,'🚲 tout est loué',{bg:'#f6b94aee'});}
+  if(s.unlocked.shuttle){const Z=s.svc.shuttle,u=svc.shuttle.userData;u.bus.visible=Z.state==='wait';u.tag.visible=Z.state!=='idle';if(Z.state==='wait')pill(u.tag,`🚌 départ dans ${Math.ceil(Z.t)} s`,{bg:'#f6c945ee'});else if(Z.state==='away')pill(u.tag,`🏖️ retour dans ${Math.ceil(Z.t)} s`,{});}
   // Reception, office, shop.
   recTerm.visible=!!s.unlocked.terminal;shopTerm.visible=!!s.unlocked.terminal&&!!s.unlocked.shop;stackOf(recPile,cashList(s.piles[0]),{cols:2,rows:3,step:.5,dstep:.3});stackOf(shopPile,cashList(s.piles[1]),{cols:2,rows:3,step:.5,dstep:.3});shopPile.visible=!!s.unlocked.shop;
   const waiting=s.campers.filter(c=>c.phase==='queue').length;recTag.visible=waiting>0;if(waiting)pill(recTag,`🛎️ ${waiting} à l’accueil`,s.posts.reception?{}:{bg:'#f6b94aee'});
@@ -226,7 +249,7 @@ export function createCampingScene(canvas,getState){
    animate(g,c,time);if(c.swim)g.position.y=-.5;const A=c.act,q=c.phase==='queue';let text='',style={};
    if(q){const f=c.wait/PATIENCE;text=c.blocked?'🗑️ emplacement sale…':`${c.card&&s.unlocked.terminal?'💳':'💵'} ${c.nights} nuit${c.nights>1?'s':''}`;style=f<.4?{}:f<.7?{bg:'#f6b94aee'}:{bg:'#e8483aee',fg:'#fff'};}
    else if(A?.kind==='wc')text=A.step===1?'🚿':'🚽';else if(A?.kind==='shop')text=`${A.k==='bread'?'🥖':'🍦'} ${Math.max(0,A.n-A.got)}`;else if(A?.kind==='pool')text='🏊';else if(A?.kind==='show')text='🎉';else if(c.in&&!A)text=MOODFACE(c.mood);
-   g.userData.bubble.visible=!!text;if(text)pill(g.userData.bubble,text,style);g.visible=!c.sleep;}
+   g.userData.bubble.visible=!!text;if(text)pill(g.userData.bubble,text,style);g.visible=!c.sleep&&!c.away;}
   for(const [id,g] of campers)if(!seen.has(id)){drop(g);campers.delete(id);}
   for(const p of s.popups){let g=popups.get(p.id);if(!g){g=sprite(1.8,.55);scene.add(g);pill(g,p.text,{...(POP[p.kind]??POP.money),size:.55});popups.set(p.id,g);}g.position.set(p.x,2+p.t*1.6,p.z);g.material.opacity=1-p.t/1.6;}
   for(const [id,g] of popups)if(!s.popups.some(p=>p.id===id)){drop(g);popups.delete(id);}

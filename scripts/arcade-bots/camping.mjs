@@ -26,14 +26,17 @@ const still = { x: 0, z: 0 };
 // 2. A campsite with everything bought, the player idle: the staff keep it alive for ten days without an error.
 { const s = E.createCamping(); s.money = 1e5;
   for (let g = 0; g < 80; g++) { const u = E.visibleUnlocks(s).filter(u => !u.level)[0]; if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[u.id]; t += .05) E.stepCamping(s, .05, still); }
-  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
+  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
   for (const id of ['tents', 'caravans', 'mobils', 'sanit', 'equipe']) { const L = E.LEVELS.find(l => l.id === id); for (let i = 0; i < 3; i++) { const u = E.visibleUnlocks(s).find(u => u.id === id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, id); for (let t = 0; t < 30 && E.lvl(s, id) === before; t += .05) E.stepCamping(s, .05, still); } }
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000;
-  const seenB = new Set(); let bookedSeen = 0;
+  const seenB = new Set(); let bookedSeen = 0, laundered = 0, rides = 0, played = 0, sported = 0, beach = 0, wifiDown = 0; const svcSeen = new Set();
   let events = new Set(), shows = 0, maxQueue = 0, pay = 0, nightOut = 0, maxPaper = 0, minPaperOpen = 1e9, baked = 0, prevOut = 0, sleepers = 0, sleepBad = 0; const maxShop = { bread: 0, ice: 0, drink: 0, cream: 0, gas: 0, souv: 0 };
   for (let t = 0; t < E.DAY * 10; t += .05) {
     E.stepCamping(s, .05, still);
     if (s.event) events.add(s.event.kind); if (s.show.state === 'on') shows++;
+    for (const c of s.campers) { const k = c.act?.kind; if (k && ['laundry', 'bike', 'play', 'sport'].includes(k) && !svcSeen.has(c.id + k + s.day)) { svcSeen.add(c.id + k + s.day); if (k === 'laundry') laundered++; else if (k === 'bike') rides++; else if (k === 'play') played++; else sported++; } }
+    if (s.svc.shuttle.state === 'away' && !svcSeen.has('away' + s.day + s.svc.shuttle.last)) { svcSeen.add('away' + s.day + s.svc.shuttle.last); beach += s.svc.shuttle.load.length; }
+    if (s.event?.kind === 'wifi') wifiDown++;
     for (const b of s.bookings) if (b.done && !seenB.has(b.id)) { seenB.add(b.id); bookedSeen++; }
     if (!E.isDay(s)) for (const c of s.campers) { if (c.act?.kind === 'pool' || c.act?.kind === 'shop') nightOut++; if (c.sleep) { sleepers++; if (c.act) sleepBad++; } }
     maxPaper = Math.max(maxPaper, s.sanit.paper); for (const k in maxShop) maxShop[k] = Math.max(maxShop[k], s.shop[k]);
@@ -73,6 +76,8 @@ const still = { x: 0, z: 0 };
     for (let i = 0; i < (E.INSPECT_LEN + 2) / .05; i++) { clean(w); if (i === 100) w.sanit.dirt = .95; E.stepCamping(w, .05, still); }
     assert(w.stars === 1 && w.inspect.why, `sanitaires sales pendant la visite : classement refusé (${w.inspect.why})`);
   }
+  assert(laundered > 0 && rides > 0 && played > 0 && sported > 0, `les services servent : ${laundered} lessives, ${rides} locations, ${played} parties de jeu, ${sported} matchs`);
+  assert(beach > 0, `la navette emmène des campeurs à la plage (${beach})`);
   assert(bookedSeen > 5, `les réservations se transforment en arrivées (${bookedSeen} vues en 10 jours)`);
   // 3. Save / load keeps the game going.
   const t = E.loadCamping(JSON.parse(JSON.stringify(s)));
