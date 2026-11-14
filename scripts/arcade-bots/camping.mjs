@@ -26,10 +26,11 @@ const still = { x: 0, z: 0 };
 // 2. A campsite with everything bought, the player idle: the staff keep it alive for ten days without an error.
 { const s = E.createCamping(); s.money = 1e5;
   for (let g = 0; g < 80; g++) { const u = E.visibleUnlocks(s).filter(u => !u.level)[0]; if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[u.id]; t += .05) E.stepCamping(s, .05, still); }
-  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
+  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'borehole', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
   for (const L of E.LEVELS) for (let i = 0; i < (L.id === 'equipe' ? 8 : ({ t_eco: 2, t_confort: 2, t_premium: 1, t_lodge: 2, t_cabane: 1 })[L.id] ?? L.max ?? 2); i++) { const u = E.visibleUnlocks(s).find(u => u.id === L.id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, L.id); for (let t = 0; t < 40 && E.lvl(s, L.id) === before; t += .05) E.stepCamping(s, .05, still); }
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000; E.manage(s, 'daypass', 'quota', 20);
   const basinsUsed = new Set(), incSeen = new Set(), spaSeen = new Set(), visSeen = new Set(); let sunSeen = 0, barSeen = 0, towelSeen = 0, maxPh = 0, minChlor = 1, issues = 0, closedSeen = 0;
+  let leaks = 0, leakGone = 0, tripSeen = 0, minTank = 9, wasLeak = false, wasEv = false; const billLabels = new Set();
   let brokenSeen = 0, fixedSeen = 0; const wasBroken = new Set();
   const seenB = new Set(); let bookedSeen = 0, laundered = 0, rides = 0, played = 0, sported = 0, beach = 0, wifiDown = 0; const svcSeen = new Set();
   let events = new Set(), shows = 0, maxQueue = 0, pay = 0, nightOut = 0, maxPaper = 0, minPaperOpen = 1e9, baked = 0, prevOut = 0, sleepers = 0, sleepBad = 0; const maxShop = { bread: 0, ice: 0, drink: 0, cream: 0, gas: 0, souv: 0 };
@@ -42,6 +43,7 @@ const still = { x: 0, z: 0 };
     { const A = s.aqua; for (const c of s.campers) { if (c.act?.kind === 'pool' && c.act.b && c.act.step >= 1) basinsUsed.add(c.act.b); if (c.act?.kind === 'sun' && c.act.step === 2) sunSeen++; if (c.act?.kind === 'bar') barSeen++; }
       for (const i of A.incidents) incSeen.add(i.id); for (const x of A.spa.sessions) spaSeen.add(x.id + ':' + s.day); for (const v of A.visitors) visSeen.add(v.id);
       if (A.lounge.some(x => x === 1)) towelSeen++; maxPh = Math.max(maxPh, A.ph); minChlor = Math.min(minChlor, s.pool.chlor); if (E.waterIssue(s)) issues++; }
+    { const lk = !!s.water.leak; if (lk && !wasLeak) leaks++; if (!lk && wasLeak) leakGone++; wasLeak = lk; const ev = s.event?.kind === 'disj'; if (ev && !wasEv) tripSeen++; wasEv = ev; minTank = Math.min(minTank, s.water.tank); for (const b of s.bills) billLabels.add(b.label); }
     s.rent.forEach((R, n) => { if (R.broken && !wasBroken.has(n)) { wasBroken.add(n); brokenSeen++; } else if (!R.broken && wasBroken.has(n)) { wasBroken.delete(n); fixedSeen++; } });
     for (const b of s.bookings) if (b.done && !seenB.has(b.id)) { seenB.add(b.id); bookedSeen++; }
     if (!E.isDay(s)) for (const c of s.campers) { if (c.act?.kind === 'pool' || c.act?.kind === 'shop') nightOut++; if (c.sleep) { sleepers++; if (c.act) sleepBad++; } }
@@ -66,6 +68,9 @@ const still = { x: 0, z: 0 };
   assert(nightOut === 0, `personne à la piscine ni à l’épicerie après l’extinction des feux (${nightOut} présences)`);
   assert(s.campers.every(c => c.in || ['arrive', 'queue', 'toPitch', 'leave'].includes(c.phase)), 'chaque camper est dans un état connu');
   const used = new Set(s.campers.filter(c => c.phase !== 'leave').map(c => c.pitch)); assert(used.size === s.campers.filter(c => c.phase !== 'leave').length, 'un seul camper par emplacement');
+  assert(leaks >= 1 && leakGone === leaks || leakGone >= leaks - 1, `des fuites surviennent (${leaks}) et sont arrêtées (${leakGone})`);
+  assert(minTank > .05 && E.powerCap(s) > 60, `le château d’eau ne se vide pas (mini ${minTank.toFixed(2)}) et la puissance suit (${E.powerCap(s)} kW), ${tripSeen} disjonction(s)`);
+  assert(billLabels.has('Électricité') && billLabels.has('Eau'), 'les factures d’électricité et d’eau arrivent séparément');
   assert(s.rent.filter(r => r.tier).length === 8 && new Set(s.rent.map(r => r.tier)).size === 5, 'les huit locatifs sont achetés, dans les cinq gammes');
   assert(s.rent.some(r => r.cond < 100), `les séjours usent les locatifs (état ${s.rent.map(r => Math.round(r.cond)).join('/')})`);
   assert(brokenSeen > 0 && fixedSeen > 0, `des pannes de locatif surviennent (${brokenSeen}) et sont réparées (${fixedSeen})`);
@@ -138,6 +143,23 @@ const still = { x: 0, z: 0 };
   q.aqua.filter = 0; q.aqua.temp = .2; assert(E.waterIssue(q) === 'cold', 'eau trop froide');
   q.aqua.temp = .6; assert(E.waterIssue(q) === '', 'eau en ordre');
   assert(E.manage(q, 'daypass', 'price', 9) && q.aqua.day.price === 9 && E.manage(q, 'daypass', 'quota', 99) && q.aqua.day.quota === 40, 'entrées à la journée : prix et quota réglables'); }
+
+// 5c. Water and power: overload trips the breaker, the tower runs dry without a pump, a leak is stopped by standing on it.
+{ const s = E.createCamping(); s.money = 1e5; for (const id of ['caravan', 'borehole']) s.unlocked[id] = true;
+  assert(E.powerCap(s) === 30 && E.powerLoad(s) < 15, `une petite exploitation consomme peu (${E.powerLoad(s).toFixed(1)} kW sur ${E.powerCap(s)})`);
+  for (let i = 0; i < 40; i++) s.campers.push({ id: 700 + i, in: true, kind: 'caravan', pitch: 12 + (i % 6), phase: 'stay', mood: 70, todo: [], act: null, x: 0, z: 0, left: 2, type: 'family', nights: 2, wc: 99, ax: 0 });
+  assert(E.powerLoad(s) > E.powerCap(s), `trop de caravanes branchées : ${E.powerLoad(s).toFixed(0)} kW pour ${E.powerCap(s)}`);
+  s.campers.length = 0; for (let i = 0; i < 40; i++) s.campers.push({ id: 700 + i, in: true, kind: 'caravan', pitch: 12 + (i % 6), phase: 'stay', mood: 70, todo: [], act: null, x: 0, z: 0, left: 2, type: 'family', nights: 2, wc: 99, ax: 0 });
+  let g = 0; while (s.event?.kind !== 'disj' && g++ < 2000) E.stepCamping(s, .05, still);
+  assert(s.event?.kind === 'disj', 'surcharge : le disjoncteur saute');
+  s.campers.length = 0; s.event = null; s.water.tank = 0; s.water.leak = null; for (let i = 0; i < 100; i++) E.stepCamping(s, .05, still); const t1 = s.water.tank;
+  for (let i = 0; i < 400; i++) E.stepCamping(s, .05, still);
+  assert(s.water.tank > t1 && !E.waterCut(E.createCamping()), `la pompe remplit le château d’eau (${t1.toFixed(2)} → ${s.water.tank.toFixed(2)})`);
+  s.water.leak = { x: 30, z: -5, a: 1, t: 0, fix: 0, found: false }; s.player.x = 30; s.player.z = -5; for (let i = 0; i < 100; i++) E.stepCamping(s, .05, still);
+  assert(s.water.leak === null, 'une fuite s’arrête en restant dessus');
+  const b = s.bills.length; s.water.leak = { x: -3, z: 3, a: 1, t: 84, fix: 0, found: false }; s.player.x = 20; s.player.z = 0; for (let i = 0; i < 100; i++) E.stepCamping(s, .05, still);
+  assert(s.water.leak === null && s.bills.length > b, 'sans personne, le plombier intervient et envoie sa facture');
+  assert(E.manage(s, 'restrict') && s.water.ban && E.manage(s, 'restrict') && !s.water.ban, 'les restrictions d’eau s’activent et se lèvent'); }
 
 // 6. Seasons, prices, bookings and the director's choices.
 { const s = E.createCamping();
