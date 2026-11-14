@@ -5,6 +5,7 @@
 // While it hosts, the page also runs the other business (from its local save) whenever a guest is in it.
 // The host's game is the only real one; guests hold a copy of it that runs between two snapshots and rolls no dice.
 import {hostRoom,joinRoom,cleanCode,netError} from './arcade-net.js';
+import {syncMoney} from './holding.js';
 export const GAMES={
  arcade:{name:'BurgerFront',icon:'🍔',key:'flux-arcade-v1',load:()=>import('./arcade-engine.js'),create:'createArcade',read:'loadArcade',step:'stepArcade',valid:s=>Array.isArray(s.plots)},
  camping:{name:'CampingFront',icon:'🌴',key:'flux-camping-v1',load:()=>import('./camping-engine.js'),create:'createCamping',read:'loadCamping',step:'stepCamping',valid:s=>s.game==='camping'&&Array.isArray(s.pitches)&&Array.isArray(s.campers)}};
@@ -13,14 +14,14 @@ const store={get(){try{return JSON.parse(sessionStorage.getItem(SESSION));}catch
 // cfg: game ('arcade'|'camping'), E (this game's engine module), get()/set(state), scene, input(), save(), phone (media query), refresh() (rebuild the panels).
 export function createRoom(cfg){
  const {game,E,scene,phone}=cfg,$=id=>document.getElementById(id),G=GAMES[game],O=game==='arcade'?'camping':'arcade',GO=GAMES[O];
- let net=null,other=null,otherE=null,otherDirty=false,lastFrame=performance.now(),stepAt=performance.now(),otherAt=performance.now(),sentAt=0,saveAt=0,beatAt=0,multiKey='';
+ let net=null,other=null,otherE=null,otherDirty=false,lastFrame=performance.now(),stepAt=performance.now(),otherAt=performance.now(),sentAt=0,saveAt=0,beatAt=0,moneyAt=0,multiKey='';
  const guest=()=>net?.role==='guest',me=()=>guest()?E.guestOf(cfg.get(),net.me)??{carry:[],x:0,z:0}:cfg.get().player;
  const status=t=>{$('mstatus').textContent=t??'';},busy=on=>{$('mhost').disabled=$('mjoin').disabled=on;};
  const myName=()=>($('mname').value.trim()||'Joueur').slice(0,12);
  const stateOf=g=>g===game?cfg.get():other,engineOf=g=>g===game?E:otherE;
  const session=()=>{if(net)store.set({role:net.role,code:net.code,name:myName()});};
  async function loadOther(){otherE=await GO.load();try{other=otherE[GO.read](localStorage.getItem(GO.key));}catch{other=otherE[GO.create]();}}
- const saveOther=()=>{if(!other||!otherDirty)return;otherDirty=false;try{localStorage.setItem(GO.key,JSON.stringify(other));}catch{}};
+ const saveOther=()=>{if(!other||!otherDirty)return;otherDirty=false;syncMoney(other);try{localStorage.setItem(GO.key,JSON.stringify(other));}catch{}};
  // Who is where: the host in this page's business, each guest in the business it joined from.
  function roster(){if(guest())return net.roster??[];if(!net)return [];const out=[{n:cfg.get().player.name||'Hôte',g:game,h:1}];
   for(const [id,g] of net.where){const b=engineOf(g).guestOf(stateOf(g),id);if(b)out.push({n:b.name,g,id});}return out;}
@@ -80,7 +81,7 @@ export function createRoom(cfg){
   for(const [id,t] of net.seen)if(now-t>15000){net.seen.delete(id);net.room.kick(id);}
   let moved=false;
   if((document.hidden||now-lastFrame>250)&&net.room.size){const inp=document.hidden?STILL:cfg.input();let el=Math.min(2,(now-stepAt)/1000);stepAt=now;while(el>1e-3){const d=Math.min(.1,el);E[G.step](cfg.get(),d,inp);el-=d;}moved=true;}
-  if(other?.guests.length){let el=Math.min(2,(now-otherAt)/1000);otherAt=now;while(el>1e-3){const d=Math.min(.1,el);otherE[GO.step](other,d,STILL);el-=d;}otherDirty=true;moved=true;}else otherAt=now;
+  if(other?.guests.length){let el=Math.min(2,(now-otherAt)/1000);otherAt=now;while(el>1e-3){const d=Math.min(.1,el);otherE[GO.step](other,d,STILL);el-=d;}otherDirty=true;moved=true;if(now-moneyAt>500){moneyAt=now;syncMoney(other);}}else otherAt=now;
   if(moved)share(now);if(otherDirty&&now-saveAt>3000){saveAt=now;saveOther();}},80);
  // ---- Panel buttons ----
  try{$('mname').value=localStorage.getItem(G.key+'-name')??localStorage.getItem('flux-arcade-v1-name')??'';}catch{}$('mname').addEventListener('change',()=>{try{localStorage.setItem(G.key+'-name',myName());}catch{}});
