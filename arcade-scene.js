@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {STATIONS,SHELVES,SOURCES,REGISTERS,KIOSKS,PICKUP,COWS,PASTURE,DOOR,PRODUCTS,registerOpen,stationTime,stationCaps,shelfCap,sourceCap,sourceOpen,shelfOpen,cowCount,kioskCount,hasTerminal,
- inZone,outZone,shelfZone,stationOpen,visibleUnlocks,MEGAPHONE,adsLevel,PATIENCE,MISSIONS,KIOSK_ORDER,TABLES,SINK,DESK,DOCK,DRIVE,hourOf,OPEN,billsDue,REPAIR,TECH_DELAY,SAFE,ATM,BUY_DELAY} from './arcade-engine.js';
+ inZone,outZone,shelfZone,stationOpen,visibleUnlocks,MEGAPHONE,adsLevel,PATIENCE,MISSIONS,KIOSK_ORDER,TABLES,SINK,DESK,DOCK,DRIVE,hourOf,OPEN,billsDue,REPAIR,TECH_DELAY,SAFE,ATM,BUY_DELAY,plotOpen} from './arcade-engine.js';
 
 // Low-poly view of the arcade game: stacks, trays, shelves, cash and unlock tiles show the simulated counts.
 export function createArcadeScene(canvas,getState){
@@ -35,8 +35,14 @@ export function createArcadeScene(canvas,getState){
   milk:[[part(B(),{y:.13,sx:.17,sy:.26,sz:.17}),'#f7f7f2'],[merge([part(B(),{y:.29,x:-.045,sx:.1,sy:.06,sz:.17,rz:.5}),part(B(),{y:.29,x:.045,sx:.1,sy:.06,sz:.17,rz:-.5}),part(B(),{y:.12,z:.086,sx:.12,sy:.08,sz:.01})]),'#3a8ee0']],
   icecream:[[part(new THREE.CylinderGeometry(.085,.012,1,10),{y:.11,sy:.22}),'#d9a35a'],[part(S(10,8),{y:.25,sx:.1,sy:.09,sz:.1}),'#f49ac1'],[part(S(8,6),{y:.32,sx:.06,sy:.05,sz:.06}),'#fff5e6']],
   tray:[[part(B(),{y:.015,sx:.46,sy:.03,sz:.34}),'#8a5a35'],[merge([part(B(),{y:.06,x:-.1,sx:.14,sy:.06,sz:.1,ry:.4}),part(C(.05,.04,8),{y:.09,x:.12,sy:.14})]),'#f2ede4']],
+  chicken:[[part(S(10,8),{y:.1,sx:.17,sy:.1,sz:.12}),'#f2c9a0'],[part(S(6,5),{x:.16,y:.08,sx:.05,sy:.05,sz:.05}),'#f2c9a0']],
+  nuggets:[[part(C(.1,.1,8),{y:.05,sy:.1,x:-.07}),'#d9953f'],[part(C(.1,.1,8),{y:.05,sy:.1,x:.08,z:.05}),'#e0a24a'],[part(C(.09,.09,8),{y:.14,sy:.08,z:-.04}),'#d08a38']],
+  lettuce:[[part(S(10,8),{y:.12,sx:.15,sy:.12,sz:.15}),'#6cbf3d'],[part(S(8,6),{y:.17,x:.04,sx:.1,sy:.09,sz:.1}),'#8ad060']],
+  salad:[[part(C(.17,.1),{y:.06,sy:.1}),'#f4f2ea'],[part(S(10,8),{y:.12,sx:.15,sy:.07,sz:.15}),'#6cbf3d'],[merge([part(S(5,4),{x:.05,y:.17,sx:.04,sy:.03,sz:.04}),part(S(5,4),{x:-.05,y:.17,z:.04,sx:.04,sy:.03,sz:.04})]),'#e8483a']],
+  beans:[[part(B(),{y:.12,sx:.24,sy:.24,sz:.17}),'#8a5a35'],[part(B(),{y:.26,sx:.2,sy:.03,sz:.14}),'#6b4428']],
+  coffee:[[part(C(.1,.08),{y:.08,sy:.16}),'#f4f2ea'],[part(C(.085,.085),{y:.155,sy:.01}),'#4a2a14']],
   bundle:[[merge([0,1,2,3].map(i=>part(B(),{y:.012+i*.022,sx:.46,sy:.02,sz:.22,ry:(i%2?.04:-.03)}))),'#79c47c'],[merge([part(B(),{y:.045,sx:.08,sy:.095,sz:.225}),part(B(),{y:.098,x:.14,sx:.08,sy:.002,sz:.12})]),'#f2ead2']]};
- const H={coins:.09,potato:.22,fries:.36,raw:.075,steak:.075,burger:.31,cup:.07,soda:.3,beef:.25,bundle:.1,milk:.32,icecream:.34,tray:.08};
+ const H={chicken:.2,nuggets:.18,lettuce:.24,salad:.18,beans:.28,coffee:.18,coins:.09,potato:.22,fries:.36,raw:.075,steak:.075,burger:.31,cup:.07,soda:.3,beef:.25,bundle:.1,milk:.32,icecream:.34,tray:.08};
  // Banknotes: printed face (frame, value, portrait, serial) on bundles held by a paper band; coins: small gold stacks.
  const noteTex=(()=>{const c=document.createElement('canvas');c.width=256;c.height=128;const x=c.getContext('2d');const gr=x.createLinearGradient(0,0,256,128);gr.addColorStop(0,'#9fd3a8');gr.addColorStop(1,'#5aa874');x.fillStyle=gr;x.fillRect(0,0,256,128);
   x.strokeStyle='#2f6b45';x.lineWidth=6;x.strokeRect(6,6,244,116);x.lineWidth=1.5;for(let i=0;i<14;i++){x.beginPath();x.arc(128,64,10+i*4,0,Math.PI*2);x.stroke();}
@@ -67,7 +73,7 @@ export function createArcadeScene(canvas,getState){
  function drop(g){scene.remove(g);g.traverse(o=>{if(o.isInstancedMesh)o.dispose();else if(o.isSprite||(o.isMesh&&o.material.isMeshBasicMaterial&&o.material.map)){o.material.map.dispose();o.material.dispose();if(o.isMesh)o.geometry.dispose();}});}
  const carryLayout=n=>n<=10?{}:n<=24?{cols:2,step:.36}:{cols:2,rows:2,step:.36,dstep:.34};
  // Flat icon painted on a pad: what goes there (input) or what comes out of it.
- const ICON={potato:'🥔',fries:'🍟',raw:'🥩',steak:'🍖',burger:'🍔',cup:'🥛',soda:'🥤',beef:'🐄',milk:'🍼',icecream:'🍦',tray:'🍽️'};
+ const ICON={chicken:'🍗',nuggets:'🍗',lettuce:'🥬',salad:'🥗',beans:'🫘',coffee:'☕',potato:'🥔',fries:'🍟',raw:'🥩',steak:'🍖',burger:'🍔',cup:'🥛',soda:'🥤',beef:'🐄',milk:'🍼',icecream:'🍦',tray:'🍽️'};
  function padIcon(p,emoji,x=0,z=0,y=.05,size=.75){const c=document.createElement('canvas');c.width=c.height=128;const ctx=c.getContext('2d');ctx.globalAlpha=.85;ctx.font='92px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(emoji,64,70);const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;const m=new THREE.Mesh(new THREE.PlaneGeometry(size,size),new THREE.MeshBasicMaterial({map,transparent:true,depthWrite:false}));m.rotation.x=-Math.PI/2;m.position.set(x,y,z);p.add(m);return m;}
  function textPlane(text,w,h,{bg='#26343f',fg='#fff',font='900 64px system-ui'}={}){const c=document.createElement('canvas');c.width=512;c.height=Math.round(512*h/w);const ctx=c.getContext('2d');ctx.fillStyle=bg;ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle=fg;ctx.font=font;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(text,c.width/2,c.height/2+4,c.width-30);const map=new THREE.CanvasTexture(c);map.colorSpace=THREE.SRGBColorSpace;return new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshStandardMaterial({map,roughness:.6}));}
 
@@ -98,8 +104,8 @@ export function createArcadeScene(canvas,getState){
  // Each plot: a soil bed with two ridges and four potato plants that grow back after harvest; ripe plants flower and show their potatoes.
  const plots=getState().plots.map(p=>{const g=new THREE.Group();g.position.set(p.x,0,p.z);scene.add(g);const soil=[box(g,1.42,.08,1.42,0,.04,0,'#7a4a2a',false),...[-.33,.33].map(dz=>box(g,1.3,.1,.44,0,.1,dz,'#9a6038',false))];
   const plant=new THREE.Group(),flowers=new THREE.Group(),spuds=new THREE.Group();g.add(plant,spuds);
-  for(const dz of [-.33,.33])for(const dx of [-.32,.32]){const b=new THREE.Group();b.position.set(dx,.15,dz);plant.add(b);ball(b,.2,0,.1,0,'#3d8a36',.55);ball(b,.15,.09,.19,.05,'#55a744',.6);ball(b,.14,-.08,.2,-.05,'#4b9a3e',.6);
-   const f=ball(flowers,.05,dx+.02,.48,dz,'#fbf6e8');f.castShadow=false;const sp=new THREE.Mesh(potatoGeo,mat('#c99a5e'));sp.position.set(dx+.17,.08,dz+.13);sp.scale.setScalar(.75);spuds.add(sp);}
+  for(const dz of [-.33,.33])for(const dx of [-.32,.32]){const b=new THREE.Group();b.position.set(dx,.15,dz);plant.add(b);ball(b,.2,0,.1,0,p.zone===3?'#7fd05a':'#3d8a36',.55);ball(b,.15,.09,.19,.05,p.zone===3?'#9be070':'#55a744',.6);ball(b,.14,-.08,.2,-.05,p.zone===3?'#8ad060':'#4b9a3e',.6);
+   const f=ball(flowers,.05,dx+.02,.48,dz,'#fbf6e8');f.castShadow=false;const sp=new THREE.Mesh(p.zone===3?geo.sphere:potatoGeo,mat(p.zone===3?'#8ad060':'#c99a5e'));sp.position.set(dx+.17,.08,dz+.13);sp.scale.setScalar(p.zone===3?.13:.75);spuds.add(sp);}
   plant.add(flowers);flowers.position.y=-.15;return {g,plant,flowers,spuds,soil,p};});
  // Sprinklers between the plots once "Arrosage" is bought: rotating jets of droplets, and the soil turns darker (wet).
  const dropMat=new THREE.MeshBasicMaterial({color:'#3fa9f5',transparent:true,opacity:.9,depthWrite:false});
@@ -169,6 +175,10 @@ export function createArcadeScene(canvas,getState){
   const cup=new THREE.Mesh(new THREE.CylinderGeometry(.12,.09,.3,14,1,true),new THREE.MeshStandardMaterial({color:'#f4f2ea',transparent:true,opacity:.75,side:THREE.DoubleSide}));cup.position.set(0,.91,.45);g.add(cup);
   const drink=new THREE.Mesh(geo.cyl,mat('#5a2414'));drink.position.set(0,.77,.45);g.add(drink);const stream=box(g,.025,.16,.025,0,1.0,.45,'#7a3a1e',false);return {cup,drink,stream};}
  function animateSoda(fx,working,p){fx.cup.visible=fx.drink.visible=working;fx.stream.visible=working&&p<.92;const h=.02+.26*Math.min(1,p);fx.drink.scale.set(.1,h,.1);fx.drink.position.y=.77+h/2;}
+ // The annex machines: nugget fryer, salad bar, coffee machine. A lamp lights while a batch is made.
+ function annexModel(g,b){const col={nugget:'#e9a23a',saladbar:'#6cbf3d',coffee:'#8a5a35'}[b],label={nugget:'NUGGETS',saladbar:'SALADES',coffee:'CAFÉ'}[b];box(g,1.8,.95,1.2,0,.48,0,col);box(g,1.82,.06,1.22,0,.97,0,'#f4f1ea');const logo=textPlane(label,1.3,.34,{bg:'#f4f1ea',fg:'#4a2a14'});logo.position.set(0,1.3,.2);g.add(logo);box(g,.05,.5,.05,-.8,1.2,.2,'#59646b');
+  const lamp=box(g,.14,.1,.04,.7,.7,.62,'#f08a3a',false);lamp.material=new THREE.MeshStandardMaterial({color:'#f08a3a',emissive:'#f08a3a',emissiveIntensity:.3});return {lamp};}
+ function animateAnnex(fx,working,p){fx.lamp.material.emissiveIntensity=working?.6+.4*Math.sin(time*8):.2;fx.lamp.material.color.set(working?'#4fbf5a':'#f08a3a');fx.lamp.material.emissive.set(working?'#4fbf5a':'#f08a3a');}
  // Ice-cream machine: a cone waits under the tap and the swirl grows with the batch.
  function iceModel(g){box(g,1.5,1.7,1,0,.85,-.1,'#f7f2f6');box(g,1.52,.3,1.02,0,1.62,-.1,'#f49ac1');const logo=textPlane('GLACES',1.1,.32,{bg:'#f7f2f6',fg:'#e0679b'});logo.position.set(0,1.25,.41);g.add(logo);
   box(g,1.3,.08,.5,0,.72,.45,'#59646b');cyl(g,.06,.18,0,1,.45,'#c9d1d6');const cone=item('icecream');cone.position.set(0,.76,.45);g.add(cone);return {cone};}
@@ -179,6 +189,7 @@ export function createArcadeScene(canvas,getState){
   else if(b==='burger'){work=new THREE.Group();g.add(work);g.userData.anim=[burgerModel(g),animateBurger];}
   else if(b==='soda'){work=new THREE.Group();g.add(work);g.userData.anim=[sodaModel(g),animateSoda];}
   else if(b==='icecream'){work=new THREE.Group();g.add(work);g.userData.anim=[iceModel(g),animateIce];}
+  else if(b==='nugget'||b==='saladbar'||b==='coffee'){work=new THREE.Group();g.add(work);g.userData.anim=[annexModel(g,b),animateAnnex];}
   else{box(g,1.8,1.6,1.2,0,.8,0,'#f4f1ea');box(g,2,.12,1.4,0,1.66,0,'#c0392b');for(let i=0;i<5;i++)box(g,.36,.1,.06,-.72+i*.36,1.5,.63,i%2?'#ffffff':'#c0392b',false);const logo=textPlane('BOUCHERIE',1.6,.32,{bg:'#f4f1ea',fg:'#c0392b'});logo.position.set(0,1.2,.61);g.add(logo);box(g,.7,.6,.5,0,.3,.9,'#8a5a35');work=box(g,.08,.36,.36,0,.8,.9,'#c9d3d8',false);}
   const tag=sprite(2,.42);tag.position.set(0,b==='soda'||b==='butcher'||b==='icecream'?2.5:1.9,0);g.add(tag);
   // Breakdown: black smoke above the machine while it is broken.
@@ -188,7 +199,7 @@ export function createArcadeScene(canvas,getState){
  const shelves=Object.fromEntries(Object.entries(SHELVES).map(([k,def])=>{const g=new THREE.Group();g.position.set(def.pos[0],1.08,def.pos[1]);scene.add(g);box(g,1.5,.05,.85,0,.025,0,'#c9d3d8',false);const st=new THREE.Group();st.position.y=.05;g.add(st);const pad=box(scene,1.1,.04,1.1,shelfZone(def.pos)[0],.12,shelfZone(def.pos)[1],'#f08a3a',false);pad.userData.icon=padIcon(scene,ICON[k],shelfZone(def.pos)[0],shelfZone(def.pos)[1],.15);const tag=sprite(1.3,.4);tag.position.set(0,1.75,-.2);g.add(tag);return [k,{g,st,pad,tag}];}));
  // Deliveries: meat crate and cup dispenser, refilling by themselves.
  const sources=Object.fromEntries(Object.entries(SOURCES).map(([k,def])=>{const g=new THREE.Group();g.position.set(def.pos[0],0,def.pos[1]);scene.add(g);
-  if(k==='meat'||k==='milk'){box(g,1.6,.3,1.2,0,.15,0,k==='milk'?'#3a8ee0':'#c98a4a');box(g,1.5,.05,1.1,0,.31,0,'#dfe8ec',false);}else{box(g,1.6,.25,1.2,0,.125,0,'#9aa4ab');box(g,1.6,1.6,.2,0,.8,-.5,'#e8edf0');const logo=textPlane('GOBELETS',1.3,.3,{bg:'#e8edf0',fg:'#3a8ee0'});logo.position.set(0,1.3,-.39);g.add(logo);}
+  if(k==='meat'||k==='milk'||k==='chicken'||k==='beans'){box(g,1.6,.3,1.2,0,.15,0,k==='milk'?'#3a8ee0':k==='chicken'?'#f2c9a0':k==='beans'?'#8a5a35':'#c98a4a');box(g,1.5,.05,1.1,0,.31,0,'#dfe8ec',false);}else{box(g,1.6,.25,1.2,0,.125,0,'#9aa4ab');box(g,1.6,1.6,.2,0,.8,-.5,'#e8edf0');const logo=textPlane('GOBELETS',1.3,.3,{bg:'#e8edf0',fg:'#3a8ee0'});logo.position.set(0,1.3,-.39);g.add(logo);}
   const st=new THREE.Group();st.position.y=k==='cups'?.26:.33;g.add(st);const tag=sprite(1.4,.4);tag.position.set(0,1.9,0);g.add(tag);return [k,{g,st,tag}];}));
  // Registers: till on the counter, card terminal when bought, serving pad behind it, cash pile (bundles of notes) beside it.
  const registers=REGISTERS.map((R,i)=>{const g=new THREE.Group();scene.add(g);const till=new THREE.Group();till.position.set(R.pos[0],1.05,R.pos[1]);g.add(till);box(till,.6,.4,.4,0,.2,0,'#3d454b');box(till,.5,.32,.04,0,.55,-.1,'#7fb7d9');
@@ -268,7 +279,7 @@ export function createArcadeScene(canvas,getState){
   const wet=!!s.unlocked.water;
   for(const sp of sprinklers){sp.g.visible=wet&&(sp.zone===1||!!s.unlocked.field2);if(!sp.g.visible)continue;
    for(const d of sp.drops){const t=(d.userData.phase+time*.9)%1,a=sp.spin+time*1.8+(d.userData.lane?Math.PI:0)+t*.5,r=.15+t*1.25;d.position.set(Math.cos(a)*r,.5+1.6*t-1.75*t*t,Math.sin(a)*r);d.scale.setScalar(.075*(1-t*.35));}}
-  plots.forEach((v,i)=>{const p=s.plots[i],open=p.zone===1||!!s.unlocked.field2;v.g.visible=open;if(!open)return;v.soil[0].material=mat(wet?'#5a361f':'#7a4a2a');v.soil[1].material=v.soil[2].material=mat(wet?'#74462a':'#9a6038');v.plant.scale.setScalar(.25+.75*p.grow);v.flowers.visible=v.spuds.visible=p.ripe;v.plant.rotation.z=p.ripe?Math.sin(time*2.4+i)*.05:0;});
+  plots.forEach((v,i)=>{const p=s.plots[i],open=plotOpen(s,p);v.g.visible=open;if(!open)return;v.soil[0].material=mat(wet?'#5a361f':'#7a4a2a');v.soil[1].material=v.soil[2].material=mat(wet?'#74462a':'#9a6038');v.plant.scale.setScalar(.25+.75*p.grow);v.flowers.visible=v.spuds.visible=p.ripe;v.plant.rotation.z=p.ripe?Math.sin(time*2.4+i)*.05:0;});
   farm.visible=!!s.unlocked.farm;const nc=cowCount(s);cows.forEach((c,i)=>{c.g.visible=i<nc;if(i>=nc)return;const st=s.cows[i];c.crate.visible=st.ready;c.head.rotation.z=-.25-Math.abs(Math.sin(time*.8+i))*.35;c.g.position.x=COWS[i][0]+Math.sin(time*.25+i*2)*.15;});
   for(const [id,v] of Object.entries(stations)){const st=s.stations[id],open=stationOpen(s,id),cap=stationCaps(s,id);v.g.visible=open;if(!open)continue;stackOf(v.inStack,repeat(v.def.in,st.in),{cols:3,rows:3,step:.32,dstep:.32});stackOf(v.outStack,repeat(v.def.out,st.out),{cols:3,rows:3,step:.34,dstep:.32});
    v.work.visible=st.working;const p=st.timer/stationTime(s,id);if(v.g.userData.fx){const T=stationTime(s,id)*v.def.baskets;for(const f of v.g.userData.fx)f.T=T;animateFryer(v.g.userData.fx,st.baskets??[],dt);}else if(v.g.userData.anim){const [fx,fn]=v.g.userData.anim;fn(fx,st.working,p);}else if(v.b==='butcher')v.work.position.y=.8+(st.working?Math.abs(Math.sin(time*9))*.2:0);

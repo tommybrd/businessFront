@@ -35,7 +35,7 @@ let teamKey='';function renderTeam(){const key=state.helpers.map(h=>h.id+h.loop+
   sel.onchange=()=>{if(guest())room.send({t:'mission',id:h.id,loop:sel.value});assignMission(state,h.id,sel.value);teamKey='';renderTeam();};row.append(ico,name,sel);list.append(row);}}
 $('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=$('bankpanel').hidden=true;scene.setShowMissions(!$('teampanel').hidden);teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>{$('teampanel').hidden=true;scene.setShowMissions(false);});
 // Hands panel: empty the stack in one tap, and choose which kinds of goods the player picks up while walking.
-const PICK_ICON={potato:'🥔',fries:'🍟',raw:'🥩',steak:'🍖',burger:'🍔',cup:'🥛',soda:'🥤',beef:'🐄',milk:'🍼',icecream:'🍦',tray:'🍽️'};
+const PICK_ICON={chicken:'🍗',nuggets:'🍗',lettuce:'🥬',salad:'🥗',beans:'🫘',coffee:'☕',potato:'🥔',fries:'🍟',raw:'🥩',steak:'🍖',burger:'🍔',cup:'🥛',soda:'🥤',beef:'🐄',milk:'🍼',icecream:'🍦',tray:'🍽️'};
 function renderPicks(){const box=$('picks');box.textContent='';const pick=me().pick??{};let off=0;
  for(const k of PICKABLE){const on=pick[k]!==false;if(!on)off++;const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',on);b.title=(on?'Ne plus ramasser : ':'Ramasser : ')+ITEMS[k].name;b.innerHTML=`${PICK_ICON[k]}<small></small>`;b.querySelector('small').textContent=ITEMS[k].name;b.onclick=()=>{doPick(k,!on);renderPicks();};box.append(b);}
  $('hands').classList.toggle('filtered',off>0);$('hands').textContent=off===PICKABLE.length?'✋ Rien':off?'✋ Filtre':'✋ Mains';}
