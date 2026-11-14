@@ -29,10 +29,11 @@ const still = { x: 0, z: 0 };
   assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
   for (const id of ['tents', 'caravans', 'mobils', 'sanit', 'equipe']) { const L = E.LEVELS.find(l => l.id === id); for (let i = 0; i < 3; i++) { const u = E.visibleUnlocks(s).find(u => u.id === id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, id); for (let t = 0; t < 30 && E.lvl(s, id) === before; t += .05) E.stepCamping(s, .05, still); } }
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000;
-  let events = new Set(), shows = 0, maxQueue = 0, pay = 0;
+  let events = new Set(), shows = 0, maxQueue = 0, pay = 0, nightOut = 0;
   for (let t = 0; t < E.DAY * 10; t += .05) {
     E.stepCamping(s, .05, still);
     if (s.event) events.add(s.event.kind); if (s.show.state === 'on') shows++;
+    if (!E.isDay(s)) for (const c of s.campers) if (c.act?.kind === 'pool' || c.act?.kind === 'shop') nightOut++;
     maxQueue = Math.max(maxQueue, s.campers.filter(c => c.phase === 'queue').length);
     // The manager pays the bills now and then, as a player would.
     if (s.bills.length && t % 20 < .05) { s.money += E.billsDue(s); s.bills.length = 0; pay++; }
@@ -45,6 +46,7 @@ const still = { x: 0, z: 0 };
   assert(s.rep > 1.5, `la réputation reste correcte avec l’équipe (${s.rep.toFixed(2)})`);
   assert(events.size >= 2, `des imprévus arrivent : ${[...events].join(', ')}`);
   assert(shows > 0, 'la soirée spectacle a lieu');
+  assert(nightOut === 0, `personne à la piscine ni à l’épicerie après l’extinction des feux (${nightOut} présences)`);
   assert(s.campers.every(c => c.in || ['arrive', 'queue', 'toPitch', 'leave'].includes(c.phase)), 'chaque camper est dans un état connu');
   const used = new Set(s.campers.filter(c => c.phase !== 'leave').map(c => c.pitch)); assert(used.size === s.campers.filter(c => c.phase !== 'leave').length, 'un seul camper par emplacement');
   // 3. Save / load keeps the game going.

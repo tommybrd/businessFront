@@ -241,7 +241,8 @@ export const BILL_DELAY=160,LATE_FEE=1.25;
 const SUPPLY={paper:.4,bread:.7,ice:1,chlor:3};
 function stepDay(s,dt){const h0=hourOf(s);s.clock+=dt;s.report=Math.max(0,s.report-dt);const h1=hourOf(s),at=h=>h0<h&&h1>=h;
  if(at(22)&&s.unlocked.shop){const n=s.shop.bread+s.sources.bread.n;s.shop.bread=s.sources.bread.n=0;if(n)popup(s,`🥖 ${n} baguette${n>1?'s':''} rassise${n>1?'s':''} jetée${n>1?'s':''}`,SHOP.pos[0],SHOP.pos[1],'info');}
- if(at(23)){popup(s,'🌙 Extinction des feux',s.player.x,s.player.z,'info');if(!s.replica)for(const c of stayers(s))if(Math.random()<TYPES[c.type].party)c.party=23.3+Math.random()*4;}
+ // Lights out: what was not done today is dropped (nobody goes for bread or a swim in the middle of the night).
+ if(at(23)){popup(s,'🌙 Extinction des feux',s.player.x,s.player.z,'info');for(const c of stayers(s))c.todo=[];if(!s.replica)for(const c of stayers(s))if(Math.random()<TYPES[c.type].party)c.party=23.3+Math.random()*4;}
  if(at(30)&&s.dump>0){s.supply+=3+.5*s.dump;s.dump=0;popup(s,'🚛 Les éboueurs sont passés',DUMP.pos[0],DUMP.pos[1],'info');}
  if(at(30.5)&&s.unlocked.shop){const n=breadOrder(s);s.sources.bread.n=n;s.supply+=n*SUPPLY.bread;popup(s,`🥖 Le boulanger a livré ${n} baguettes`,SOURCES.bread.pos[0],SOURCES.bread.pos[1],'info');}
  if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();issueBills(s);
@@ -295,6 +296,8 @@ function planDay(s,c,from){const todo=[],add=(h,act)=>{if(h>=from)todo.push({h,a
  if(s.unlocked.pool&&Math.random()<.7)add(11+Math.random()*7,'pool');
  if(s.unlocked.freezer&&Math.random()<.6)add(13+Math.random()*5.5,'ice');
  c.todo=todo.sort((a,b)=>a.h-b.h);}
+// Opening hours: the pool shuts at 20:00 and the shop at 21:00, well before lights out.
+export const POOL_CLOSE=20,SHOP_CLOSE=21;
 const home=c=>doorOf(c.pitch);
 const begin=(c,act,extra)=>{c.act={kind:act,step:0,t:0,...extra};};
 function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)||(h>=18&&h<20),ev=s.event;let rq=0,sq=0,gone=false,inside=0,swimmers=0,crowd=0;
@@ -318,13 +321,17 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
   if(night&&c.party&&h>=c.party){c.party=null;P.noisy=true;say(s,c,'🎶 Fiesta !','info');}
   const A=c.act;
   if(!A){const next=c.todo[0];
-   if(next&&h>=next.h&&!(next.act==='out'&&night)){c.todo.shift();
+   if(next&&h>=next.h&&!night){c.todo.shift();
     if(next.act==='out'){checkout(s,c);continue;}
-    if(next.act==='pool')begin(c,'pool');else begin(c,'shop',{k:next.act,n:next.act==='bread'?1+Math.floor(Math.random()*3):1+Math.floor(Math.random()*2),got:0,pay:0});}
+    // Too late to set off: the outing is given up (the pool and the shop are about to close).
+    if(next.act==='pool'){if(h<POOL_CLOSE-1.5)begin(c,'pool');}else if(h<SHOP_CLOSE-1){c.pick=0;begin(c,'shop',{k:next.act,n:next.act==='bread'?1+Math.floor(Math.random()*3):1+Math.floor(Math.random()*2),got:0,pay:0});}}
    else if(s.show.state==='on'&&s.show.t>3&&c.show!==s.day){c.show=s.day;begin(c,'show');}
    else{c.wc-=dt*(night?.12:rushH?1.8:1);if(c.wc<=0){c.wc=28+Math.random()*30;begin(c,'wc');}else{c.moving=false;}}
    continue;}
   if(A.kind==='back'){if(route(c,home(c),dt,.05)){c.act=null;c.heading=0;}continue;}
+  // Closing time: swimmers get out of the water, the shop serves what is in hand and sends its queue home.
+  if(A.kind==='pool'&&h>=POOL_CLOSE){if(A.step===0){c.act={kind:'back'};continue;}if(A.step===1){A.step=2;glad(c,8,'pool');}}
+  if(A.kind==='shop'&&h>=SHOP_CLOSE){if(A.got>0){sale(s,c,A);glad(c,5,A.k);}c.act={kind:'back'};continue;}
   if(A.kind==='wc'){
    if(A.step===0){if(!route(c,[SANIT.door[0]+(c.ax??0),SANIT.door[1]],dt,.1))continue;
     if(ev?.kind==='wc'){sad(c,10,'clog');say(s,c,'🚽 Bouché !');c.act={kind:'back'};}
