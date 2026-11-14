@@ -3,6 +3,7 @@ import {createArcadeScene} from './arcade-scene.js';
 import * as ENG from './arcade-engine.js';
 import {createRoom} from './room.js';
 import {mountCompanies} from './companies.js';
+import {syncMoney} from './holding.js';
 
 // Input (keyboard + touch joystick), HUD and local save of the arcade alpha.
 const KEY='flux-arcade-v1',$=id=>document.getElementById(id),phone=matchMedia('(max-width:600px)');
@@ -41,11 +42,11 @@ function renderPicks(){const box=$('picks');box.textContent='';const pick=me().p
 $('hands').addEventListener('click',()=>{$('handspanel').hidden=!$('handspanel').hidden;$('teampanel').hidden=$('bankpanel').hidden=true;scene.setShowMissions(false);renderPicks();});$('handsclose').addEventListener('click',()=>$('handspanel').hidden=true);
 $('empty').addEventListener('click',doEmpty);$('pickall').addEventListener('click',()=>{doPick('all');renderPicks();});$('picknone').addEventListener('click',()=>{doPick('none');renderPicks();});
 renderPicks();
-let last=performance.now(),saveAt=0,hudAt=0;
+let last=performance.now(),saveAt=0,hudAt=0,holdAt=0;
 const save=()=>{if(guest())return;try{localStorage.setItem(KEY,JSON.stringify(state));}catch{}};
 function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;
  // A guest moves its own character and lets the copy of the host's game run on between two refreshes.
- room.frame(dt,now);
+ room.frame(dt,now);if(now-holdAt>500){holdAt=now;syncMoney(state);}
  scene.update(dt);
  if(now-hudAt>150){hudAt=now;$('money').textContent=Math.floor(state.money).toLocaleString('fr-FR')+' $';$('cashwait').textContent=Math.round(state.piles.reduce((a,b)=>a+b,0)).toLocaleString('fr-FR')+' $';$('served').textContent=state.served;$('traffic').textContent='×'+traffic(state).toFixed(1)+(state.rush>0?' 🔥':'');$('rep').textContent='★ '+state.rep.toFixed(1);const w=avgWait(state),f=Math.min(1,w/PATIENCE);$('wait').textContent=Math.round(w)+' s'+(phone.matches?'':' / '+PATIENCE+' s');$('gauge').style.width=(f*100)+'%';$('gauge').style.background=f<.4?'#4fbf5a':f<.7?'#f0a830':'#e8483a';$('lost').textContent=state.lost+(state.lost>1?' partis':' parti');$('hint').textContent=hint();$('hint').hidden=!$('hint').textContent;$('team').hidden=!state.helpers.length;hud2();$('safewait').textContent=state.unlocked.safe?` · 🔐 ${Math.round(state.safe).toLocaleString('fr-FR')} $`:'';$('bankbtn').hidden=!state.unlocked.bank;if(room.net)room.renderMulti();if(!$('bankpanel').hidden)renderBank();if(!$('teampanel').hidden&&document.activeElement?.tagName!=='SELECT')renderTeam();}
  if(now-saveAt>3000){saveAt=now;save();}requestAnimationFrame(frame);}
@@ -78,6 +79,6 @@ const resetLabel=()=>phone.matches?'↺':'↺ Recommencer';$('reset').textConten
 let armed=0;$('reset').addEventListener('click',()=>{const b=$('reset');if(performance.now()-armed>3000){armed=performance.now();b.textContent=phone.matches?'Encore ?':'Touchez encore pour recommencer';setTimeout(()=>{if(performance.now()-armed>=2900){armed=0;b.textContent=resetLabel();}},3000);return;}armed=0;b.textContent=resetLabel();if(room.net){room.reset();return;}state=createArcade();scene.reset();try{localStorage.removeItem(KEY);}catch{}});
 $('multi').addEventListener('click',()=>{$('multipanel').hidden=!$('multipanel').hidden;$('teampanel').hidden=$('handspanel').hidden=$('bankpanel').hidden=true;scene.setShowMissions(false);});$('multiclose').addEventListener('click',()=>$('multipanel').hidden=true);
 for(const id of ['bankbtn','hands','team'])$(id).addEventListener('click',()=>$('multipanel').hidden=true);
-addEventListener('pagehide',save);
+addEventListener('pagehide',()=>{syncMoney(state);save();});
 window.__arcade={get state(){return state},get net(){return room.net},room,scene,step:(dt,i)=>stepArcade(state,dt,i)};
 room.resume();requestAnimationFrame(frame);
