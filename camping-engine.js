@@ -64,6 +64,7 @@ export const SHUTTLE_SLOTS=[10.2,14.6],SHUTTLE_WAIT=14,SHUTTLE_TRIP=36,MACHINES=
 // The aquatic centre. The old pool is the "grand bassin"; four more basins are bought one by one east of it. Each basin has its
 // own entrance (gate), a capacity, and the kinds of campers who like it best. It opens only if a lifeguard can watch it (each
 // lifeguard watches two basins, in the order of BASIN_ORDER). Water quality is kept in the technical room.
+export const BOREHOLE={pos:[32.4,.5],spot:[32.4,2.1]};
 export const BASIN_ORDER=['pool','paddling','slides','lazy','lagoon'];
 export const BASINS={pool:{name:'Grand bassin',icon:'🏊',rect:[8,-19.6,14.4,-15.6],gate:[11.2,-14.7],cap:8,who:['retired','couple','hiker','beaufrere','youth','family','mamie']},
  paddling:{name:'Pataugeoire',icon:'🧒',rect:[16.8,-14,19.8,-11.2],gate:[18.3,-10.4],cap:6,who:['family','mamie']},
@@ -110,6 +111,7 @@ export const UNLOCKS=[
  {id:'tech',name:'Local technique',price:400,pos:[17,-7.8],after:'pool'},
  {id:'beachbar',name:'Bar de plage',price:300,pos:[31.4,-7.8],after:'pool'},
  {id:'spa',name:'Espace bien-être',price:1100,pos:[22.2,-7.8],after:'slides'},
+ {id:'borehole',name:'Forage + château d’eau',price:500,pos:[32.4,2.3],after:'shop'},
  {id:'stage',name:'Scène + sono',price:480,pos:[4.2,-17.7],after:'pool'},
  {id:'animateur',name:'Animateur',price:350,pos:[1.4,-18.2],after:'stage'},
  {id:'mobil',name:'Quartier des locatifs',price:900,pos:[-5.4,-17.8],after:'pool'},
@@ -126,6 +128,9 @@ export const LEVELS=[
  {id:'pub',name:'Guide du campeur',after:'shop',base:200,growth:1.6,pos:[6.2,8],tip:'+20 % d’arrivées'},
  {id:'stock',name:'Réserve',after:'freezer',base:250,growth:1.7,pos:[14.8,4.5],tip:'+50 % de stock partout'},
  {id:'confort',name:'Étoile de plus',after:'caravan',base:350,growth:1.7,pos:[14.8,6.7],tip:'+10 % sur les tarifs'},
+ {id:'transfo',name:'Transformateur',after:'caravan',base:250,growth:1.5,max:3,pos:[14.8,-1.4],tip:'+14 kW de puissance : moins de disjonctions'},
+ {id:'solar',name:'Panneaux solaires',after:'transfo',base:400,growth:1.6,max:3,pos:[14.8,1.6],tip:'+7 kW de jour, facture d’électricité −15 %'},
+ {id:'tank',name:'Réservoir du château d’eau',after:'borehole',base:300,growth:1.5,max:3,pos:[32.4,4.6],tip:'+50 % de réserve d’eau'},
  {id:'transats',name:'Transats',after:'pool',base:120,growth:1.4,max:3,pos:[15.2,-12.2],tip:'+2 transats au bord de l’eau'},
  {id:'heating',name:'Chauffage de l’eau',after:'tech',base:300,growth:1.6,max:2,pos:[32,-4.4],tip:'Eau plus chaude, facture plus lourde'},
  {id:'guards',name:'Maître-nageur',after:'lifeguard',base:300,growth:1.6,max:3,pos:[15.2,-9.9],tip:'Surveille 2 bassins de plus'},
@@ -184,6 +189,7 @@ function fill(s){s.guests=[];delete s.replica;s.pitches??=[];PITCHES.forEach((p,
  s.stars??=1;s.pricing??={};for(const [k,v] of Object.entries({tent:1,caravan:1,mobil:1,low:1,high:1,overbook:0}))s.pricing[k]??=v;s.svc??={machines:[0,0,0],bikes:BIKES,paddles:PADDLES,shuttle:{state:'idle',t:0,last:'',load:[]}};s.aqua??={};{const A=s.aqua;for(const [k,v] of Object.entries({ph:.5,filter:0,temp:.5,incidents:[],lounge:[],bar:{drink:0,ice:0},spa:{towels:6,sessions:[]},day:{price:DAYPASS.price,quota:DAYPASS.quota,count:0,day:0},ctrl:{t:0,day:0,why:''},visitors:[],occ:{},incTimer:40,visT:0,towelDay:0}))A[k]??=v;LOUNGERS.forEach((l,i)=>A.lounge[i]??=0);}
  s.rent??=Array.from({length:8},()=>({tier:null,cond:100,broken:null,t:0,fixp:0}));s.owners??=Array.from({length:6},()=>({on:false,mood:70,sublet:false,complained:false}));s.debt??=0;s.work??=0;
  if(!s.rentFix){s.rentFix=true;if(s.unlocked.mobil)for(let n=0;n<2+lvl(s,'mobils')&&n<8;n++)s.rent[n]={tier:'confort',cond:100,broken:null,t:0,fixp:0};}
+ s.water??={tank:1,leak:null,leakTimer:80,drought:0,ban:false,units:0};s.power??={kwh:0,load:0,cap:30,trip:0};
  s.promo??=0;s.bookings??=[];s.booked??={};s.inspect??={state:'idle',day:0,t:0,bad:0,why:'',next:0};for(let d=1;d<=3;d++)planBookings(s,s.day+d);return s;}
 
 // Tiles to show now: one-off unlocks whose prerequisite is bought, plus the next level of each levelled upgrade. What is
@@ -370,7 +376,7 @@ const stayers=s=>s.campers.filter(c=>c.in);
 function stepEvents(s,dt){if(s.event||s.replica||s.arrivals<5)return;s.eventTimer-=dt*(isDay(s)?1:.4);if(s.eventTimer>0)return;s.eventTimer=55+Math.random()*50;
  // At night a wild boar sometimes knocks the bins over: rubbish on a few pitches, nothing to repair.
  if(!isDay(s)){if(Math.random()<.5){const l=PITCHES.map((p,i)=>i).filter(i=>pitchOpen(s,i)).sort(()=>Math.random()-.5).slice(0,3);for(const i of l)s.pitches[i].trash++;popup(s,'🐗 Un sanglier a renversé les poubelles',s.player.x,s.player.z,'bad');}return;}
- const kinds=Object.keys(EVENTS).filter(k=>!EVENTS[k].needs||s.unlocked[EVENTS[k].needs]),kind=kinds[Math.floor(Math.random()*kinds.length)],spots=EVENTS[kind].spots(s);if(!spots)return;
+ const kinds=Object.keys(EVENTS).filter(k=>k!=='disj'&&(!EVENTS[k].needs||s.unlocked[EVENTS[k].needs])),kind=kinds[Math.floor(Math.random()*kinds.length)],spots=EVENTS[kind].spots(s);if(!spots)return;
  s.event={kind,label:EVENTS[kind].label,t:0,spots:spots.map(p=>({...p,fix:0}))};popup(s,EVENTS[kind].label.split(' : ')[0],s.player.x,s.player.z,'bad');
  popup(s,`« ${QUIPS[Math.floor(Math.random()*QUIPS.length)]} »`,s.player.x,s.player.z-.8,'info');}
 const QUIPS=['Pas de panique, c’est un classique !','Tout est sous contrôle… ou presque.','C’est pas moi, c’est le camping.','Ça, c’est pour le directeur !','Un directeur, ça ne dort jamais.'];
@@ -385,12 +391,15 @@ function stepDay(s,dt){const h0=hourOf(s);s.clock+=dt;s.report=Math.max(0,s.repo
  if(at(23)){popup(s,'🌙 Extinction des feux',s.player.x,s.player.z,'info');for(const c of stayers(s))c.todo=[];if(!s.replica)for(const c of stayers(s))if(Math.random()<TYPES[c.type].party)c.party=23.3+Math.random()*4;}
  if(at(30)&&s.dump>0){s.supply+=3+.5*s.dump;s.dump=0;popup(s,'🚛 Les éboueurs sont passés',DUMP.pos[0],DUMP.pos[1],'info');}
  if(at(30.5)&&s.unlocked.bakery){const n=breadOrder(s);s.sources.bread.n=n;s.supply+=n*SUPPLY.bread;popup(s,`🥖 Le boulanger a livré ${n} pâtons : au four !`,SOURCES.bread.pos[0],SOURCES.bread.pos[1],'info');}
- if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();stepRentalsDay(s);s.promo=Math.max(0,s.promo-1);s.bookings=s.bookings.filter(b=>b.day>=s.day-1);for(let d=0;d<=3;d++)planBookings(s,s.day+d);issueBills(s);
+ if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();stepRentalsDay(s);if(s.water.drought>0)s.water.drought--;else if(seasonOf(s)==='high'&&Math.random()<.15){s.water.drought=3;popup(s,'☀️ Sécheresse : arrêté préfectoral, l’eau devient chère',BOREHOLE.pos[0],BOREHOLE.pos[1],'bad');}
+ s.promo=Math.max(0,s.promo-1);s.bookings=s.bookings.filter(b=>b.day>=s.day-1);for(let d=0;d<=3;d++)planBookings(s,s.day+d);issueBills(s);
   for(const p of s.pitches)p.noisy=false;for(const c of s.campers)if(c.in){c.party=null;c.sleep=false;c.left--;planDay(s,c,7);}popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
  for(const b of s.bills)if(!b.late&&s.t>b.due){b.late=true;b.amount=Math.round(b.amount*LATE_FEE);s.rep=Math.max(0,s.rep-.3);popup(s,`🧾 Retard : ${b.label} +25 %`,DESK[0],DESK[1],'bad');}
  for(const [k,def] of Object.entries(SOURCES)){if(!def.every||!sourceOpen(s,k))continue;const src=s.sources[k];if(src.n<sourceCap(s,k)){src.timer+=dt;if(src.timer>=def.every){src.timer=0;src.n++;s.supply+=SUPPLY[k];}}}
  if(s.unlocked.pool)s.pool.chlor=Math.max(0,s.pool.chlor-dt*(s.event?.kind==='ducks'?.012:.0008));}
-function issueBills(s){const L=s.lastDay,list=[['Eau et électricité',Math.round(6+3*occupied(s)+(s.unlocked.pool?12:0)+7*Math.max(0,basinCount(s)-1)+(s.unlocked.spa?14:0))],['Chauffage de l’eau',lvl(s,'heating')*(10+5*basinCount(s))],['Taxe de séjour',Math.round(.06*(L?.revenue??0))],['Fournisseurs et éboueurs',Math.round(s.supply)]];s.supply=0;
+function issueBills(s){const L=s.lastDay,P=s.power,W=s.water,
+ power=Math.round(P.kwh*.01*(1-.15*lvl(s,'solar'))),water=Math.round(W.units*(s.unlocked.borehole?8:40)*(W.drought>0?2:1)),
+ list=[['Électricité',power],['Eau',water],['Taxe de séjour',Math.round(.06*(L?.revenue??0))],['Fournisseurs et éboueurs',Math.round(s.supply)]];s.supply=0;P.kwh=0;W.units=0;
  for(const [label,amount] of list)if(amount>0)s.bills.push({id:s.nextId++,label,amount,due:s.t+BILL_DELAY,late:false});}
 export const billsDue=s=>s.bills.reduce((t,b)=>t+b.amount,0);
 
@@ -512,7 +521,8 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
   if(A.kind==='wc'){
    if(A.step===0){if(!route(c,[SANIT.door[0]+(c.ax??0),SANIT.door[1]],dt,.1))continue;
     if(ev?.kind==='wc'){sad(c,10,'clog');say(s,c,'🚽 Bouché !');c.act={kind:'back'};}
-    else if(inside<cabins(s)){inside++;A.step=1;A.t=2.6;}
+    else if(waterCut(s)){sad(c,8,'water');say(s,c,'🚿 Plus une goutte d’eau !');c.act={kind:'back'};}
+    else if(inside<cabins(s)){inside++;useWater(s,.004);if(s.water.ban)sad(c,1,'ban');A.step=1;A.t=2.6;}
     else{A.t+=dt;if(A.t>12){sad(c,6,'queue');say(s,c,'🚿 Trop de queue');c.act={kind:'back'};}}}
    else{A.t-=dt;if(A.t<=0){const S=s.sanit;
      if(S.paper<.34){sad(c,12,'paper');say(s,c,'🧻 Plus de papier !');}else{S.paper=Math.max(0,S.paper-.34);if(S.dirt>.7){sad(c,7,'dirty');say(s,c,'🤢 C’est sale');}else glad(c,2,S.dirt<.25?'clean':null);}
@@ -527,7 +537,7 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    continue;}
   if(A.kind==='laundry'){const L=LOISIRS.laundry;
    if(A.step===0){if(!route(c,[L.pad[0]+(c.ax??0)*.6,L.pad[1]],dt,.1))continue;const m=s.svc.machines.findIndex(x=>!x);
-    if(m>=0){s.svc.machines[m]=1;A.m=m;A.step=1;A.t=8;s.money+=4;s.today.revenue+=4;popup(s,'🪙 +4 $',L.pos[0],L.pos[1]);}else{A.t+=dt;if(A.t>10){sad(c,3,'laundry');c.act={kind:'back'};}}}
+    if(m>=0){useWater(s,.01);s.svc.machines[m]=1;A.m=m;A.step=1;A.t=8;s.money+=4;s.today.revenue+=4;popup(s,'🪙 +4 $',L.pos[0],L.pos[1]);}else{A.t+=dt;if(A.t>10){sad(c,3,'laundry');c.act={kind:'back'};}}}
    else{A.t-=dt;if(A.t<=0){s.svc.machines[A.m]=0;glad(c,5,'laundry');c.act={kind:'back'};}}continue;}
   if(A.kind==='bike'){const L=LOISIRS.bikes;
    if(A.step===0){if(!route(c,[L.pad[0]+(c.ax??0)*.6,L.pad[1]],dt,.1))continue;A.what=s.svc.bikes>0?'bikes':s.svc.paddles>0?'paddles':null;
@@ -546,7 +556,7 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
     else if(issue){sad(c,{green:9,eyes:6,cloudy:7,cold:5}[issue],issue);say(s,c,WATER_TEXT[issue]);c.act={kind:'back'};}
     else if(!guardedBasins(s).has(A.b)){sad(c,4,'closed');say(s,c,'🚫 Baignade interdite : pas de maître-nageur');c.act={kind:'back'};}
     else if((AQ.occ[A.b]??0)>=B.cap){sad(c,3,'full');c.act={kind:'back'};}
-    else{A.step=1;A.t=7+Math.random()*3;[A.x,A.z]=randomIn(B.rect);AQ.occ[A.b]=(AQ.occ[A.b]??0)+1;s.pool.chlor=Math.max(0,s.pool.chlor-.01);if(s.unlocked.tech){AQ.ph=Math.min(1,AQ.ph+.006);AQ.filter=Math.min(1,AQ.filter+.02);}}}
+    else{A.step=1;A.t=7+Math.random()*3;[A.x,A.z]=randomIn(B.rect);AQ.occ[A.b]=(AQ.occ[A.b]??0)+1;useWater(s,.0008);s.pool.chlor=Math.max(0,s.pool.chlor-.01);if(s.unlocked.tech){AQ.ph=Math.min(1,AQ.ph+.006);AQ.filter=Math.min(1,AQ.filter+.02);}}}
    else if(A.step===1){const B=BASINS[A.b];c.swim=move(c,[A.x,A.z],dt,.1)||c.z<B.rect[3];A.t-=dt;if(A.t<=0||!guardedBasins(s).has(A.b)){A.step=2;glad(c,8,'pool');}}
    else{const B=BASINS[A.b];c.swim=c.z<B.rect[3];if(move(c,[B.gate[0]+(c.ax??0),B.gate[1]],dt,.1)){c.swim=false;const r=Math.random();
      if(s.unlocked.beachbar&&r<.3)c.act={kind:'bar',step:0,t:0};else if(loungeCount(s)>0&&r<.65)c.act={kind:'sun',step:0,t:0};else c.act={kind:'back'};}}
@@ -566,7 +576,7 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
    if(A.step===0){if(!route(c,[SPA.door[0]+(c.ax??0)*.5,SPA.door[1]],dt,.1))continue;A.t+=dt;
     if(AQ.spa.towels<1){sad(c,6,'towel');say(s,c,'🧖 Plus de serviettes propres !');c.act={kind:'back'};}
     else if(AQ.spa.sessions.length>=SPA.cap){if(A.t>8){sad(c,3,'spafull');c.act={kind:'back'};}}
-    else{AQ.spa.towels--;AQ.spa.sessions.push({id:c.id,t:SPA.len});c.away=true;c.act=null;const fee=Math.round(SPA.price*STAR_PRICE[s.stars-1]);s.money+=fee;s.today.revenue+=fee;popup(s,`🧖 +${fee} $`,SPA.pos[0],SPA.pos[1],'money');}}
+    else{useWater(s,.006);AQ.spa.towels--;AQ.spa.sessions.push({id:c.id,t:SPA.len});c.away=true;c.act=null;const fee=Math.round(SPA.price*STAR_PRICE[s.stars-1]);s.money+=fee;s.today.revenue+=fee;popup(s,`🧖 +${fee} $`,SPA.pos[0],SPA.pos[1],'money');}}
    continue;}
   if(A.kind==='show'){const there=route(c,STAGE.crowd(crowd++),dt,.1);if(there)c.heading=Math.PI;if(s.show.state!=='on'){if(there||A.t>0){glad(c,10,'show');}c.act={kind:'back'};}else if(there&&!A.t){A.t=1;s.show.bar+=5*(1+.1*lvl(s,'confort'));}}}
  if(gone)s.campers=s.campers.filter(c=>!(c.phase==='leave'&&Math.abs(c.x)>=ROAD_END-.4));}
@@ -575,6 +585,7 @@ function sale(s,c,A){const amount=A.pay;if(!(amount>0))return;s.today.revenue+=a
 const WORDS={paper:['Plus de papier depuis mardi.','J’ai dû emprunter le rouleau du voisin.','Papier toilette : denrée rare, comme l’eau au Sahara.','On a fini par utiliser le dépliant du camping.'],
  dirty:['Sanitaires à visiter en apnée.','La douche se méritait.','J’ai croisé une araignée qui payait aussi son emplacement.','On y entre en tongs, on en ressort en prière.'],
  queue:['Vingt minutes de queue pour une douche froide.','On a rencontré tous nos voisins… dans la file des WC.'],clog:['Les WC bouchés, un grand classique.','Le plombier a désormais sa chaise à l’accueil.'],
+ water:['Plus d’eau au robinet en pleine journée : on s’est lavés au pastis.','Le château d’eau était vide, pas nous.'],ban:['Douche de trente secondes chrono, vacances ou caserne ?'],
  rental:['Pas d’eau chaude dans le mobil-home : la douche était une épreuve.','La climatisation en panne par 35 degrés, on a dormi dehors.','La terrasse s’est effondrée sous l’apéritif.'],
  eyes:['L’eau piquait tellement qu’on a pleuré en sortant.','Les yeux rouges toute la semaine, merci la piscine.'],cloudy:['On voyait à peine ses pieds dans le bassin.'],cold:['L’eau de la piscine : parfaite pour un pingouin.'],closed:['Baignade interdite en pleine canicule, faute de maître-nageur.'],incident:['Un toboggan coincé et personne pour nous aider.'],transat:['Tous les transats réservés dès 7 h par des serviettes fantômes.'],bar:['Le bar de la piscine était vide, comme notre verre.'],towel:['Au spa, plus une serviette propre : on s’est essuyé avec nos espoirs.'],spafull:['Le spa était complet, on a attendu devant la porte.'],spa:['Le spa nous a remis les vertèbres en place.'],
  wifi:['Le wifi ? Une légende locale.','Impossible de regarder mon match : la box a rendu l’âme.'],laundry:['Trois machines pour tout le camping, on a fait la queue avec nos slips.'],bike:['On voulait louer des vélos, il n’y en avait plus.'],late:['La navette est partie sans nous. Magnifique.'],
@@ -595,6 +606,30 @@ function checkout(s,c){const P=s.pitches[c.pitch],stars=starsOf(c.mood),bad=star
  s.rep=clamp(s.rep+(stars-s.rep)*.12,0,5);s.today.departures++;s.today.stars+=stars;s.reviews.unshift({day:s.day,stars,text,who:TYPES[c.type].name,icon:TYPES[c.type].icon});if(s.reviews.length>12)s.reviews.length=12;
  if(stars===5){const tip=Math.round(.1*(c.paid??0));if(tip){s.money+=tip;s.today.revenue+=tip;}}popup(s,'★'.repeat(stars)+'☆'.repeat(5-stars),c.x,c.z,stars>=4?'money':stars===3?'info':'bad');}
 
+// ---- Water and power. Water: the camp buys from the mains by the unit, or pumps its own from a borehole into a water tower of limited
+// size (the pump needs power); a leak somewhere wastes water until someone follows the puddles and stops it; in a drought the pump is
+// slow and the price high, and the director may ask everyone to save water. Power: every consumer adds to the load; above the
+// transformer's capacity the breaker trips; solar panels add capacity by day and cut the bill.
+export const tankCap=s=>1+.5*lvl(s,'tank');
+export const sunny=s=>{const h=hourOf(s);return isDay(s)&&h>=8&&h<19;};
+export const powerCap=s=>30+14*lvl(s,'transfo')+(sunny(s)?7*lvl(s,'solar'):0);
+export function powerLoad(s){let n=3;for(const c of s.campers)if(c.in&&c.kind!=='tent')n+=c.kind==='mobil'?1.6:1.2;
+ if(s.unlocked.shop)n+=3;if(s.unlocked.bakery&&s.oven.working)n+=5;if(s.unlocked.pool)n+=2+1.5*Math.max(0,basinCount(s)-1);if(s.unlocked.tech)n+=4*lvl(s,'heating');if(s.unlocked.spa)n+=4;
+ if(s.unlocked.laundry)n+=2*s.svc.machines.filter(x=>x).length;if(s.unlocked.wifi)n+=1;if(s.unlocked.borehole&&s.water.tank<tankCap(s)-.02)n+=2;if(s.show.state==='on')n+=4;if(!isDay(s))n+=4;
+ for(const o of s.owners)if(o.on)n+=.8;return n;}
+const useWater=(s,u)=>{const W=s.water;u*=W.ban?.6:1;W.units+=u;if(s.unlocked.borehole)W.tank=Math.max(0,W.tank-u/tankCap(s));};
+export const waterCut=s=>s.unlocked.borehole&&s.water.tank<.06;
+export const LEAK_SPOTS=[[-3,3.2],[6.4,-.6],[-8,-5.8],[2.6,-14.2],[20.5,-4.4],[-9,-21.8],[13,-12.5],[26,-5]];
+function stepResources(s,dt){if(s.replica)return;const W=s.water,P=s.power;P.cap=powerCap(s);P.load=powerLoad(s);P.kwh+=P.load*dt;
+ if(P.load>P.cap){P.trip+=dt*(P.load/P.cap-1);if(!s.event&&P.trip>1.2&&s.unlocked.caravan){P.trip=0;s.event={kind:'disj',label:EVENTS.disj.label,t:0,spots:EVENTS.disj.spots(s).map(p=>({...p,fix:0}))};popup(s,'⚡ Surcharge : le disjoncteur a sauté !',ELEC[0],ELEC[1],'bad');}}else P.trip=Math.max(0,P.trip-dt*.5);
+ // the pump fills the tower, slower in a drought and with no power it stops
+ if(s.unlocked.borehole&&W.tank<tankCap(s))W.tank=Math.min(tankCap(s),W.tank+dt*.0045*(W.drought>0?.4:1)*(s.event?.kind==='disj'?0:1));
+ if(W.leak){const L=W.leak;L.t+=dt;useWater(s,.0015*dt);if(anyBody(s,[L.x,L.z],3.5)||L.t>20)L.found=true;
+  if(L.found&&(anyBody(s,[L.x,L.z],1.6)||crewAt(s,['fix'],[L.x,L.z],1.6)))L.fix+=dt;
+  if(L.fix>=REPAIR+.5){W.leak=null;W.leakTimer=90+Math.random()*60;popup(s,'🔧 Fuite réparée',L.x,L.z,'info');}
+  else if(L.t>=85){W.leak=null;W.leakTimer=90+Math.random()*60;s.bills.push({id:s.nextId++,label:'Plombier : fuite d’eau',amount:90,due:s.t+BILL_DELAY,late:false});popup(s,'🔧 Plombier : facture 90 $',L.x,L.z,'bad');}}
+ else if(isDay(s)&&s.day>=3&&(s.unlocked.shop||s.unlocked.pool)){W.leakTimer-=dt;if(W.leakTimer<=0){const far=LEAK_SPOTS.filter(p=>Math.hypot(p[0]-s.player.x,p[1]-s.player.z)>9),p=pick(far.length?far:LEAK_SPOTS);
+  W.leak={x:p[0],z:p[1],a:Math.random()*Math.PI*2,t:0,fix:0,found:false};popup(s,'💧 Une fuite d’eau ! Suivez les flaques…',p[0],p[1],'bad');}}}
 // ---- Rentals and owners.
 function syncOwners(s){s.owners.forEach((o,i)=>{if(i<ownerCount(s)&&!o.on&&!o.left){o.on=true;o.mood=70;}});}
 // Every night: owners pay their lease (and the sublet share), a broken rental may appear, a loan costs interest, a tenant may leave.
@@ -707,6 +742,7 @@ export function manage(s,a,k,n){const P=s.pricing;n=Number(n);
  if(a==='price'&&['tent','caravan','mobil','low','high'].includes(k)&&Number.isFinite(n)){P[k]=clamp(Math.round(n*20)/20,.6,1.8);return true;}
  if(a==='overbook'&&Number.isFinite(n)){P.overbook=clamp(Math.round(n/5)*5,0,40);return true;}
  if(a==='promo'){if(s.promo>0||s.money<30)return false;s.money-=30;s.promo=2;popup(s,'📣 Promotion de dernière minute : −20 % pendant 2 jours',s.player.x,s.player.z,'info');return true;}
+ if(a==='restrict'){s.water.ban=!s.water.ban;popup(s,s.water.ban?'🚰 Restrictions d’eau : douches courtes':'🚰 Restrictions levées',s.player.x,s.player.z,'info');return true;}
  if(a==='sell'){const R=s.rent[n];if(!R?.tier||s.pitches[RENTAL_PITCH[n]].by!=null)return false;s.money+=resaleValue(R);popup(s,`💰 ${TIERS[R.tier].name} revendu`,s.player.x,s.player.z,'money');s.rent[n]={tier:null,cond:100,broken:null,t:0,fixp:0};return true;}
  if(a==='renovate'){const R=s.rent[n],c=R?.tier?renovateCost(R):0;if(!R?.tier||R.cond>=100||s.money<c)return false;s.money-=c;R.cond=100;R.broken=null;return true;}
  if(a==='buyused'){const i=freeRental(s),c=TIERS[k]?Math.round(TIERS[k].price*.6):0;if(i<0||!c||s.money<c)return false;s.money-=c;s.rent[i]={tier:k,cond:55,broken:null,t:0,fixp:0};return true;}
@@ -740,7 +776,7 @@ export function stepCamping(s,dt,input){dt=Math.min(dt,.1);s.t+=dt;const p=s.pla
  walk(s,p,p.input??STILL,dt,boxes);interact(s,p,dt);playerExtras(s,p,dt);
  for(const g of s.guests){g.cap=p.cap;g.speed=p.speed;walk(s,g,g.input,dt,boxes);interact(s,g,dt);playerExtras(s,g,dt);}
  for(const h of s.helpers)stepHelper(s,h,dt);
- stepDay(s,dt);stepOven(s,dt);stepShuttle(s,dt);stepAqua(s,dt);stepRentals(s,dt);stepInspect(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
+ stepDay(s,dt);stepOven(s,dt);stepShuttle(s,dt);stepAqua(s,dt);stepRentals(s,dt);stepResources(s,dt);stepInspect(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
  if(s.popups.length){let old=false;for(const pp of s.popups){pp.t+=dt;if(pp.t>=1.6)old=true;}if(old)s.popups=s.popups.filter(pp=>pp.t<1.6);}}
 
 export function loadCamping(json){const o=typeof json==='string'?JSON.parse(json):json;if(!o||o.game!==GAME||o.schema!==SAVE_SCHEMA||!o.player||!Array.isArray(o.campers))throw Error('Sauvegarde illisible.');

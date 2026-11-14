@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN,LOISIRS,SHUTTLE_SLOTS,BIKES,PADDLES,BASINS,BASIN_ORDER,TECH,SPA,BAR,LIFE_CHAIR,LOUNGERS,loungeCount,guardedBasins,waterIssue,WATER_TEXT,INCIDENTS,barCap,TIERS} from './camping-engine.js';
+import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN,LOISIRS,SHUTTLE_SLOTS,BIKES,PADDLES,BASINS,BASIN_ORDER,TECH,SPA,BAR,LIFE_CHAIR,LOUNGERS,loungeCount,guardedBasins,waterIssue,WATER_TEXT,INCIDENTS,barCap,TIERS,BOREHOLE,tankCap,powerLoad,powerCap} from './camping-engine.js';
 
 // Low-poly view of the campsite: pitches with their tents and caravans, the toilet block, the shop, the pool and the stage show
 // what the simulation holds. Nothing here decides anything.
@@ -182,6 +182,13 @@ export function createCampingScene(canvas,getState){
   const sg=textPlane('BAR DE PLAGE',1.7,.3,{bg:'#1ec8c8',font:'900 38px system-ui'});sg.position.set(x,1.9,z+.7);g.add(sg);box(g,1.1,.04,1.1,BAR.pad[0],.06,BAR.pad[1],'#f08a3a',false);padIcon(g,'🍹',BAR.pad[0],BAR.pad[1],.09);bar.userData.tag=tagAt(g,x,3.3,z);}
  const loungers=LOUNGERS.map(([x,z])=>{const g=new THREE.Group();g.position.set(x,0,z);scene.add(g);box(g,.7,.12,1.5,0,.24,0,'#f6c945');const rest=box(g,.7,.1,.6,0,.5,-.55,'#f6c945');rest.rotation.x=.7;const tw=box(g,.55,.03,.9,0,.32,.1,'#ff6f61',false);tw.visible=false;return {g,tw};});
  const visitors=new Map(),incM=[0,1].map(()=>{const g=new THREE.Group();scene.add(g);box(g,1.3,.04,1.3,0,.06,0,'#e8483a',false);const tg=sprite(2.4,.5);tg.position.y=1.5;g.add(tg);g.visible=false;return {g,tg};});
+ // Water tower with its gauge, the puddles that lead to a leak, the transformer and the solar panels.
+ const tower=new THREE.Group();scene.add(tower);{const g=tower,[x,z]=BOREHOLE.pos;for(const dx of [-.7,.7])for(const dz of [-.7,.7])cyl(g,.07,2.2,x+dx,1.1,z+dz,'#59646b');const sh=cyl(g,1.15,1.7,x,3.05,z,'#dfe8ec');sh.material=new THREE.MeshStandardMaterial({color:'#dfe8ec',transparent:true,opacity:.55,roughness:.3});
+  tower.userData.fill=cyl(g,1.1,1,x,2.5,z,'#43b5e8');const roof=new THREE.Mesh(new THREE.ConeGeometry(1.35,.7,12),mat('#2b6fd6'));roof.position.set(x,4.2,z);g.add(roof);cyl(g,.4,.5,x+1.6,.3,z+.6,'#8a959b');tower.userData.tag=tagAt(g,x,5.2,z);}
+ const puddles=Array.from({length:5},(_,i)=>{const m=new THREE.Mesh(geo.cyl,new THREE.MeshStandardMaterial({color:'#4aa8e8',transparent:true,opacity:.7,roughness:.1}));m.scale.set(.5+i*.12,.02,.38+i*.1);m.position.y=.08;m.visible=false;scene.add(m);return m;});
+ const leakM=new THREE.Group();scene.add(leakM);leakM.visible=false;{const f=cyl(leakM,.1,.5,0,.3,0,'#8a959b');for(let i=0;i<8;i++){const d=new THREE.Mesh(geo.sphere,mat('#4aa8e8'));d.scale.setScalar(.09);d.userData.i=i;leakM.add(d);}leakM.userData.tag=tagAt(leakM,0,1.8,0);}
+ const transfo=new THREE.Group();scene.add(transfo);{const g=transfo;for(let i=0;i<3;i++){box(g,1,1.5,.9,16.4+i*1.1,.75,-1.0,'#8a959b');box(g,.9,.2,.85,16.4+i*1.1,1.6,-1.0,'#f6c945');}transfo.userData.n=3;}
+ const panels=Array.from({length:6},(_,i)=>{const m=box(scene,1.2,.06,.8,SANIT.pos[0]-1.6+(i%3)*1.6,2.62+.0,SANIT.pos[1]-.6+Math.floor(i/3)*1.2,'#1f3a6b');m.rotation.x=-.25;m.visible=false;return m;});
  // East quarter, the leisure services: each building appears when it is bought.
  const svc={},LS=LOISIRS;
  svc.laundry=new THREE.Group();scene.add(svc.laundry);{const g=svc.laundry,[x,z]=LS.laundry.pos;box(g,3.4,2,2,x,1,z,'#e9f2f7');box(g,3.7,.2,2.3,x,2.1,z,'#2b6fd6');const sg=textPlane('LAVERIE · JETONS',2.2,.34,{bg:'#2b6fd6',font:'900 40px system-ui'});sg.position.set(x,1.75,z+1.01);g.add(sg);
@@ -220,6 +227,7 @@ export function createCampingScene(canvas,getState){
  function daylight(s){const h=hourOf(s),n=s.clock>=OPEN?1:h>=20.5?(h-20.5)/2.5*.8:h<8?(8-h)*.25:0,dusk=h>=18&&s.clock<OPEN?Math.min(1,(h-18)/2)*(1-n):0;night=n;
   sun.intensity=2.6*(1-.65*n);hemi.intensity=2.1*(1-.5*n);sun.color.copy(DAYC.sun).lerp(DUSK,dusk*.6).lerp(NIGHTC.sun,n);
   renderer.setClearColor(tmpC.copy(DAYC.clear).lerp(NIGHTC.clear,n));ground.material.color.copy(DAYC.ground).lerp(NIGHTC.ground,n);for(const l of lamps)l.material.emissiveIntensity=Math.min(1,n*1.6);}
+ const lvlOf=(s,id)=>s.levels[id]??0;
  const MOODFACE=m=>m<30?'😡':m<45?'😕':'';
  const cashList=v=>{const n=Math.min(18,Math.floor(v/20));return [...repeat('bundle',n),...(v-n*20>=1&&n<18?['bundle']:[])];};
 
@@ -254,6 +262,11 @@ export function createCampingScene(canvas,getState){
    incM.forEach((m,i)=>{const inc=A.incidents[i];m.g.visible=!!inc;if(inc){m.g.position.set(inc.x,0,inc.z);pill(m.tg,`${INCIDENTS[inc.kind].split(' ')[0]} ${Math.round(inc.fix/REPAIR*100)} %`,{bg:'#e8483aee',fg:'#fff'});}});
    const seenV=new Set();for(const v of A.visitors){seenV.add(v.id);let g=visitors.get(v.id);if(!g){g=person(['#e0a050','#50a0e0','#a050e0','#e05080','#50e0a0','#e0e050'][v.look%6]);visitors.set(v.id,g);}animate(g,v,time);if(v.swim)g.position.y=-.5;}
    for(const [id,g] of visitors)if(!seenV.has(id)){drop(g);visitors.delete(id);}}
+  // Water, power.
+  {const W=s.water,f=Math.max(.02,W.tank/tankCap(s));tower.visible=!!s.unlocked.borehole;if(tower.visible){const fl=tower.userData.fill;fl.scale.y=1.5*f;fl.position.y=2.25+.75*f;const tg=tower.userData.tag;tg.visible=f<.4||W.drought>0;pill(tg,`${W.drought>0?'☀️ ':''}💧 ${Math.round(f*100)} %`,f<.15?{bg:'#e8483aee',fg:'#fff'}:f<.4||W.drought>0?{bg:'#f6b94aee'}:{});}
+   const L=W.leak;puddles.forEach((m,i)=>{m.visible=!!L;if(L){const d=[8,6.2,4.5,3,1.6][i];m.position.x=L.x+Math.cos(L.a)*d;m.position.z=L.z+Math.sin(L.a)*d;}});
+   leakM.visible=!!L&&(L.found||Math.hypot(s.player.x-L.x,s.player.z-L.z)<3.5);if(leakM.visible){leakM.position.set(L.x,0,L.z);leakM.children.forEach(d=>{if(d.userData.i!=null){const u=(time*1.4+d.userData.i/8)%1;d.position.set(Math.sin(d.userData.i*2)*u*.5,.5+Math.sin(u*Math.PI)*1,Math.cos(d.userData.i*2)*u*.5);}});pill(leakM.userData.tag,`💧 fuite ${Math.round(L.fix/(REPAIR+.5)*100)} %`,{bg:'#e8483aee',fg:'#fff'});}
+   transfo.children.forEach((m,i)=>m.visible=Math.floor(i/2)<=lvlOf(s,'transfo')-1&&lvlOf(s,'transfo')>0);panels.forEach((m,i)=>m.visible=i<2*lvlOf(s,'solar'));}
   // Leisure services.
   for(const k of Object.keys(svc))svc[k].visible=!!s.unlocked[k];
   if(s.unlocked.laundry)svc.laundry.userData.win.forEach((w,i)=>w.material=mat(s.svc.machines[i]?(Math.sin(time*10+i)>0?'#ffe08a':'#ffb347'):'#7fb7d9'));
@@ -277,7 +290,7 @@ export function createCampingScene(canvas,getState){
   const cap=sanitCap(s),pp=s.sanit.paper;pill(paperTag,`🧻 ${Math.round(pp)}/${cap}`,pp<2?{bg:'#e8483aee',fg:'#fff'}:pp<4?{bg:'#f6b94aee'}:{});
   dirtPlane.material.opacity=Math.min(.7,s.sanit.dirt*.8);mopTag.visible=s.sanit.dirt>.35;pill(mopTag,s.sanit.dirt>.7?'🤢 sale !':'🧽 à nettoyer',s.sanit.dirt>.7?{bg:'#e8483aee',fg:'#fff'}:s.sanit.dirt>.35?{bg:'#f6b94aee'}:{});
   stackOf(dumpPile,repeat('trash',Math.min(s.dump,9)),{cols:3,rows:2,step:.5,dstep:.4});dumpTag.visible=s.dump>0;pill(dumpTag,`🗑️ ${s.dump}/${dumpCap(s)}`,s.dump>=dumpCap(s)?{bg:'#e8483aee',fg:'#fff'}:{});
-  elec.visible=!!s.unlocked.caravan;elecTag.visible=s.event?.kind==='disj';pill(elecTag,'⚡ SAUTÉ',s.event?.kind==='disj'?{bg:'#e8483aee',fg:'#fff'}:{});
+  elec.visible=!!s.unlocked.caravan;{const r=s.power.load/Math.max(1,s.power.cap),trip=s.event?.kind==='disj';elecTag.visible=trip||r>.85;pill(elecTag,trip?'⚡ SAUTÉ':`⚡ ${Math.round(r*100)} %`,trip?{bg:'#e8483aee',fg:'#fff'}:{bg:'#f6b94aee'});}
   // Pool and stage.
   pool.visible=!!s.unlocked.pool;if(pool.visible){const ch=s.pool.chlor,col=ch<.25?'#7fa84a':ch<.5?'#5fc0c0':'#43b5e8';pool.userData.water.material.color.set(col);poolTag.visible=ch<.7;pill(poolTag,`🧪 ${Math.round(ch*100)} %`,ch<.25?{bg:'#e8483aee',fg:'#fff'}:ch<.5?{bg:'#f6b94aee'}:{});
    const du=s.event?.kind==='ducks';ducks.forEach((d,i)=>{d.visible=du;if(du){d.position.set((POOL.x0+POOL.x1)/2+Math.sin(time*.7+i*1.7)*2.2,.3,(POOL.z0+POOL.z1)/2+Math.cos(time*.55+i*2.3)*1.2);d.rotation.y=time*.7+i;}});}
