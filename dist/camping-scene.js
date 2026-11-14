@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN,LOISIRS,SHUTTLE_SLOTS,BIKES,PADDLES,BASINS,BASIN_ORDER,TECH,SPA,BAR,LIFE_CHAIR,LOUNGERS,loungeCount,guardedBasins,waterIssue,WATER_TEXT,INCIDENTS,barCap} from './camping-engine.js';
+import {PITCHES,KINDS,doorOf,RECEPTION,SHOP,SHELVES,SOURCES,SANIT,DUMP,POOL,STAGE,ELEC,DESK,GATE,ROAD_Z,ROAD_END,visibleUnlocks,pitchOpen,sourceOpen,shelfOpen,shelfCap,sourceCap,sanitCap,cabins,dumpCap,hourOf,OPEN,PATIENCE,MISSIONS,billsDue,REPAIR,EVENTS,SHOWS,shelfZone,zoneOf,RACK_KINDS,OVEN,ovenCap,ITEMS,BUY_DELAY,INSPECT_LEN,LOISIRS,SHUTTLE_SLOTS,BIKES,PADDLES,BASINS,BASIN_ORDER,TECH,SPA,BAR,LIFE_CHAIR,LOUNGERS,loungeCount,guardedBasins,waterIssue,WATER_TEXT,INCIDENTS,barCap,TIERS} from './camping-engine.js';
 
 // Low-poly view of the campsite: pitches with their tents and caravans, the toilet block, the shop, the pool and the stage show
 // what the simulation holds. Nothing here decides anything.
@@ -49,8 +49,8 @@ export function createCampingScene(canvas,getState){
 
  // Ground, alley, lanes, road and gate.
  const ground=new THREE.Mesh(new THREE.PlaneGeometry(160,160),new THREE.MeshStandardMaterial({color:'#a9db6e',roughness:.85}));ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
- box(scene,2,.05,30,0,.03,-5.8,'#eadcb8',false);
- for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,33.5,-5.85],[0,33.5,-9.85],[14.4,33.5,-15]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
+ box(scene,2,.05,43,0,.03,-12.5,'#eadcb8',false);
+ for(const [x0,x1,z] of [[-14,0,2.15],[-14,0,-1.85],[-14,0,-5.85],[-14,0,-9.85],[-14,0,-15.85],[0,33.5,-5.85],[0,33.5,-9.85],[14.4,33.5,-15],[-14,0,-21.85],[-14,8,-27.85]])box(scene,x1-x0,.04,1.3,(x0+x1)/2,.03,z,'#eadcb8',false);
  box(scene,72,.05,2.6,8,.03,ROAD_Z,'#59646b',false);for(let x=-18;x<36;x+=2.4)box(scene,1.2,.01,.12,x,.06,ROAD_Z,'#f4f1ea',false);
  box(scene,12,.04,3.2,0,.02,7.2,'#eadcb8',false);
  let gateSign=()=>{},gateStars=1;
@@ -146,8 +146,14 @@ export function createCampingScene(canvas,getState){
  const CAMP=['#e86a7a','#6a8ee8','#e8b86a','#8ad06a','#b06ae8','#6ad0c8'];
  function tentModel(c){const g=new THREE.Group(),body=new THREE.Mesh(geo.pyr,mat(c));body.scale.set(1.15,1.15,1.15);body.position.y=.58;body.rotation.y=Math.PI/4;body.castShadow=true;g.add(body);const door=box(g,.5,.6,.02,0,.32,.62,'#2b3a44',false);door.userData.base='#2b3a44';g.userData.glow=[door];return g;}
  function caravanModel(c){const g=new THREE.Group();box(g,2.5,1.1,1.25,0,.8,-.3,'#f4f1ea');box(g,2.52,.2,1.27,0,.62,-.3,c);box(g,2.6,.1,1.35,0,1.4,-.3,'#d8dfe3');const win=box(g,.5,.45,.02,.5,1,.34,'#7fb7d9',false);win.userData.base='#7fb7d9';g.userData.glow=[win];box(g,.4,.7,.02,-.6,.85,.34,'#9a6a40',false);for(const x of [-.7,.7]){const w=cyl(g,.26,.12,x,.26,-.9,'#20262a');w.rotation.z=Math.PI/2;}box(g,.12,.12,.6,1.5,.4,-.3,'#8a959b');box(g,1.6,.06,.7,0,1.5,.3,c,false).rotation.x=.25;return g;}
+ // The five rental models and the owners' homes.
+ function ecoModel(){const g=new THREE.Group();box(g,2.4,1.2,1.4,0,.7,-.3,'#e9eef0');box(g,2.6,.12,1.6,0,1.35,-.3,'#8a959b');box(g,.6,.9,.04,-.6,.55,.42,'#6b4428',false);const w=box(g,.5,.4,.04,.5,.85,.42,'#7fb7d9',false);w.userData.base='#7fb7d9';g.userData.glow=[w];return g;}
+ function premiumModel(){const g=new THREE.Group();box(g,3.6,1.7,2.0,0,.9,-.3,'#f1e6cf');box(g,3.9,.2,2.3,0,1.85,-.3,'#2f7d4f');box(g,3.4,.1,.9,0,.1,1.1,'#c9a46a',false);box(g,.9,1.3,.04,-1,.7,.72,'#6b4428',false);g.userData.glow=[];for(const x of [.1,.9,1.5]){const w=box(g,.5,.7,.04,x,1.1,.72,'#7fb7d9',false);w.userData.base='#7fb7d9';g.userData.glow.push(w);}for(const dx of [-1.6,1.6])box(g,.08,1,.08,dx,.6,1.5,'#8a5a35');box(g,3.6,.08,.9,0,1.15,1.1,'#ffffff');return g;}
+ function lodgeModel(){const g=new THREE.Group();box(g,3.4,.15,2.6,0,.1,.1,'#c9a46a',false);const b=new THREE.Mesh(geo.pyr,mat('#e8dcc0'));b.scale.set(1.9,1.5,1.9);b.position.set(0,.95,-.2);b.rotation.y=Math.PI/4;b.castShadow=true;g.add(b);const d=box(g,.7,.9,.03,0,.55,.78,'#6b4428',false);d.userData.base='#6b4428';g.userData.glow=[d];return g;}
+ function cabaneModel(){const g=new THREE.Group();cyl(g,.35,3,-.6,1.5,-.4,'#7a4a2a');cyl(g,.3,3,.8,1.5,-.4,'#7a4a2a');ball(g,1.7,0,3.4,-.4,'#3d8a36',.55);box(g,2.6,.15,2,0,2.3,0,'#c9a46a');box(g,1.8,1.1,1.4,0,2.95,-.1,'#d9a35a');box(g,2.1,.18,1.7,0,3.6,-.1,'#8a4a2a');const w=box(g,.4,.4,.04,0,3,.62,'#7fb7d9',false);w.userData.base='#7fb7d9';g.userData.glow=[w];box(g,.2,2.2,.1,1.3,1.1,.9,'#8a5a35');return g;}
+ function ownerModel(){const g=new THREE.Group();box(g,3,1.4,1.7,0,.75,-.3,'#d9e3d0');box(g,3.3,.18,2,0,1.6,-.3,'#8a4a2a');box(g,.7,1.1,.04,-.8,.6,.57,'#6b4428',false);const w=box(g,.6,.5,.04,.6,.95,.57,'#7fb7d9',false);w.userData.base='#7fb7d9';g.userData.glow=[w];box(g,3.2,.04,.04,0,.35,1.4,'#c98a4a');for(const x of [-1.5,-.5,.5,1.5])box(g,.06,.5,.06,x,.25,1.4,'#c98a4a');for(const [x,c] of [[-1,'#ff4d6d'],[.2,'#f6c945'],[1.1,'#ff8fa3']])ball(g,.14,x,.2,1.2,c);return g;}
  function mobilModel(){const g=new THREE.Group();box(g,3,1.5,1.8,0,.8,-.3,'#d9a35a');box(g,3.3,.2,2.1,0,1.65,-.3,'#8a4a2a');box(g,.7,1.1,.04,-.8,.65,.62,'#6b4428',false);g.userData.glow=[];for(const x of [.3,1.05]){const w=box(g,.5,.5,.04,x,1,.62,'#7fb7d9',false);w.userData.base='#7fb7d9';g.userData.glow.push(w);}box(g,3.1,.08,.8,0,.1,.9,'#eadcb8',false);box(g,.7,.45,.7,1.1,.3,1.1,'#e8483a');return g;}
- const pitches=PITCHES.map((P,i)=>{const g=new THREE.Group();g.position.set(P.x,0,P.z);scene.add(g);const patch=box(g,3,.03,2.5,0,.03,0,P.kind==='tent'?'#9ccf63':'#e2d3a8',false);  let unit=null;if(P.kind==='mobil'){unit=mobilModel();g.add(unit);}else unit=new THREE.Group();g.add(unit);
+ const pitches=PITCHES.map((P,i)=>{const g=new THREE.Group();g.position.set(P.x,0,P.z);scene.add(g);const patch=box(g,3,.03,2.5,0,.03,0,P.kind==='tent'?'#9ccf63':'#e2d3a8',false);  let unit=new THREE.Group();g.add(unit);
   const trash=new THREE.Group();trash.position.set(.5,0,1.4);g.add(trash);const tag=sprite(1.5,.42);tag.position.set(0,2.4,.3);g.add(tag);
   return {g,P,patch,unit,trash,tag,made:null};});
  // Event markers: where somebody must stand for a moment to sort it out.
@@ -230,11 +236,12 @@ export function createCampingScene(canvas,getState){
   // Pitches.
   const byPitch=new Map();for(const c of s.campers)if(c.in)byPitch.set(c.pitch,c);
   pitches.forEach((v,i)=>{const open=pitchOpen(s,i),P=s.pitches[i];v.g.visible=open;if(!open)return;const c=byPitch.get(i),kind=v.P.kind;
-   if(kind!=='mobil'){const want=c?kind+c.look:null;if(want!==v.made){v.g.remove(v.unit);v.unit=!c?new THREE.Group():kind==='tent'?tentModel(CAMP[c.look%CAMP.length]):caravanModel(CAMP[c.look%CAMP.length]);v.g.add(v.unit);v.made=want;}
+   if(kind==='mobil'||kind==='owner'){const R=kind==='mobil'?s.rent[v.P.n]:null,want=kind==='mobil'?R.tier:'owner';if(want!==v.made){v.g.remove(v.unit);v.unit=kind==='owner'?ownerModel():({eco:ecoModel,confort:mobilModel,premium:premiumModel,lodge:lodgeModel,cabane:cabaneModel})[want]();v.g.add(v.unit);v.made=want;}}
+   if(kind!=='mobil'&&kind!=='owner'){const want=c?kind+c.look:null;if(want!==v.made){v.g.remove(v.unit);v.unit=!c?new THREE.Group():kind==='tent'?tentModel(CAMP[c.look%CAMP.length]):caravanModel(CAMP[c.look%CAMP.length]);v.g.add(v.unit);v.made=want;}
     v.unit.scale.y=P.down?.28:1;v.unit.rotation.z=P.down?.5:0;}
-   {const lit=!!c&&(c.sleep||night>.3);for(const m of v.unit.userData.glow??[])m.material=mat(lit?'#ffcf5a':m.userData.base);}
+   {const own=kind==='owner'&&s.owners[v.P.n].on,lit=(!!c&&(c.sleep||night>.3))||(own&&night>.3);for(const m of v.unit.userData.glow??[])m.material=mat(lit?'#ffcf5a':m.userData.base);}
    stackOf(v.trash,repeat('trash',P.trash),{cols:3,step:.42});
-   const text=P.noisy?'🎶 FIESTA':P.down?'🌬️ à replanter':P.trash&&!c?'🗑️ à vider':c&&c.sleep?'💤':c&&c.left<=0?'🧳 départ':'';v.tag.visible=!!text;if(text)pill(v.tag,text,P.noisy?{bg:'#b06ae8ee',fg:'#fff'}:P.down?{bg:'#e8483aee',fg:'#fff'}:{});});
+   const RR=kind==='mobil'?s.rent[v.P.n]:null,OO=kind==='owner'?s.owners[v.P.n]:null;const text=RR?.broken?`🔧 ${RR.broken}`:OO&&OO.mood<40?'📣 mécontent':RR&&RR.cond<40&&!c?'⚠️ à rénover':P.noisy?'🎶 FIESTA':P.down?'🌬️ à replanter':P.trash&&!c?'🗑️ à vider':c&&c.sleep?'💤':c&&c.left<=0?'🧳 départ':'';v.tag.visible=!!text;if(text)pill(v.tag,text,P.noisy?{bg:'#b06ae8ee',fg:'#fff'}:P.down?{bg:'#e8483aee',fg:'#fff'}:{});});
   // Aquatic centre.
   if(s.unlocked.pool){const A=s.aqua,guarded=guardedBasins(s),bad=waterIssue(s),waterCol=bad==='green'?'#7fa84a':bad==='cloudy'?'#9bbfc0':bad==='cold'?'#8fc6e8':bad==='eyes'?'#5fc0c0':'#43b5e8';
    for(const id of BASIN_ORDER.slice(1)){const b=basin[id],open=!!s.unlocked[id];b.g.visible=open;if(!open)continue;b.water.material.color.set(waterCol);const occ=A.occ[id]??0,closed=!guarded.has(id),full=occ>=BASINS[id].cap;

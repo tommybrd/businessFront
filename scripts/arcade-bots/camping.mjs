@@ -26,10 +26,11 @@ const still = { x: 0, z: 0 };
 // 2. A campsite with everything bought, the player idle: the staff keep it alive for ten days without an error.
 { const s = E.createCamping(); s.money = 1e5;
   for (let g = 0; g < 80; g++) { const u = E.visibleUnlocks(s).filter(u => !u.level)[0]; if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[u.id]; t += .05) E.stepCamping(s, .05, still); }
-  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
-  for (const L of E.LEVELS) for (let i = 0; i < (L.id === 'equipe' ? 5 : (L.max ?? 2)); i++) { const u = E.visibleUnlocks(s).find(u => u.id === L.id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, L.id); for (let t = 0; t < 40 && E.lvl(s, L.id) === before; t += .05) E.stepCamping(s, .05, still); }
+  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
+  for (const L of E.LEVELS) for (let i = 0; i < (L.id === 'equipe' ? 8 : ({ t_eco: 2, t_confort: 2, t_premium: 1, t_lodge: 2, t_cabane: 1 })[L.id] ?? L.max ?? 2); i++) { const u = E.visibleUnlocks(s).find(u => u.id === L.id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, L.id); for (let t = 0; t < 40 && E.lvl(s, L.id) === before; t += .05) E.stepCamping(s, .05, still); }
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000; E.manage(s, 'daypass', 'quota', 20);
   const basinsUsed = new Set(), incSeen = new Set(), spaSeen = new Set(), visSeen = new Set(); let sunSeen = 0, barSeen = 0, towelSeen = 0, maxPh = 0, minChlor = 1, issues = 0, closedSeen = 0;
+  let brokenSeen = 0, fixedSeen = 0; const wasBroken = new Set();
   const seenB = new Set(); let bookedSeen = 0, laundered = 0, rides = 0, played = 0, sported = 0, beach = 0, wifiDown = 0; const svcSeen = new Set();
   let events = new Set(), shows = 0, maxQueue = 0, pay = 0, nightOut = 0, maxPaper = 0, minPaperOpen = 1e9, baked = 0, prevOut = 0, sleepers = 0, sleepBad = 0; const maxShop = { bread: 0, ice: 0, drink: 0, cream: 0, gas: 0, souv: 0 };
   for (let t = 0; t < E.DAY * 10; t += .05) {
@@ -41,6 +42,7 @@ const still = { x: 0, z: 0 };
     { const A = s.aqua; for (const c of s.campers) { if (c.act?.kind === 'pool' && c.act.b && c.act.step >= 1) basinsUsed.add(c.act.b); if (c.act?.kind === 'sun' && c.act.step === 2) sunSeen++; if (c.act?.kind === 'bar') barSeen++; }
       for (const i of A.incidents) incSeen.add(i.id); for (const x of A.spa.sessions) spaSeen.add(x.id + ':' + s.day); for (const v of A.visitors) visSeen.add(v.id);
       if (A.lounge.some(x => x === 1)) towelSeen++; maxPh = Math.max(maxPh, A.ph); minChlor = Math.min(minChlor, s.pool.chlor); if (E.waterIssue(s)) issues++; }
+    s.rent.forEach((R, n) => { if (R.broken && !wasBroken.has(n)) { wasBroken.add(n); brokenSeen++; } else if (!R.broken && wasBroken.has(n)) { wasBroken.delete(n); fixedSeen++; } });
     for (const b of s.bookings) if (b.done && !seenB.has(b.id)) { seenB.add(b.id); bookedSeen++; }
     if (!E.isDay(s)) for (const c of s.campers) { if (c.act?.kind === 'pool' || c.act?.kind === 'shop') nightOut++; if (c.sleep) { sleepers++; if (c.act) sleepBad++; } }
     maxPaper = Math.max(maxPaper, s.sanit.paper); for (const k in maxShop) maxShop[k] = Math.max(maxShop[k], s.shop[k]);
@@ -64,6 +66,24 @@ const still = { x: 0, z: 0 };
   assert(nightOut === 0, `personne à la piscine ni à l’épicerie après l’extinction des feux (${nightOut} présences)`);
   assert(s.campers.every(c => c.in || ['arrive', 'queue', 'toPitch', 'leave'].includes(c.phase)), 'chaque camper est dans un état connu');
   const used = new Set(s.campers.filter(c => c.phase !== 'leave').map(c => c.pitch)); assert(used.size === s.campers.filter(c => c.phase !== 'leave').length, 'un seul camper par emplacement');
+  assert(s.rent.filter(r => r.tier).length === 8 && new Set(s.rent.map(r => r.tier)).size === 5, 'les huit locatifs sont achetés, dans les cinq gammes');
+  assert(s.rent.some(r => r.cond < 100), `les séjours usent les locatifs (état ${s.rent.map(r => Math.round(r.cond)).join('/')})`);
+  assert(brokenSeen > 0 && fixedSeen > 0, `des pannes de locatif surviennent (${brokenSeen}) et sont réparées (${fixedSeen})`);
+  assert(s.owners.filter(o => o.on).length >= 2, 'des propriétaires louent leurs parcelles à l’année');
+  { const v = E.loadCamping(JSON.parse(JSON.stringify(s))); v.money = 9000;
+    const n = v.rent.findIndex((r, i) => r.tier && v.pitches[E.RENTAL_PITCH[i]].by == null);
+    assert(n >= 0, 'un locatif est libre pour les opérations');
+    const val = E.resaleValue(v.rent[n]), m0 = v.money; assert(E.manage(v, 'sell', null, n) && v.money === m0 + val && !v.rent[n].tier, `revente d’un locatif : +${val} $`);
+    assert(E.manage(v, 'buyused', 'premium') && v.rent[n].tier === 'premium' && v.rent[n].cond === 55, 'achat d’un locatif d’occasion (état 55 %)');
+    const cost = E.renovateCost(v.rent[n]), m1 = v.money; assert(E.manage(v, 'renovate', null, n) && v.rent[n].cond === 100 && v.money === m1 - cost, `rénovation : −${cost} $, état 100 %`);
+    const busy = v.rent.findIndex((r, i) => r.tier && v.pitches[E.RENTAL_PITCH[i]].by != null); if (busy >= 0) assert(!E.manage(v, 'sell', null, busy), 'on ne revend pas un locatif occupé');
+    v.debt = 0; assert(E.manage(v, 'loan', null, 400) && v.debt === 400, 'un prêt se prend'); assert(!E.manage(v, 'loan', null, 1e7) || v.debt <= E.loanLimit(v), 'le prêt reste sous le plafond');
+    v.debt = 400; const m2 = v.money; assert(E.manage(v, 'repay', null, 150) && v.debt === 250 && v.money === m2 - 150, 'un prêt se rembourse');
+    assert(E.manage(v, 'sublet', null, 0) && v.owners[0].sublet, 'un propriétaire accepte la sous-location');
+    v.owners[0].mood = 5; v.clock = E.DAY - 1; const d = v.day; while (v.day === d) E.stepCamping(v, .05, still);
+    assert(!v.owners[0].on, 'un propriétaire à bout de patience résilie son bail');
+    const w = E.loadCamping(JSON.parse(JSON.stringify(s))); w.debt = 1000; w.clock = E.DAY - 1; const d2 = w.day; while (w.day === d2) E.stepCamping(w, .05, still);
+    assert(w.debt === 1040, `le prêt coûte 4 % par nuit (${w.debt})`); }
   // Classification: the inspector comes the morning after the request and gives one more star if the camp is in order.
   { const u = E.loadCamping(JSON.parse(JSON.stringify(s))), w = E.loadCamping(JSON.parse(JSON.stringify(s)));
     for (const x of [u, w]) { x.stars = 1; x.money = 5000; x.inspect = { state: 'idle', day: 0, t: 0, bad: 0, why: '', next: 0 }; }
