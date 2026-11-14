@@ -94,7 +94,14 @@ export const sanitCap=s=>Math.round(SANIT.cap*stockMul(s));
 export const ovenCap=s=>Math.round(OVEN.cap*stockMul(s));
 export const cabins=s=>SANIT.cabins+lvl(s,'sanit');
 export const dumpCap=s=>Math.round(DUMP.cap*stockMul(s));
-export const nightPrice=(s,kind)=>Math.round(KINDS[kind].price*(1+.1*lvl(s,'confort')));
+// Seasons repeat every SEASON_LEN days: a quiet start, a long high season, a shoulder season. The director sets the price
+// of each kind of pitch and a multiplier for the low and the high season; the price changes how many people book.
+export const SEASON_LEN=30,SEASONS={low:{name:'Basse saison',demand:.6},high:{name:'Haute saison',demand:1.5},mid:{name:'Entre-saison',demand:1}};
+export const seasonOf=s=>{const d=(s.day-1)%SEASON_LEN;return d<9?'low':d<24?'high':'mid';};
+export const STAR_PRICE=[1,1.08,1.2,1.38,1.6],STAR_DEMAND=[.8,.9,1,1.1,1.25];
+export const priceMul=(s,kind)=>{const P=s.pricing,sea=seasonOf(s);return (P[kind]??1)*(sea==='high'?P.high:sea==='low'?P.low:1)*(s.promo>0?.8:1);};
+export const nightPrice=(s,kind)=>Math.round(KINDS[kind].price*(1+.1*lvl(s,'confort'))*STAR_PRICE[s.stars-1]*priceMul(s,kind));
+export const demandMul=(s,kind)=>SEASONS[seasonOf(s)].demand*STAR_DEMAND[s.stars-1]*Math.pow(priceMul(s,kind),-1.1);
 export const price=(s,k)=>ITEMS[k].price*(1+.1*lvl(s,'confort'));
 // The baker is told how many campers are there: about two baguettes per pitch taken, and a few more.
 export const breadOrder=s=>Math.round(4+2.2*occupied(s));
@@ -105,7 +112,7 @@ export const traffic=s=>(.5+.15*s.rep)*(1+.2*lvl(s,'pub'));
 const arrivalHours=s=>{const h=hourOf(s);return h>=11.5&&h<20.5;};
 export const avgMood=s=>{const l=s.campers.filter(c=>c.in);return l.length?l.reduce((t,c)=>t+c.mood,0)/l.length:null;};
 
-const newDay=()=>({revenue:0,arrivals:0,departures:0,stars:0,lost:0,bills:0,fixed:0,show:null});
+const newDay=()=>({revenue:0,arrivals:0,departures:0,stars:0,lost:0,bills:0,fixed:0,show:null,overbooked:0});
 export function createCamping(){const s={schema:SAVE_SCHEMA,game:GAME,t:0,money:40,piles:[0,0],nextId:1,
  player:{id:0,role:'player',x:1.6,z:6.2,heading:0,carry:[],cap:6,speed:4.2,cool:0,moving:false},
  guests:[],helpers:[],posts:{},pitches:[],campers:[],sanit:{paper:8,dirt:0},shop:{bread:0,ice:0,drink:0,cream:0,gas:0,souv:0},oven:{in:0,out:0,timer:0,working:false},sources:{},pool:{chlor:1},dump:0,
@@ -116,7 +123,8 @@ function fill(s){s.guests=[];delete s.replica;s.pitches??=[];PITCHES.forEach((p,
  for(const k of Object.keys(SOURCES))s.sources[k]??={n:k==='paper'?6:0,timer:0};
  for(const k of Object.keys(SHELVES))s.shop[k]??=0;s.oven??={in:0,out:0,timer:0,working:false};
  s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=70;s.show??={day:0,state:'idle',t:0,kind:0};s.spawnTimer??=3;
- s.posts??={};s.reviews??=[];s.popups??=[];return s;}
+ s.posts??={};s.reviews??=[];s.popups??=[];
+ s.stars??=1;s.pricing??={};for(const [k,v] of Object.entries({tent:1,caravan:1,mobil:1,low:1,high:1,overbook:0}))s.pricing[k]??=v;s.promo??=0;s.bookings??=[];s.booked??={};s.inspect??={state:'idle',day:0,t:0,bad:0,why:'',next:0};for(let d=1;d<=3;d++)planBookings(s,s.day+d);return s;}
 
 // Tiles to show now: one-off unlocks whose prerequisite is bought, plus the next level of each levelled upgrade. What is
 // bought only ever grows, so the list is rebuilt when this signature changes. Callers must not modify the array.
@@ -274,7 +282,7 @@ function stepDay(s,dt){const h0=hourOf(s);s.clock+=dt;s.report=Math.max(0,s.repo
  if(at(23)){popup(s,'🌙 Extinction des feux',s.player.x,s.player.z,'info');for(const c of stayers(s))c.todo=[];if(!s.replica)for(const c of stayers(s))if(Math.random()<TYPES[c.type].party)c.party=23.3+Math.random()*4;}
  if(at(30)&&s.dump>0){s.supply+=3+.5*s.dump;s.dump=0;popup(s,'🚛 Les éboueurs sont passés',DUMP.pos[0],DUMP.pos[1],'info');}
  if(at(30.5)&&s.unlocked.bakery){const n=breadOrder(s);s.sources.bread.n=n;s.supply+=n*SUPPLY.bread;popup(s,`🥖 Le boulanger a livré ${n} pâtons : au four !`,SOURCES.bread.pos[0],SOURCES.bread.pos[1],'info');}
- if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();issueBills(s);
+ if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();s.promo=Math.max(0,s.promo-1);s.bookings=s.bookings.filter(b=>b.day>=s.day-1);for(let d=0;d<=3;d++)planBookings(s,s.day+d);issueBills(s);
   for(const p of s.pitches)p.noisy=false;for(const c of s.campers)if(c.in){c.party=null;c.sleep=false;c.left--;planDay(s,c,7);}popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
  for(const b of s.bills)if(!b.late&&s.t>b.due){b.late=true;b.amount=Math.round(b.amount*LATE_FEE);s.rep=Math.max(0,s.rep-.3);popup(s,`🧾 Retard : ${b.label} +25 %`,DESK[0],DESK[1],'bad');}
  for(const [k,def] of Object.entries(SOURCES)){if(!def.every||!sourceOpen(s,k))continue;const src=s.sources[k];if(src.n<sourceCap(s,k)){src.timer+=dt;if(src.timer>=def.every){src.timer=0;src.n++;s.supply+=SUPPLY[k];}}}
@@ -309,14 +317,33 @@ export const TYPES={hiker:{name:'Randonneur',icon:'🎒',nights:[1,1],party:.05}
 const TYPE_OF={tent:['hiker','family','youth','couple','hiker','beaufrere'],caravan:['retired','retired','family','mamie'],mobil:['family','couple','family','mamie','beaufrere']};
 const sad=(c,v,why)=>{c.mood=clamp(c.mood-v,0,100);c.gripe=why;},glad=(c,v,why)=>{c.mood=clamp(c.mood+v,0,100);if(why)c.joy=why;};
 const say=(s,c,text,kind='bad')=>popup(s,text,c.x,c.z,kind);
-function stepSpawn(s,dt){s.spawnTimer-=dt;if(s.replica||s.spawnTimer>0||!arrivalHours(s))return;
- const queued=s.campers.filter(c=>c.phase==='arrive'||c.phase==='queue').length,free=PITCHES.map((p,i)=>i).filter(i=>pitchOpen(s,i)&&s.pitches[i].by==null);
- s.spawnTimer=(70+Math.random()*25)/(traffic(s)*Math.max(1,openPitches(s)));if(!free.length||queued>=RECEPTION.max)return;
- // Clean pitches go first; a dirty one is only promised when nothing else is left.
- const clean=free.filter(i=>!s.pitches[i].trash),pool=clean.length?clean:free,i=pool[Math.floor(Math.random()*pool.length)],kind=PITCHES[i].kind,types=TYPE_OF[kind],type=types[Math.floor(Math.random()*types.length)],[a,b]=TYPES[type].nights;
- const side=Math.random()<.5?-1:1,c={id:s.nextId++,pitch:i,kind,type,look:Math.floor(Math.random()*6),nights:a+Math.floor(Math.random()*(b-a+1)),x:side*ROAD_END,z:ROAD_Z,heading:0,speed:2.6,moving:false,ax:(Math.random()-.5)*1.3,
+// A pitch of that kind (any kind when `kind` is left out) that is open and empty; clean ones first.
+function freePitchOf(s,kind){const free=PITCHES.map((p,i)=>i).filter(i=>(!kind||PITCHES[i].kind===kind)&&pitchOpen(s,i)&&s.pitches[i].by==null),
+ clean=free.filter(i=>!s.pitches[i].trash),pool=clean.length?clean:free;return pool.length?pool[Math.floor(Math.random()*pool.length)]:-1;}
+function newCamper(s,i,type,nights){const kind=PITCHES[i].kind,[a,b]=TYPES[type].nights,side=Math.random()<.5?-1:1,
+ c={id:s.nextId++,pitch:i,kind,type,look:Math.floor(Math.random()*6),nights:nights??a+Math.floor(Math.random()*(b-a+1)),x:side*ROAD_END,z:ROAD_Z,heading:0,speed:2.6,moving:false,ax:(Math.random()-.5)*1.3,
   phase:'arrive',wait:0,pick:0,mood:70,card:Math.random()<.55,in:false,todo:[],wc:15+Math.random()*25,act:null};
- c.left=c.nights;s.pitches[i].by=c.id;s.campers.push(c);}
+ c.left=c.nights;s.pitches[i].by=c.id;s.campers.push(c);return c;}
+const pick=list=>list[Math.floor(Math.random()*list.length)];
+function stepSpawn(s,dt){if(s.replica)return;const h=hourOf(s);
+ // People who booked turn up around the time they said; with no pitch left (overbooking) they leave furious.
+ if(isDay(s))for(const b of s.bookings)if(!b.done&&b.day===s.day&&h>=b.at){b.done=true;const i=freePitchOf(s,b.kind);
+  if(i<0){s.lost++;s.today.lost++;s.today.overbooked++;s.rep=Math.max(0,s.rep-.15);popup(s,'😠 Surréservé : plus de place !',GATE[0],GATE[1]-.5,'bad');}else newCamper(s,i,b.type,b.nights);}
+ s.spawnTimer-=dt;if(s.spawnTimer>0||!arrivalHours(s))return;
+ const queued=s.campers.filter(c=>c.phase==='arrive'||c.phase==='queue').length;
+ s.spawnTimer=(70+Math.random()*25)*(s.day>=2?1.8:1)/(traffic(s)*Math.max(1,openPitches(s)));const i=freePitchOf(s);if(i<0||queued>=RECEPTION.max)return;
+ newCamper(s,i,pick(TYPE_OF[PITCHES[i].kind]));}
+// Bookings for a day are drawn once, a few days ahead: about 30 % of the pitches, more in high season and with a good
+// reputation, fewer when the price is high, never more than the pitches still free on that day plus the overbooking allowed.
+export const occupancyOn=(s,day,kind)=>{let n=0;for(const c of s.campers)if(c.in&&(!kind||c.kind===kind)&&s.day+c.left-1>=day)n++;
+ for(const b of s.bookings)if((!kind||b.kind===kind)&&b.day<=day&&day<=b.day+b.nights-1)n++;return n;};
+function planBookings(s,day){if(s.booked[day]||s.replica)return;s.booked[day]=true;
+ for(const kind of Object.keys(KINDS)){const n=pitchCount(s,kind);if(!n)continue;
+  const want=Math.floor(n*.3*traffic(s)*demandMul(s,kind)+Math.random()),room=Math.max(0,Math.floor(n*(1+s.pricing.overbook/100))-occupancyOn(s,day,kind));
+  for(let k=0;k<Math.min(want,room);k++){const type=pick(TYPE_OF[kind]),[a,b]=TYPES[type].nights;s.bookings.push({id:s.nextId++,day,kind,type,nights:a+Math.floor(Math.random()*(b-a+1)),at:11.5+Math.random()*8.5,done:false});}}}
+export function forecast(s,d){const day=s.day+d;return {day,arrivals:s.bookings.filter(b=>b.day===day).length,left:s.bookings.filter(b=>b.day===day&&!b.done).length,
+ byKind:Object.fromEntries(Object.keys(KINDS).map(k=>[k,s.bookings.filter(b=>b.day===day&&b.kind===k).length])),
+ occupied:occupancyOn(s,day),capacity:Object.keys(KINDS).reduce((t,k)=>t+pitchCount(s,k),0)};}
 // What a camper means to do today, from `from` o'clock on: bread in the morning, the pool and an ice cream in the
 // afternoon. On the morning of the last day they pack up and leave instead.
 function planDay(s,c,from){const todo=[],add=(h,act)=>{if(h>=from)todo.push({h,act});};
@@ -416,6 +443,52 @@ function checkout(s,c){const P=s.pitches[c.pitch],stars=starsOf(c.mood),bad=star
  s.rep=clamp(s.rep+(stars-s.rep)*.12,0,5);s.today.departures++;s.today.stars+=stars;s.reviews.unshift({day:s.day,stars,text,who:TYPES[c.type].name,icon:TYPES[c.type].icon});if(s.reviews.length>12)s.reviews.length=12;
  if(stars===5){const tip=Math.round(.1*(c.paid??0));if(tip){s.money+=tip;s.today.revenue+=tip;}}popup(s,'★'.repeat(stars)+'☆'.repeat(5-stars),c.x,c.z,stars>=4?'money':stars===3?'info':'bad');}
 
+// ---- Classification: one to five stars. Each star has a list of criteria; asking for an inspection costs INSPECT_FEE. The inspector comes
+// the next morning, walks about for INSPECT_LEN seconds and checks the camp as it is (clean toilets, paper, no rubbish, healthy pool, nothing
+// broken). If everything holds he gives the highest star whose criteria are all met, one star at a time.
+export const INSPECT_FEE=120,INSPECT_LEN=30,STAR_NAMES=['★','★★','★★★','★★★★','★★★★★'];
+export const SERVICE_IDS=['laundry','wifi','bikes','playground','sports','shuttle'],BASIN_IDS=['pool','paddling','slides','lazy','lagoon'];
+export const servicesCount=s=>SERVICE_IDS.filter(k=>s.unlocked[k]).length,basinCount=s=>BASIN_IDS.filter(k=>s.unlocked[k]).length;
+export const STAR_RULES=[
+ {star:1,label:'8 emplacements ouverts',ok:s=>openPitches(s)>=8},
+ {star:1,label:'3 cabines de sanitaires',ok:s=>cabins(s)>=3},
+ {star:2,label:'Épicerie et boulangerie',ok:s=>!!(s.unlocked.shop&&s.unlocked.bakery)},
+ {star:2,label:'Accueil tenu par un réceptionniste',ok:s=>!!s.posts.reception},
+ {star:2,label:'12 emplacements ouverts',ok:s=>openPitches(s)>=12},
+ {star:3,label:'Piscine avec maître-nageur',ok:s=>!!(s.unlocked.pool&&s.unlocked.lifeguard)},
+ {star:3,label:'Un service (laverie, wifi, vélos, jeux, navette)',ok:s=>servicesCount(s)>=1},
+ {star:3,label:'Réputation de 3 ★',ok:s=>s.rep>=3},
+ {star:3,label:'16 emplacements ouverts',ok:s=>openPitches(s)>=16},
+ {star:4,label:'Centre aquatique : 3 bassins',ok:s=>basinCount(s)>=3},
+ {star:4,label:'Club enfants et restaurant',ok:s=>!!(s.unlocked.kidsclub&&s.unlocked.resto)},
+ {star:4,label:'Wifi et 3 services',ok:s=>!!s.unlocked.wifi&&servicesCount(s)>=3},
+ {star:4,label:'Réputation de 3,8 ★',ok:s=>s.rep>=3.8},
+ {star:4,label:'6 cabines de sanitaires',ok:s=>cabins(s)>=6},
+ {star:5,label:'Espace bien-être (spa)',ok:s=>!!s.unlocked.spa},
+ {star:5,label:'Centre aquatique : 5 bassins',ok:s=>basinCount(s)>=5},
+ {star:5,label:'Les 6 services',ok:s=>servicesCount(s)>=6},
+ {star:5,label:'Réputation de 4,4 ★',ok:s=>s.rep>=4.4},
+ {star:5,label:'8 cabines de sanitaires',ok:s=>cabins(s)>=8}];
+// The highest star whose criteria, and those of every star below it, are all met.
+export const starsReady=s=>{let n=0;for(let k=1;k<=5;k++){if(STAR_RULES.filter(r=>r.star===k).every(r=>r.ok(s)))n=k;else break;}return n;};
+// What the inspector sees right now; returns what is wrong, or ''.
+export function inspectProblem(s){if(s.sanit.paper<2)return 'plus de papier aux sanitaires';if(s.sanit.dirt>.55)return 'sanitaires sales';
+ if(s.pitches.reduce((n,p)=>n+p.trash,0)>2)return 'sacs-poubelle qui traînent';if(s.unlocked.pool&&s.pool.chlor<.4)return 'eau de la piscine douteuse';if(s.event)return 'une panne non réparée';return '';}
+function stepInspect(s,dt){const I=s.inspect;if(s.replica)return;
+ if(I.state==='asked'&&s.day>I.day&&isDay(s)&&hourOf(s)>=10){I.state='on';I.t=INSPECT_LEN;I.why='';popup(s,'🧑‍⚕️ L’inspecteur est là !',DESK[0],DESK[1],'bad');}
+ else if(I.state==='on'){I.t-=dt;if(!I.why)I.why=inspectProblem(s);
+  if(I.t<=0){const ready=starsReady(s);I.state='idle';I.next=s.day+3;
+   if(!I.why&&ready>s.stars){s.stars=Math.min(5,s.stars+1);s.rep=Math.min(5,s.rep+.3);popup(s,`🎉 Classement : ${STAR_NAMES[s.stars-1]} !`,DESK[0],DESK[1],'money');}
+   else if(!I.why)popup(s,'📋 Inspection : rien de nouveau à classer',DESK[0],DESK[1],'info');
+   else{s.rep=Math.max(0,s.rep-.2);popup(s,`📋 Inspection ratée : ${I.why}`,DESK[0],DESK[1],'bad');}}}}
+// ---- The director's choices (price, overbooking, promotion, inspection). Every player has the same rights.
+export function manage(s,a,k,n){const P=s.pricing;n=Number(n);
+ if(a==='price'&&['tent','caravan','mobil','low','high'].includes(k)&&Number.isFinite(n)){P[k]=clamp(Math.round(n*20)/20,.6,1.8);return true;}
+ if(a==='overbook'&&Number.isFinite(n)){P.overbook=clamp(Math.round(n/5)*5,0,40);return true;}
+ if(a==='promo'){if(s.promo>0||s.money<30)return false;s.money-=30;s.promo=2;popup(s,'📣 Promotion de dernière minute : −20 % pendant 2 jours',s.player.x,s.player.z,'info');return true;}
+ if(a==='classify'){const I=s.inspect;if(I.state!=='idle'||s.day<I.next||s.money<INSPECT_FEE||starsReady(s)<=s.stars)return false;s.money-=INSPECT_FEE;I.state='asked';I.day=s.day;popup(s,'📋 Inspection demandée pour demain matin',DESK[0],DESK[1],'info');return true;}
+ return false;}
+
 // Network play, as in the burger restaurant: the host's game holds the other players in `s.guests`; on a guest's machine
 // the game is a replica that runs between two snapshots but rolls no dice.
 export const MAX_GUESTS=3;
@@ -439,7 +512,7 @@ export function stepCamping(s,dt,input){dt=Math.min(dt,.1);s.t+=dt;const p=s.pla
  walk(s,p,p.input??STILL,dt,boxes);interact(s,p,dt);playerExtras(s,p,dt);
  for(const g of s.guests){g.cap=p.cap;g.speed=p.speed;walk(s,g,g.input,dt,boxes);interact(s,g,dt);playerExtras(s,g,dt);}
  for(const h of s.helpers)stepHelper(s,h,dt);
- stepDay(s,dt);stepOven(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
+ stepDay(s,dt);stepOven(s,dt);stepInspect(s,dt);stepWork(s,dt);stepEvents(s,dt);stepShow(s,dt);stepSpawn(s,dt);stepCampers(s,dt);
  if(s.popups.length){let old=false;for(const pp of s.popups){pp.t+=dt;if(pp.t>=1.6)old=true;}if(old)s.popups=s.popups.filter(pp=>pp.t<1.6);}}
 
 export function loadCamping(json){const o=typeof json==='string'?JSON.parse(json):json;if(!o||o.game!==GAME||o.schema!==SAVE_SCHEMA||!o.player||!Array.isArray(o.campers))throw Error('Sauvegarde illisible.');

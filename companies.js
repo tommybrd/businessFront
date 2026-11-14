@@ -23,6 +23,6 @@ export function mountCompanies(currentId,dock,session=()=>null){
   const code=session();if(code){const m=document.createElement('p');m.textContent=`👥 Partie à plusieurs en cours (code ${code}) : vous pouvez passer d’une entreprise à l’autre, les autres joueurs aussi. La partie vous suit.`;m.style.fontWeight='800';panel.append(m);}
   for(const c of COMPANIES){const here=c.id===currentId,a=document.createElement(here?'div':'a');a.className='cocard'+(here?' here':'');if(!here)a.href=c.href;
    const ico=document.createElement('span');ico.className='ico';ico.textContent=c.icon;const n=document.createElement('b');n.textContent=c.name+' · '+c.kind;const s=document.createElement('small');s.textContent=c.intro;const go=document.createElement('span');go.className='go';go.textContent=here?'Vous êtes ici':summary(c)+' → Y aller';a.append(ico,n,s,go);panel.append(a);}};
- btn.addEventListener('click',()=>{panel.hidden=!panel.hidden;if(!panel.hidden){render();for(const id of ['handspanel','teampanel','bankpanel','multipanel','reviewspanel'])document.getElementById(id)&&(document.getElementById(id).hidden=true);}});
- for(const id of ['multi','bankbtn','hands','team','reviews'])document.getElementById(id)?.addEventListener('click',()=>panel.hidden=true);
+ btn.addEventListener('click',()=>{panel.hidden=!panel.hidden;if(!panel.hidden){render();for(const id of ['handspanel','teampanel','bankpanel','multipanel','reviewspanel','gestionpanel'])document.getElementById(id)&&(document.getElementById(id).hidden=true);}});
+ for(const id of ['multi','bankbtn','hands','team','reviews','gestion'])document.getElementById(id)?.addEventListener('click',()=>panel.hidden=true);
  return {close:()=>panel.hidden=true};}

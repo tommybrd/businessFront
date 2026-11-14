@@ -1,4 +1,4 @@
-import {createCamping,stepCamping,loadCamping,visibleUnlocks,avgMood,traffic,MISSIONS,missionsFor,assignMission,PICKABLE,setPick,emptyHands,guestOf,addGuest,removeGuest,guestInput,ITEMS,hourOf,isDay,billsDue,occupied,openPitches,starsOf,SHOWS,PATIENCE} from './camping-engine.js';
+import {createCamping,stepCamping,loadCamping,manage,seasonOf,SEASONS,nightPrice,priceMul,demandMul,forecast,KINDS,pitchCount,STAR_RULES,STAR_NAMES,starsReady,INSPECT_FEE,INSPECT_LEN,visibleUnlocks,avgMood,traffic,MISSIONS,missionsFor,assignMission,PICKABLE,setPick,emptyHands,guestOf,addGuest,removeGuest,guestInput,ITEMS,hourOf,isDay,billsDue,occupied,openPitches,starsOf,SHOWS,PATIENCE} from './camping-engine.js';
 import {createCampingScene} from './camping-scene.js';
 import * as ENG from './camping-engine.js';
 import {createRoom} from './room.js';
@@ -44,21 +44,46 @@ let teamKey='';function renderTeam(){const key=state.helpers.map(h=>h.id+h.loop+
   const sel=document.createElement('select');sel.id='mission-'+h.id;sel.setAttribute('aria-label','Mission de '+h.name);for(const m of missionsFor(state,h)){const o=document.createElement('option');o.value=m.id;o.textContent=m.icon+'  '+m.label;o.selected=m.id===h.loop;sel.append(o);}
   sel.onchange=()=>{if(guest())room.send({t:'mission',id:h.id,loop:sel.value});assignMission(state,h.id,sel.value);teamKey='';renderTeam();};row.append(ico,name,sel);list.append(row);}
  for(const [k,label] of [['reception','Réceptionniste'],['shop','Épicier'],['stage','Animateur']])if(state.posts[k]){const row=document.createElement('div');row.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent='🧑‍💼';const name=document.createElement('b');name.textContent=label;const sm=document.createElement('small');sm.textContent='tient son poste toute la journée';row.append(ico,name,sm);list.append(row);}}
-$('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=$('reviewspanel').hidden=true;scene.setShowMissions(!$('teampanel').hidden);teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>{$('teampanel').hidden=true;scene.setShowMissions(false);});
+$('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=$('reviewspanel').hidden=$('gestionpanel').hidden=true;scene.setShowMissions(!$('teampanel').hidden);teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>{$('teampanel').hidden=true;scene.setShowMissions(false);});
 // Hands panel: empty the stack in one tap, and choose which kinds of goods the player picks up while walking.
 const PICK_ICON={paper:'🧻',dough:'🍞',bread:'🥖',ice:'🍦',drink:'🥤',cream:'🧴',gas:'🔥',souv:'🧲',chlor:'🧪',trash:'🗑️'};
 function renderPicks(){const box=$('picks');box.textContent='';const pick=me().pick??{};let off=0;
  for(const k of PICKABLE){const on=pick[k]!==false;if(!on)off++;const b=document.createElement('button');b.type='button';b.setAttribute('aria-pressed',on);b.title=(on?'Ne plus ramasser : ':'Ramasser : ')+ITEMS[k].name;b.innerHTML=`${PICK_ICON[k]}<small></small>`;b.querySelector('small').textContent=ITEMS[k].name;b.onclick=()=>{doPick(k,!on);renderPicks();};box.append(b);}
  $('hands').classList.toggle('filtered',off>0);$('hands').textContent=off===PICKABLE.length?'✋ Rien':off?'✋ Filtre':phone.matches?'✋':'✋ Mains';}
-const labels=()=>{$('reviews').textContent=phone.matches?'📖':'📖 Avis';$('team').textContent=phone.matches?'👷':'👷 Équipe';renderPicks();};
-$('hands').addEventListener('click',()=>{$('handspanel').hidden=!$('handspanel').hidden;$('teampanel').hidden=$('reviewspanel').hidden=true;scene.setShowMissions(false);renderPicks();});$('handsclose').addEventListener('click',()=>$('handspanel').hidden=true);
+const labels=()=>{$('gestion').textContent=phone.matches?'📊':'📊 Gestion';$('reviews').textContent=phone.matches?'📖':'📖 Avis';$('team').textContent=phone.matches?'👷':'👷 Équipe';renderPicks();};
+$('hands').addEventListener('click',()=>{$('handspanel').hidden=!$('handspanel').hidden;$('teampanel').hidden=$('reviewspanel').hidden=$('gestionpanel').hidden=true;scene.setShowMissions(false);renderPicks();});$('handsclose').addEventListener('click',()=>$('handspanel').hidden=true);
 $('empty').addEventListener('click',doEmpty);$('pickall').addEventListener('click',()=>{doPick('all');renderPicks();});$('picknone').addEventListener('click',()=>{doPick('none');renderPicks();});
 labels();phone.addEventListener?.('change',labels);
+// Management panel: prices and seasons, bookings, classification. Every player may use it; a guest asks the host and applies the same
+// change to its copy at once.
+const direct=(a,k,n)=>{if(guest())room.send({t:'manage',a,k,n});return manage(state,a,k,n);};
+let gTab='prices',gKey='';const GTABS=[['prices','💶 Tarifs'],['book','📅 Réservations'],['stars','⭐ Classement']];
+const gel=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e;};
+function gbtn(label,fn,ok=true){const b=gel('button','',label);b.type='button';b.disabled=!ok;b.onclick=()=>{fn();gKey='';renderGestion();};return b;}
+function grow(title,sub,buttons,cls=''){const r=gel('div','grow '+cls),l=gel('div'),b=gel('b','',title);l.append(b);if(sub){const m=gel('small','',sub);l.append(m);}const bs=gel('div','btns');bs.append(...buttons);r.append(l,bs);return r;}
+function renderGestion(){const s=state,P=s.pricing,key=JSON.stringify([gTab,P,s.promo,s.stars,s.inspect,s.day,Math.floor(s.money),s.bookings.length,s.rep>=3,Math.floor(s.rep*2)]);if(key===gKey)return;gKey=key;
+ const tabs=$('gtabs');tabs.textContent='';for(const [id,label] of GTABS){const b=gel('button','',label);b.type='button';b.setAttribute('aria-pressed',gTab===id);b.onclick=()=>{gTab=id;gKey='';renderGestion();};tabs.append(b);}
+ const body=$('gbody');body.textContent='';const sea=seasonOf(s);
+ if(gTab==='prices'){const info=gel('p','',`${SEASONS[sea].name} · demande ×${SEASONS[sea].demand} · classement ${STAR_NAMES[s.stars-1]} (tarifs ×${[1,1.08,1.2,1.38,1.6][s.stars-1]})`);body.append(info);
+  const step=(k,d)=>direct('price',k,(P[k]??1)+d);
+  for(const k of Object.keys(KINDS)){if(!pitchCount(s,k))continue;body.append(grow(`${KINDS[k].icon} ${KINDS[k].name}`,`${nightPrice(s,k)} $ la nuit · demande ×${demandMul(s,k).toFixed(2)}`,[gbtn('−5 %',()=>step(k,-.05),P[k]>.6),gbtn(`×${P[k].toFixed(2)}`,()=>{}),gbtn('+5 %',()=>step(k,.05),P[k]<1.8)]));}
+  for(const [k,name] of [['low','Basse saison'],['high','Haute saison']])body.append(grow(name,sea===k?'saison en cours':'',[gbtn('−5 %',()=>step(k,-.05),P[k]>.6),gbtn(`×${P[k].toFixed(2)}`,()=>{}),gbtn('+5 %',()=>step(k,.05),P[k]<1.8)],sea===k?'now':''));
+  body.append(grow('📣 Promotion de dernière minute',s.promo>0?`en cours : −20 % encore ${s.promo} jour${s.promo>1?'s':''}`:'−20 % pendant 2 jours · 30 $',[gbtn('Lancer',()=>direct('promo'),s.promo<=0&&s.money>=30)]));}
+ else if(gTab==='book'){body.append(gel('p','',`Surréservation autorisée : ${P.overbook} % de plus que les emplacements libres. Plus d'argent… et des campeurs furieux quand tout est plein.`));
+  body.append(grow('Surréservation',`${P.overbook} %`,[gbtn('−5',()=>direct('overbook',null,P.overbook-5),P.overbook>0),gbtn('+5',()=>direct('overbook',null,P.overbook+5),P.overbook<40)]));
+  for(let d=0;d<5;d++){const f=forecast(s,d),r=gel('div','gday'),when=gel('b','',d===0?'Aujourd’hui':d===1?'Demain':`Dans ${d} jours`),mid=gel('div'),bar=gel('div','gbar'),fill=gel('i');fill.style.width=Math.min(100,100*f.occupied/Math.max(1,f.capacity))+'%';if(f.occupied>f.capacity)fill.style.background='#e8483a';bar.append(fill);
+   const txt=gel('small','',`${Object.keys(KINDS).filter(k=>f.byKind[k]).map(k=>`${KINDS[k].icon}${f.byKind[k]}`).join(' ')||'aucune arrivée prévue'}${d===0?` · ${f.left} à venir`:''}`);mid.append(bar,txt);r.append(when,mid,gel('b','',`${f.occupied}/${f.capacity}`));body.append(r);}}
+ else{const ready=starsReady(s),I=s.inspect;body.append(gel('p','',`Votre camping : ${STAR_NAMES[s.stars-1]}. Une inspection (${INSPECT_FEE} $) ouvre l’étoile suivante si tous ses critères sont remplis le lendemain matin, pendant que l’inspecteur fait sa visite (${INSPECT_LEN} s).`));
+  const status=I.state==='asked'?'Inspection prévue demain matin.':I.state==='on'?'L’inspecteur est en visite !':ready>s.stars?`Prêt pour ${STAR_NAMES[ready-1]}.`:'Critères de l’étoile suivante pas encore remplis.';
+  body.append(grow('📋 Demander l’inspection',status,[gbtn(`${INSPECT_FEE} $`,()=>direct('classify'),I.state==='idle'&&s.day>=I.next&&s.money>=INSPECT_FEE&&ready>s.stars)]));
+  for(let k=s.stars+1;k<=5;k++){body.append(gel('b','',`${STAR_NAMES[k-1]}`));for(const r of STAR_RULES.filter(r=>r.star===k)){const ok=r.ok(s);body.append(gel('div','rule '+(ok?'ok':'no'),`${ok?'✔':'○'} ${r.label}`));}}
+  if(s.stars>=5)body.append(gel('p','','Cinq étoiles : le camping est classé au plus haut niveau. Bravo, directeur !'));}}
+$('gestion').addEventListener('click',()=>{$('gestionpanel').hidden=!$('gestionpanel').hidden;$('teampanel').hidden=$('handspanel').hidden=$('reviewspanel').hidden=$('multipanel').hidden=true;scene.setShowMissions(false);gKey='';renderGestion();});$('gestionclose').addEventListener('click',()=>$('gestionpanel').hidden=true);
 // Guest book: the latest reviews left by campers when they leave.
 let reviewKey='';function renderReviews(){const s=state,key=JSON.stringify(s.reviews.slice(0,3))+s.reviews.length;if(key===reviewKey)return;reviewKey=key;const list=$('reviewlist');list.textContent='';
  $('reviewsum').textContent=s.reviews.length?`Note moyenne du camping : ★ ${s.rep.toFixed(1)} sur 5 · ${s.reviews.length} dernier${s.reviews.length>1?'s':''} avis`:'Pas encore d’avis : ils arrivent quand les premiers campeurs repartent.';
  for(const r of s.reviews){const d=document.createElement('div');d.className='rev'+(r.stars<=2?' bad':'');const st=document.createElement('b');st.textContent='★'.repeat(r.stars)+'☆'.repeat(5-r.stars);const tx=document.createElement('span');tx.textContent='« '+r.text+' »';const w=document.createElement('small');w.textContent=` ${r.icon} ${r.who} · jour ${r.day}`;d.append(st,tx,document.createElement('br'),w);list.append(d);}}
-$('reviews').addEventListener('click',()=>{$('reviewspanel').hidden=!$('reviewspanel').hidden;$('teampanel').hidden=$('handspanel').hidden=true;scene.setShowMissions(false);reviewKey='';renderReviews();});$('reviewsclose').addEventListener('click',()=>$('reviewspanel').hidden=true);
+$('reviews').addEventListener('click',()=>{$('reviewspanel').hidden=!$('reviewspanel').hidden;$('teampanel').hidden=$('handspanel').hidden=$('gestionpanel').hidden=true;scene.setShowMissions(false);reviewKey='';renderReviews();});$('reviewsclose').addEventListener('click',()=>$('reviewspanel').hidden=true);
 let last=performance.now(),saveAt=0,hudAt=0,holdAt=0;
 const save=()=>{if(guest())return;try{localStorage.setItem(KEY,JSON.stringify(state));}catch{}};
 function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;
@@ -67,12 +92,12 @@ function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;
  scene.update(dt);
  if(now-hudAt>150){hudAt=now;const s=state;$('money').textContent=Math.floor(s.money).toLocaleString('fr-FR')+' $';$('cashwait').textContent=Math.round(s.piles[0]+s.piles[1]).toLocaleString('fr-FR')+' $';$('pitches').textContent=occupied(s)+'/'+openPitches(s);
   $('traffic').textContent='×'+traffic(s).toFixed(1);$('rep').textContent='★ '+s.rep.toFixed(1);const m=avgMood(s);$('mood').textContent=m==null?'—':Math.round(m)+' %';const f=m==null?0:m/100;$('gauge').style.width=(f*100)+'%';$('gauge').style.background=f>.6?'#4fbf5a':f>.35?'#f0a830':'#e8483a';
-  $('lost').textContent=s.lost+(s.lost>1?' partis':' parti');$('hint').textContent=hint();$('hint').hidden=!$('hint').textContent;$('team').hidden=!s.helpers.length&&!Object.keys(s.posts).length;hud2();if(room.net)room.renderMulti();if(!$('teampanel').hidden&&document.activeElement?.tagName!=='SELECT')renderTeam();if(!$('reviewspanel').hidden)renderReviews();}
+  $('lost').textContent=s.lost+(s.lost>1?' partis':' parti');$('hint').textContent=hint();$('hint').hidden=!$('hint').textContent;$('team').hidden=!s.helpers.length&&!Object.keys(s.posts).length;hud2();if(room.net)room.renderMulti();if(!$('teampanel').hidden&&document.activeElement?.tagName!=='SELECT')renderTeam();if(!$('reviewspanel').hidden)renderReviews();if(!$('gestionpanel').hidden)renderGestion();}
  if(now-saveAt>3000){saveAt=now;save();}requestAnimationFrame(frame);}
 // Clock, bills, current event and the report of the day that just ended.
-let reportKey='';function hud2(){const s=state,h=hourOf(s)%24,hh=Math.floor(h),mm=Math.floor((h-hh)*6)*10;$('clock').textContent=`${isDay(s)?(phone.matches?'':'🕐 '):'🌙 '}${hh}:${String(mm).padStart(2,'0')}`;$('day').textContent=`Épisode ${s.day}${isDay(s)?'':' · nuit'}`;
+let reportKey='';function hud2(){const s=state,h=hourOf(s)%24,hh=Math.floor(h),mm=Math.floor((h-hh)*6)*10;$('clock').textContent=`${isDay(s)?(phone.matches?'':'🕐 '):'🌙 '}${hh}:${String(mm).padStart(2,'0')}`;$('day').textContent=`Épisode ${s.day} · ${SEASONS[seasonOf(s)].name.toLowerCase()}${isDay(s)?'':' · nuit'}`;document.querySelector('.brand small').textContent=`Camping du Paradis ${STAR_NAMES[s.stars-1]} · alpha`;
  const nb=s.bills.length,late=s.bills.some(b=>b.late);$('billchip').hidden=!nb;$('billchip').classList.toggle('late',late);$('bills').textContent=`🧾 ${billsDue(s).toLocaleString('fr-FR')} $${late?' ⚠️':''}`;
- const ev=s.event;$('event').hidden=!ev;if(ev)$('event').textContent=ev.label;
+ const ev=s.event,ins=s.inspect.state==='on';$('event').hidden=!ev&&!ins;if(ins)$('event').textContent=`🧑‍⚕️ Inspection en cours : ${Math.ceil(s.inspect.t)} s — gardez tout propre !`;else if(ev)$('event').textContent=ev.label;
  const r=$('report'),L=s.lastDay,show=s.report>0&&L;r.hidden=!show;if(show){const key=JSON.stringify(L);if(key!==reportKey){reportKey=key;r.textContent='';const h2=document.createElement('h2');h2.textContent=`Épisode ${L.day}`;const ti=document.createElement('p');ti.className='ep';ti.textContent=`« ${L.title??'Un été presque parfait'} »`;const dl=document.createElement('dl');
   for(const [k,v] of [['Recettes',`${Math.round(L.revenue).toLocaleString('fr-FR')} $`],['Arrivées',L.arrivals],['Départs',L.departures],['Note des départs',L.stars?`★ ${L.stars.toFixed(1)}`:'—'],['Problèmes réglés',L.fixed],['Campeurs repartis fâchés',L.lost],['Factures payées',`${Math.round(L.bills).toLocaleString('fr-FR')} $`]]){const dt=document.createElement('dt');dt.textContent=k;const dd=document.createElement('dd');dd.textContent=v;dl.append(dt,dd);}r.append(h2,ti,dl);}}}
 const fmt=v=>Math.round(v).toLocaleString('fr-FR')+' $';void fmt;void starsOf;void PATIENCE;
@@ -80,7 +105,7 @@ const fmt=v=>Math.round(v).toLocaleString('fr-FR')+' $';void fmt;void starsOf;vo
 const resetLabel=()=>phone.matches?'↺':'↺ Recommencer';$('reset').textContent=resetLabel();phone.addEventListener?.('change',()=>{if(!armed)$('reset').textContent=resetLabel();});
 let armed=0;$('reset').addEventListener('click',()=>{const b=$('reset');if(performance.now()-armed>3000){armed=performance.now();b.textContent=phone.matches?'Encore ?':'Touchez encore pour recommencer';setTimeout(()=>{if(performance.now()-armed>=2900){armed=0;b.textContent=resetLabel();}},3000);return;}armed=0;b.textContent=resetLabel();if(room.net){room.reset();return;}state=createCamping();scene.reset();try{localStorage.removeItem(KEY);}catch{}});
 $('multi').addEventListener('click',()=>{$('multipanel').hidden=!$('multipanel').hidden;$('teampanel').hidden=$('handspanel').hidden=$('reviewspanel').hidden=true;scene.setShowMissions(false);});$('multiclose').addEventListener('click',()=>$('multipanel').hidden=true);
-for(const id of ['reviews','hands','team'])$(id).addEventListener('click',()=>$('multipanel').hidden=true);
+for(const id of ['gestion','reviews','hands','team'])$(id).addEventListener('click',()=>$('multipanel').hidden=true);
 addEventListener('pagehide',()=>{syncMoney(state);save();});
 window.__camping={get state(){return state},get net(){return room.net},room,scene,step:(dt,i)=>stepCamping(state,dt,i)};
 room.resume();requestAnimationFrame(frame);
