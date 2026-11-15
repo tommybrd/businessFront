@@ -12,9 +12,9 @@ const enginePath = process.env.ENGINE ? pathToFileURL(resolve(process.env.ENGINE
 let seed = Number(seedArg) || 1; Math.random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 const E = await import(enginePath);
 const skip = new Set(exclude.split(',').filter(Boolean));
-for (const id of skip) if (!E.UNLOCKS.some(u => u.id === id)) { console.error(`Achat inconnu : ${id}`); process.exit(1); }
+for (const id of skip) if (!E.UNLOCKS.some(u => u.id === id) && !E.STAFF_IDS.includes(id)) { console.error(`Achat inconnu : ${id}`); process.exit(1); }
 // A schema-1 save applies every unlock in order (helpers, robots, cashiers).
-let s = E.loadArcade({ schema: 1, player: {}, plots: [], money: 0, unlocked: Object.fromEntries(E.UNLOCKS.map(u => u.id).filter(id => !skip.has(id)).map(id => [id, true])) });
+let s = E.loadArcade({ schema: 1, player: {}, plots: [], money: 0, unlocked: Object.fromEntries([...E.STAFF_IDS, ...E.UNLOCKS.map(u => u.id)].filter(id => !skip.has(id)).map(id => [id, true])) });
 s.levels = { equipe: 6, robotLvl: 3, pub: 4, prix: 3, stock: 2, cuisine: 3, cows: 4, kiosk: 4, sac: 3 };
 // "Employé" levels: extra helpers, cloned from an existing one.
 const proto = s.helpers.find(h => !h.robot);

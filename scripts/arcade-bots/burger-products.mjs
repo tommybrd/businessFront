@@ -5,7 +5,7 @@ let seed = 7; Math.random = () => ((seed = (seed * 16807) % 2147483647) / 214748
 const E = await import('../../dist/arcade-engine.js');
 const assert = (c, m) => { if (!c) { console.error('ÉCHEC :', m); process.exit(1); } console.log('ok', m); };
 const NEW = ['nuggets', 'salad', 'coffee'], still = { x: 0, z: 0 };
-const base = E.UNLOCKS.map(u => u.id).filter(id => !NEW.includes(id));
+const base = [...E.STAFF_IDS, ...E.UNLOCKS.map(u => u.id)].filter(id => !NEW.includes(id));
 const s = E.loadArcade({ schema: 1, player: {}, plots: [], money: 0, unlocked: Object.fromEntries(base.map(id => [id, true])) }); s.eventTimer = 1e12; s.money = 4000;
 assert(E.visibleUnlocks(s).some(u => u.id === 'nuggets') && E.visibleUnlocks(s).some(u => u.id === 'coffee') && E.visibleUnlocks(s).some(u => u.id === 'salad'), 'les trois cases nouvelles sont proposées');
 for (const id of NEW) { const u = E.UNLOCKS.find(x => x.id === id); s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[id]; t += .05) E.stepArcade(s, .05, still); assert(s.unlocked[id], `${u.name} acheté en restant sur la case`); }
