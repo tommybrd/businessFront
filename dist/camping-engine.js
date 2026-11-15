@@ -86,6 +86,14 @@ export const LIFE_CHAIR=[15.1,-15.4];
 export const LOUNGERS=[[10.4,-14.9],[12.2,-14.9],[18.6,-16.4],[19.9,-16.4],[21.2,-16.4],[24.4,-16.4],[25.7,-16.4],[27,-16.4],[31,-15.6],[32.4,-15.6],[16.6,-16.4],[29.5,-16.4]];
 export const DAYPASS={price:6,quota:0};
 export const SANIT={pos:[8,-3],door:[8,-1.05],paper:[6.1,-.9],mop:[9.9,-.9],cap:10,cabins:3};
+// Green spaces: lawns to mow, trees to prune, flower beds to water. Each value is how neglected it is (0 = perfect, 1 = a jungle,
+// bare branches, wilted flowers); they all drift up day after day and whoever stands next to one works on it.
+export const GARDEN={lawns:[[3.2,-3,2.8,3.4],[9.6,8,4,1.6],[14.6,8.2,4.4,1.6]],trees:[[1.9,-9.5],[-1.9,-8.2],[12.6,6.6],[-1.9,-1.4]],beds:[[-4.2,8.4],[4.2,8.4],[-1.9,-4.6],[1.9,-6.4]],grow:{lawn:.22,tree:.09,bed:.3},work:{lawn:.2,tree:.25,bed:.35}};
+export const GARDEN_KINDS={lawn:{list:GARDEN.lawns,r:2.1,icon:'🌱',name:'Pelouse'},tree:{list:GARDEN.trees,r:1.7,icon:'🌳',name:'Arbre'},bed:{list:GARDEN.beds,r:1.5,icon:'🌸',name:'Massif'}};
+export const gardenCare=s=>{const g=s.garden;if(!g)return 1;const all=[...g.lawn,...g.tree,...g.bed];return all.reduce((n,v)=>n+1-v,0)/all.length;};
+// Work on the element next to `a` that needs it most; returns true when something was done (it takes a moment, like a chore).
+function tend(s,a){let best=null,bv=.1;for(const [k,K] of Object.entries(GARDEN_KINDS))K.list.forEach((e,i)=>{const v=s.garden[k][i];if(v>bv&&near(a,e,K.r)){best=[k,i];bv=v;}});
+ if(!best)return false;const [k,i]=best;if(k==='bed'){if(waterCut(s))return false;useWater(s,.012);}s.garden[k][i]=Math.max(0,s.garden[k][i]-GARDEN.work[k]);return true;}
 export const DUMP={pos:[-14,7.4],spot:[-12.6,7.4],cap:20};
 export const POOL={x0:8,x1:14.4,z0:-19.6,z1:-15.6,pad:[9,-14.5],gate:[11.2,-14.7],cap:6};
 export const STAGE={pos:[4.2,-17.7],pad:[4.2,-15.9],crowd:i=>[1.8+(i%7)*.8,-15.2+(Math.floor(i/7)%3)*.6]};
@@ -107,6 +115,8 @@ export const UNLOCKS=[
  {id:'shuttle',name:'Navette plage',price:500,pos:[31.4,5.7],after:'bikes'},
  {id:'souvenirs',name:'Rayon souvenirs',price:220,pos:[-9.6,6.6],after:'shop'},
  {id:'freezer',name:'Glaces',price:200,pos:[-9.4,4.4],after:'shop'},
+ {id:'garden',name:'Espaces verts : pelouse, arbres, fleurs',price:220,pos:[-1.8,7],after:'cleaner'},
+ {id:'gardener',name:'Jardinier',price:200,pos:[-1.8,5.8],after:'garden'},
  {id:'cart',name:'Voiturette',price:180,pos:[-2.1,-11.8],after:'cleaner'},
  {id:'caravan',name:'Caravanes + bornes',price:280,pos:[4.5,-7.8],after:'shop'},
  {id:'handyman',name:'Homme à tout faire',price:300,pos:[3.2,.6],after:'caravan'},
@@ -174,7 +184,7 @@ export const seasonOf=s=>{const d=(s.day-1)%SEASON_LEN;return d<9?'low':d<24?'hi
 export const STAR_PRICE=[1,1.08,1.2,1.38,1.6],STAR_DEMAND=[.8,.9,1,1.1,1.25];
 export const priceMul=(s,kind)=>{const P=s.pricing,sea=seasonOf(s);return (P[kind]??1)*(sea==='high'?P.high:sea==='low'?P.low:1)*(s.promo>0?.8:1);};
 export const nightPrice=(s,kind,i)=>{const R=kind==='mobil'&&i!=null?s.rent[PITCHES[i].n]:null,base=R?.tier?TIERS[R.tier].night:KINDS[kind].price;return Math.round(base*(1+.1*lvl(s,'confort'))*STAR_PRICE[s.stars-1]*priceMul(s,kind));};
-export const demandMul=(s,kind)=>SEASONS[seasonOf(s)].demand*STAR_DEMAND[s.stars-1]*Math.pow(priceMul(s,kind),-1.1);
+export const demandMul=(s,kind)=>SEASONS[seasonOf(s)].demand*(s.unlocked.garden?.94+.12*gardenCare(s):1)*STAR_DEMAND[s.stars-1]*Math.pow(priceMul(s,kind),-1.1);
 export const price=(s,k)=>ITEMS[k].price*(1+.1*lvl(s,'confort'));
 // The baker is told how many campers are there: about two baguettes per pitch taken, and a few more.
 export const breadOrder=s=>Math.round(4+2.2*occupied(s));
@@ -194,7 +204,7 @@ export function createCamping(){const s={schema:SAVE_SCHEMA,game:GAME,t:0,money:
 // Fields added since the first saves get their defaults here, for new games and loaded ones alike.
 function fill(s){s.guests=[];delete s.replica;s.pitches??=[];PITCHES.forEach((p,i)=>s.pitches[i]??={by:null,trash:0,noisy:false,down:false});
  for(const k of Object.keys(SOURCES))s.sources[k]??={n:k==='paper'?6:0,timer:0};
- for(const k of Object.keys(SHELVES))s.shop[k]??=0;s.oven??={in:0,out:0,timer:0,working:false};
+ for(const k of Object.keys(SHELVES))s.shop[k]??=0;s.oven??={in:0,out:0,timer:0,working:false};s.garden??={lawn:GARDEN.lawns.map(()=>.2),tree:GARDEN.trees.map(()=>.1),bed:GARDEN.beds.map(()=>.2)};
  s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=70;s.show??={day:0,state:'idle',t:0,kind:0};s.spawnTimer??=3;
  s.posts??={};s.reviews??=[];s.popups??=[];
  s.stars??=1;s.pricing??={};for(const [k,v] of Object.entries({tent:1,caravan:1,mobil:1,low:1,high:1,overbook:0}))s.pricing[k]??=v;s.svc??={machines:[0,0,0],bikes:BIKES,paddles:PADDLES,shuttle:{state:'idle',t:0,last:'',load:[]}};s.aqua??={};{const A=s.aqua;for(const [k,v] of Object.entries({ph:.5,filter:0,temp:.5,incidents:[],lounge:[],bar:{drink:0,ice:0},spa:{towels:6,sessions:[]},day:{price:DAYPASS.price,quota:DAYPASS.quota,count:0,day:0},ctrl:{t:0,day:0,why:''},visitors:[],occ:{},incTimer:40,visT:0,towelDay:0}))A[k]??=v;LOUNGERS.forEach((l,i)=>A.lounge[i]??=0);}
@@ -260,7 +270,8 @@ function interact(s,a,dt){a.cool-=dt;if(a.cool>0)return;let did=false;const room
   if(!did&&near(a,RESTO.pass))for(const k of ['fries','steak'])if(s.resto[k]<RESTO.cap&&drop(a,k)){s.resto[k]++;did=true;break;}}
  if(!did&&s.unlocked.spa&&near(a,SPA.pad)&&s.aqua.spa.towels<14&&drop(a,'towel')){s.aqua.spa.towels++;did=true;}
  if(!did&&s.unlocked.beachbar&&near(a,BAR.pad))for(const k of ['drink','ice'])if(s.aqua.bar[k]<barCap(s)&&drop(a,k)){s.aqua.bar[k]++;did=true;break;}
- if(did)a.cool=.11;}
+ let slow=false;if(!did&&s.unlocked.garden&&tend(s,a)){did=true;slow=true;}
+ if(did)a.cool=slow?.45:.11;}
 
 // What only players do: pay the bills at the office, collect the cash of the reception and the shop, pay for unlock tiles.
 const CASH=[RECEPTION.cash,SHOP.cash];
@@ -275,7 +286,7 @@ function playerExtras(s,a,dt){
 export const BUY_DELAY=1.2;
 function applyUnlock(s,id){s.player.cap=playerCap(s);s.player.speed=s.unlocked.cart?5.8:4.2;
  if(id==='receptionist')s.posts.reception=true;if(id==='shopkeeper')s.posts.shop=true;if(id==='animateur')s.posts.stage=true;
- if(id==='cleaner')s.helpers.push(helper(s,'clean','Agent d’entretien'));if(id==='handyman')s.helpers.push(helper(s,'fix','Homme à tout faire'));if(id==='lifeguard')s.helpers.push(helper(s,'pool','Maître-nageur'));
+ if(id==='cleaner')s.helpers.push(helper(s,'clean','Agent d’entretien'));if(id==='handyman')s.helpers.push(helper(s,'fix','Homme à tout faire'));if(id==='gardener')s.helpers.push(helper(s,'garden','Jardinier'));if(id==='lifeguard')s.helpers.push(helper(s,'pool','Maître-nageur'));
  if(id==='pool')s.pool.chlor=1;
  if(id==='tech'){s.aqua.ph=.5;s.aqua.filter=0;}
  if(id==='monitor'){const h=helper(s,'club','Animateur du club');s.helpers.push(h);}
@@ -295,13 +306,14 @@ export const MISSIONS=[
  {id:'pool',label:'Piscine : chlore et canards',icon:'🧪→🏊',needs:'pool'},
  {id:'club',label:'Club enfants : animer les séances',icon:'🧒🎈',needs:'kidsclub'},
  {id:'resto',label:'Restaurant : cuisine et service',icon:'🍟🥩→🍽️',needs:'resto'},
+ {id:'garden',label:'Espaces verts : tonte, taille, arrosage',icon:'🌱✂️🌸',needs:'garden'},
  {id:'fix',label:'Dépannages et tapage nocturne',icon:'🔧🤫',needs:null},
  {id:'rest',label:'Pause',icon:'💤',needs:null}];
 export const missionsFor=(s,h)=>MISSIONS.filter(m=>!m.needs||s.unlocked[m.needs]);
 export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if(!h||!MISSIONS.some(m=>m.id===loop))return false;putBack(s,h.carry);h.carry=[];h.loop=loop;h.phase=null;h.idle=0;h.moving=false;return true;}
 function helper(s,loop,name){return {id:s.nextId++,role:'helper',name,loop,x:1.2,z:7.6,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null,phase:null,ax:(Math.random()-.5)*1.2};}
 // A new seasonal worker takes the job with the fewest hands among those the campsite has, the busiest jobs first.
-function mostNeeded(s){const jobs=['sanit','clean',...(s.unlocked.shop?['shop']:[]),'fix',...(s.unlocked.pool?['pool']:[]),...(s.unlocked.resto?['resto']:[])],n=j=>s.helpers.filter(h=>h.loop===j).length;return jobs.slice().sort((a,b)=>n(a)-n(b))[0];}
+function mostNeeded(s){const jobs=['sanit','clean',...(s.unlocked.shop?['shop']:[]),'fix',...(s.unlocked.pool?['pool']:[]),...(s.unlocked.resto?['resto']:[]),...(s.unlocked.garden?['garden']:[])],n=j=>s.helpers.filter(h=>h.loop===j).length;return jobs.slice().sort((a,b)=>n(a)-n(b))[0];}
 function move(a,[x,z],dt,stop=.1){const dx=x-a.x,dz=z-a.z,d=Math.hypot(dx,dz);if(d<=stop){a.moving=false;return true;}const step=Math.min(d,a.speed*dt);a.x+=dx/d*step;a.z+=dz/d*step;a.heading=Math.atan2(dx,dz);a.moving=true;return d-step<=stop;}
 // Tidy walk: along the current lane to the main alley, up or down the alley, then along the lane of the destination.
 function route(a,[x,z],dt,stop=.1){const ax=a.ax??0;
@@ -330,6 +342,8 @@ function stepHelper(s,h,dt){h.wants=null;h.max=h.cap;const L=h.loop;if(L==='rest
   if(n&&(n>=h.cap||i<0)){if(go(h,DUMP.spot,dt))act(s,h,dt);return;}
   if(i>=0){h.wants='trash';if(go(h,doorOf(i),dt))act(s,h,dt);return;}
   if(s.sanit.dirt>.4&&!crewAt(s,['sanit'],SANIT.mop)){go(h,SANIT.mop,dt);return;}h.moving=false;return;}
+ if(L==='garden'){if(!s.unlocked.garden){h.moving=false;return;}let best=null,bv=.15;for(const [k,K] of Object.entries(GARDEN_KINDS))K.list.forEach((e,i)=>{if(k==='bed'&&waterCut(s))return;const v=s.garden[k][i]-(s.helpers.some(o=>o!==h&&o.loop==='garden'&&o.job===k+i)?9:0)-Math.hypot(e[0]-h.x,e[1]-h.z)*.004;if(v>bv){bv=v;best=[k,i,e];}});
+  if(!best){h.job=null;h.moving=false;return;}h.job=best[0]+best[1];if(go(h,[best[2][0],best[2][1]+(best[0]==='tree'?.9:0)],dt))act(s,h,dt);return;}
  if(L==='sanit'){if(carryJob(s,h,dt,'paper',SOURCES.paper.spot,SANIT.paper,Math.ceil(sanitCap(s)-s.sanit.paper-.001),s.sources.paper.n>0))return;go(h,SANIT.mop,dt);return;}
  if(L==='shop'){if(h.carry.length&&h.idle>4){putBack(s,h.carry);h.carry=[];h.phase=null;h.idle=0;}const j=shopJob(s,h);if(j&&carryJob(s,h,dt,j.item,j.from,j.to,j.need,j.avail))return;h.moving=false;return;}
  if(L==='pool'){if(!s.unlocked.pool){h.moving=false;return;}if(h.carry.length&&h.idle>4){putBack(s,h.carry);h.carry=[];h.phase=null;h.idle=0;}
@@ -405,13 +419,17 @@ const QUIPS=['Pas de panique, c’est un classique !','Tout est sous contrôle�
 // at 23:00. When the night ends the report of the day is kept, the bills arrive and the campers plan their day.
 export const BILL_DELAY=160,LATE_FEE=1.25;
 const SUPPLY={paper:.4,bread:.35,ice:1,chlor:3,drink:.6,cream:3,gas:8,souv:3.5,ph:2,towel:.5,pdrink:.6,pice:1,rpotato:.3,rmeat:.9};
+// Every night the grass grows, the trees thicken and the flowers get thirsty; a tree left alone drops a branch on a tent.
+function growGarden(s){if(!s.unlocked.garden||!s.garden)return;const G=s.garden,hot=seasonOf(s)==='high'?1.25:1;
+ G.lawn=G.lawn.map(v=>Math.min(1,v+GARDEN.grow.lawn*hot));G.tree=G.tree.map(v=>Math.min(1,v+GARDEN.grow.tree));G.bed=G.bed.map(v=>Math.min(1,v+GARDEN.grow.bed*hot));
+ G.tree.forEach((v,i)=>{if(v<.95||Math.random()>.35)return;const T=GARDEN.trees[i];let b=-1,bd=Infinity;PITCHES.forEach((p,j)=>{if(p.kind!=='tent'||!pitchOpen(s,j))return;const d=Math.hypot(p.x-T[0],p.z-T[1]);if(d<bd){bd=d;b=j;}});if(b>=0&&bd<9){s.pitches[b].down=true;G.tree[i]=.6;popup(s,'🌳 Une branche est tombée sur une tente !',T[0],T[1],'bad');}});}
 function stepDay(s,dt){const h0=hourOf(s);s.clock+=dt;s.report=Math.max(0,s.report-dt);const h1=hourOf(s),at=h=>h0<h&&h1>=h;
  if(at(22)&&s.unlocked.bakery){const n=s.shop.bread+s.oven.out+s.oven.in+s.sources.bread.n;s.shop.bread=s.oven.out=s.oven.in=s.sources.bread.n=0;s.oven.working=false;if(n)popup(s,`🥖 ${n} pain${n>1?'s':''} rassis jeté${n>1?'s':''}`,SHELVES.bread.pos[0],SHELVES.bread.pos[1],'info');}
  // Lights out: what was not done today is dropped (nobody goes for bread or a swim in the middle of the night).
  if(at(23)){popup(s,'🌙 Extinction des feux',s.player.x,s.player.z,'info');for(const c of stayers(s))c.todo=[];if(!s.replica)for(const c of stayers(s))if(Math.random()<TYPES[c.type].party)c.party=23.3+Math.random()*4;}
  if(at(30)&&s.dump>0){s.supply+=3+.5*s.dump;s.dump=0;popup(s,'🚛 Les éboueurs sont passés',DUMP.pos[0],DUMP.pos[1],'info');}
  if(at(30.5)&&s.unlocked.bakery){const n=breadOrder(s);s.sources.bread.n=n;s.supply+=n*SUPPLY.bread;popup(s,`🥖 Le boulanger a livré ${n} pâtons : au four !`,SOURCES.bread.pos[0],SOURCES.bread.pos[1],'info');}
- if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();stepRentalsDay(s);if(s.water.drought>0)s.water.drought--;else if(seasonOf(s)==='high'&&Math.random()<.15){s.water.drought=3;popup(s,'☀️ Sécheresse : arrêté préfectoral, l’eau devient chère',BOREHOLE.pos[0],BOREHOLE.pos[1],'bad');}
+ if(s.clock>=DAY){s.clock-=DAY;const T=s.today;s.lastDay={day:s.day,...T,stars:T.departures?T.stars/T.departures:null};s.lastDay.title=episodeTitle(s.lastDay);s.report=10;s.day++;s.today=newDay();stepRentalsDay(s);growGarden(s);if(s.water.drought>0)s.water.drought--;else if(seasonOf(s)==='high'&&Math.random()<.15){s.water.drought=3;popup(s,'☀️ Sécheresse : arrêté préfectoral, l’eau devient chère',BOREHOLE.pos[0],BOREHOLE.pos[1],'bad');}
  s.promo=Math.max(0,s.promo-1);s.bookings=s.bookings.filter(b=>b.day>=s.day-1);for(let d=0;d<=3;d++)planBookings(s,s.day+d);issueBills(s);
   for(const p of s.pitches)p.noisy=false;for(const c of s.campers)if(c.in){c.party=null;c.sleep=false;c.left--;planDay(s,c,7);}popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
  for(const b of s.bills)if(!b.late&&s.t>b.due){b.late=true;b.amount=Math.round(b.amount*LATE_FEE);s.rep=Math.max(0,s.rep-.3);popup(s,`🧾 Retard : ${b.label} +25 %`,DESK[0],DESK[1],'bad');}
@@ -520,6 +538,7 @@ function stepCampers(s,dt){const h=hourOf(s),night=!isDay(s),rushH=(h>=7&&h<9.5)
   if(c.away)continue;
   // Staying: what weighs on the mood right now, then the current outing, or the next thing to do.
   const P=s.pitches[c.pitch];
+  if(s.unlocked.garden){const gc=gardenCare(s);if(gc<.4)sad(c,dt*.3*(.4-gc)/.4,'garden');else if(gc>.8)glad(c,dt*.12,c.joy?null:'garden');}
   if(P.down)sad(c,dt*1.1,'storm');if(ev?.kind==='wasps'&&ev.spots[0].who===c.id)sad(c,dt*1,'wasps');if(ev?.kind==='disj'&&c.kind!=='tent')sad(c,dt*.5,'power');if(c.kind==='mobil'&&s.rent[PITCHES[c.pitch].n]?.broken)sad(c,dt*.9,'rental');if(ev?.kind==='wifi'&&(c.type==='youth'||c.type==='family'||c.type==='couple'))sad(c,dt*.7,'wifi');
   if(night&&!P.noisy)for(let i=0;i<PITCHES.length;i++)if(s.pitches[i].noisy&&Math.hypot(PITCHES[i].x-PITCHES[c.pitch].x,PITCHES[i].z-PITCHES[c.pitch].z)<6.5){sad(c,dt*.9,'noise');break;}
   if(c.mood<72)c.mood+=dt*.12;
@@ -624,11 +643,12 @@ const WORDS={paper:['Plus de papier depuis mardi.','J’ai dû emprunter le roul
  wifi:['Le wifi ? Une légende locale.','Impossible de regarder mon match : la box a rendu l’âme.'],laundry:['Trois machines pour tout le camping, on a fait la queue avec nos slips.'],bike:['On voulait louer des vélos, il n’y en avait plus.'],late:['La navette est partie sans nous. Magnifique.'],
  stock:['Un rayon vide, c’est un jour de moins de vacances.','Plus de crème solaire : coup de soleil offert par la maison.','L’épicerie ? Un joli décor.'],
  bread:['La baguette ? Quelle baguette ?','Pas de pain au petit-déjeuner, vacances gâchées.','Les croissants, on nous en a parlé, on n’en a jamais vu.'],ice:['Plus de glaces en plein mois d’août !','Un camping sans glace, c’est un sapin sans guirlande.'],
+ garden:['La pelouse n’avait pas vu de tondeuse depuis le Moyen Âge.','Les fleurs étaient sèches, comme la blague du directeur.','Pour trouver le chemin, il a fallu une machette.'],
  green:['Piscine verte, grenouilles en option.','L’eau avait la couleur d’une soupe de poireaux.'],ducks:['On a nagé avec les canards.','Les canards avaient réservé avant nous.'],full:['Piscine bondée, on a fait trempette debout.'],
  noise:['Les voisins ont fait la fête jusqu’à 3 h du matin.','Nuit blanche offerte par l’emplacement d’à côté.','Quelqu’un a joué de l’accordéon à 2 h du matin. Quelqu’un devrait être puni.'],
  storm:['Notre tente a fini chez les voisins.','Réveillés à l’aube… par notre toit qui s’envolait.'],wasps:['Un nid de guêpes en guise de voisin.','Les guêpes ont mangé notre goûter, puis nous.'],power:['Le disjoncteur saute dès qu’on branche la bouilloire.','Panne de courant : le frigo a fondu, les saucisses aussi.'],
  noshow:['On attendait le karaoké, on a eu le silence.','Pas de soirée animée : les moustiques se sont chargés du spectacle.']},
- PRAISE={clean:['Sanitaires plus propres que chez moi.','Une douche chaude ET propre : on se croirait à l’hôtel.'],bread:['Le pain était chaud tous les matins.','La baguette de 8 h pile, un bonheur.'],ice:['Les glaces valent le détour.','Le cornet à 16 h a sauvé notre après-midi.'],pool:['Piscine impeccable, on y a passé la journée.','Les enfants ne sont jamais sortis de l’eau.'],
+ PRAISE={garden:['Des fleurs partout, un jardin de carte postale.','Pelouse tondue au cordeau, on se serait cru à Versailles.','Les arbres taillés, les massifs fleuris : le camping a de la classe.'],clean:['Sanitaires plus propres que chez moi.','Une douche chaude ET propre : on se croirait à l’hôtel.'],bread:['Le pain était chaud tous les matins.','La baguette de 8 h pile, un bonheur.'],ice:['Les glaces valent le détour.','Le cornet à 16 h a sauvé notre après-midi.'],pool:['Piscine impeccable, on y a passé la journée.','Les enfants ne sont jamais sortis de l’eau.'],
  show:['Soirée karaoké inoubliable (hélas).','On a gagné au loto !','Le directeur chante faux, mais avec le cœur.','On a dansé jusqu’à 22 h 30, un record.'],
  any:['On revient l’an prochain, même emplacement !','Accueil au top, on recommande.','Le directeur court partout, mais ça marche.','Calme, propre, et de l’ombre : parfait.','Le coin le plus sympa de la région, ne le dites à personne.','Un camping où l’on se sent comme à la maison. En plus bruyant.','Le directeur est dépassé mais adorable : 5 étoiles pour l’effort.','Bronzés, repus, heureux. Que demander de plus ?','Mon beau-frère a tout critiqué, sauf le camping. C’est dire.','Vacances de rêve : on a même pas voulu rentrer.']};
 const oneOf=l=>l[Math.floor(Math.random()*l.length)];
@@ -785,7 +805,7 @@ export const STAR_RULES=[
 export const starsReady=s=>{let n=0;for(let k=1;k<=5;k++){if(STAR_RULES.filter(r=>r.star===k).every(r=>r.ok(s)))n=k;else break;}return n;};
 // What the inspector sees right now; returns what is wrong, or ''.
 export function inspectProblem(s){if(s.sanit.paper<2)return 'plus de papier aux sanitaires';if(s.sanit.dirt>.55)return 'sanitaires sales';
- if(s.pitches.reduce((n,p)=>n+p.trash,0)>2)return 'sacs-poubelle qui traînent';if(s.unlocked.pool&&s.pool.chlor<.4)return 'eau de la piscine douteuse';if(s.event)return 'une panne non réparée';return '';}
+ if(s.pitches.reduce((n,p)=>n+p.trash,0)>2)return 'sacs-poubelle qui traînent';if(s.unlocked.pool&&s.pool.chlor<.4)return 'eau de la piscine douteuse';if(s.event)return 'une panne non réparée';if(s.unlocked.garden&&gardenCare(s)<.3)return 'pelouse en friche et massifs desséchés';return '';}
 function stepInspect(s,dt){const I=s.inspect;if(s.replica)return;
  if(I.state==='asked'&&s.day>I.day&&isDay(s)&&hourOf(s)>=10){I.state='on';I.t=INSPECT_LEN;I.why='';popup(s,'🧑‍⚕️ L’inspecteur est là !',DESK[0],DESK[1],'bad');}
  else if(I.state==='on'){I.t-=dt;if(!I.why)I.why=inspectProblem(s);

@@ -26,7 +26,7 @@ const still = { x: 0, z: 0 };
 // 2. A campsite with everything bought, the player idle: the staff keep it alive for ten days without an error.
 { const s = E.createCamping(); s.money = 1e5;
   for (let g = 0; g < 80; g++) { const u = E.visibleUnlocks(s).filter(u => !u.level)[0]; if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[u.id]; t += .05) E.stepCamping(s, .05, still); }
-  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'borehole', 'kidsclub', 'monitor', 'resto', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
+  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'borehole', 'kidsclub', 'monitor', 'resto', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman', 'garden', 'gardener'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
   for (const L of E.LEVELS) for (let i = 0; i < (L.id === 'equipe' ? 8 : ({ t_eco: 2, t_confort: 2, t_premium: 1, t_lodge: 2, t_cabane: 1 })[L.id] ?? L.max ?? 2); i++) { const u = E.visibleUnlocks(s).find(u => u.id === L.id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, L.id); for (let t = 0; t < 40 && E.lvl(s, L.id) === before; t += .05) E.stepCamping(s, .05, still); }
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000; E.manage(s, 'daypass', 'quota', 20);
   const basinsUsed = new Set(), incSeen = new Set(), spaSeen = new Set(), visSeen = new Set(); let sunSeen = 0, barSeen = 0, towelSeen = 0, maxPh = 0, minChlor = 1, issues = 0, closedSeen = 0;
@@ -197,5 +197,24 @@ const still = { x: 0, z: 0 };
   assert(s.money === 500, 'quitter la case remet la temporisation à zéro');
   for (let t = 0; t < E.BUY_DELAY + 3; t += .05) E.stepCamping(s, .05, still);
   assert(s.unlocked.receptionist && s.money < 500, `rester sur la case l’achète (${Math.round(500 - s.money)} $)`);
+}
+
+// 9. Green spaces: they grow wild without care, the player works on what he stands next to, the gardener keeps it all tidy.
+{ const s = E.createCamping(); s.money = 1e5; s.unlocked.garden = true; s.unlocked.cleaner = true;
+  assert(E.gardenCare(s) > .75, 'un jardin neuf est soigné');
+  for (let d = 0; d < 6; d++) { s.clock = E.DAY - .01; E.stepCamping(s, .05, still); }
+  assert(E.gardenCare(s) < .3, `six jours sans entretien : jardin en friche (soin ${E.gardenCare(s).toFixed(2)})`);
+  assert(E.demandMul(s, 'tent') < E.demandMul({ ...s, unlocked: { ...s.unlocked, garden: false } }, 'tent'), 'un jardin à l’abandon fait fuir les clients');
+  const [lx, lz] = E.GARDEN.lawns[0], before = s.garden.lawn[0]; s.player.x = lx; s.player.z = lz;
+  for (let t = 0; t < 6; t += .05) E.stepCamping(s, .05, still);
+  assert(s.garden.lawn[0] < before - .5, 'le joueur tond la pelouse sur laquelle il se tient');
+  const w0 = s.water.units, [bx, bz] = E.GARDEN.beds[0]; s.player.x = bx; s.player.z = bz;
+  for (let t = 0; t < 6; t += .05) E.stepCamping(s, .05, still);
+  assert(s.garden.bed[0] < .3 && s.water.units > w0, 'arroser un massif consomme de l’eau du camping');
+  const g = E.createCamping(); g.money = 1e5; g.unlocked.garden = true; g.unlocked.gardener = true; g.helpers.push({ id: 99, role: 'helper', loop: 'garden', name: 'Jardinier', x: 1.2, z: 7.6, carry: [], cap: 6, speed: 3.2, cool: 0, moving: false, idle: 0, wants: null, phase: null, ax: 0 });
+  let low = 1; for (let t = 0; t < E.DAY * 8; t += .05) { E.stepCamping(g, .05, still); if (g.day > 2) low = Math.min(low, E.gardenCare(g)); }
+  assert(low > .5, `un jardinier maintient le jardin en état (soin minimum ${low.toFixed(2)})`);
+  const j = JSON.parse(JSON.stringify(s)); delete j.garden; const q = E.loadCamping(j);
+  assert(q.garden && q.garden.lawn.length === E.GARDEN.lawns.length && q.garden.bed.length === E.GARDEN.beds.length, 'une ancienne sauvegarde reçoit pelouses, arbres et massifs');
 }
 console.log('camping : tout est bon');
