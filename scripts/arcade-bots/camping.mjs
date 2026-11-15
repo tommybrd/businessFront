@@ -4,12 +4,18 @@ let seed = 11; Math.random = () => ((seed = (seed * 16807) % 2147483647) / 21474
 const E = await import('../../dist/camping-engine.js');
 const assert = (c, m) => { if (!c) { console.error('ÉCHEC :', m); process.exit(1); } console.log('ok', m); };
 const still = { x: 0, z: 0 };
+// Staff are hired in the team panel: the posts first, then employees on the missions the campsite offers.
+const crew = (s, want = { clean: 1, sanit: 1, fix: 1, shop: 1, pool: 2, club: 1, resto: 1, garden: 1 }) => {
+  for (const k of ['reception', 'shop', 'stage']) E.manage(s, 'hire', k);
+  for (const [loop, n] of Object.entries(want)) while (s.helpers.filter(h => h.loop === loop).length < n && E.MISSIONS.some(m => m.id === loop && (!m.needs || s.unlocked[m.needs])) && E.manage(s, 'hire', 'worker:' + loop));
+};
 
 // 1. The first days, played by hand: serve the reception, collect the cash, clear the rubbish bags, buy the cheapest tile when affordable.
 { const s = E.createCamping(), P = s.player;
   // Walks like a person: out to the nearest lane, along the main alley (x = 0), then along the lane of the destination.
   const LANES = [4.4, 2.15, -1.85, -5.85, -9.85, -15.85], nav = ([tx, tz]) => { if (Math.abs(P.z - tz) <= .7) return [tx, tz]; if (Math.abs(P.x) <= .3) return [0, tz]; const lane = LANES.reduce((a, b) => Math.abs(b - P.z) < Math.abs(a - P.z) ? b : a); return Math.abs(P.z - lane) > .3 ? [P.x, lane] : [0, lane]; };
   for (let t = 0; t < E.DAY * 3; t += .05) {
+    if (!s.posts.reception && s.money >= 70 && s.arrivals >= 2) E.manage(s, 'hire', 'reception');
     const tile = E.visibleUnlocks(s).slice().sort((a, b) => a.price - b.price)[0], afford = tile && s.money >= tile.price - (s.paid[tile.key] ?? 0);
     const dirty = s.pitches.map((p, i) => p.trash > 0 ? i : -1).filter(i => i >= 0), queue = s.campers.some(c => c.phase === 'queue' && !c.blocked);
     let target = [...E.RECEPTION.serve];
@@ -25,9 +31,10 @@ const still = { x: 0, z: 0 };
 
 // 2. A campsite with everything bought, the player idle: the staff keep it alive for ten days without an error.
 { const s = E.createCamping(); s.money = 1e5;
-  for (let g = 0; g < 80; g++) { const u = E.visibleUnlocks(s).filter(u => !u.level)[0]; if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[u.id]; t += .05) E.stepCamping(s, .05, still); }
-  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'borehole', 'kidsclub', 'monitor', 'resto', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'lifeguard', 'handyman', 'garden', 'gardener'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
-  for (const L of E.LEVELS) for (let i = 0; i < (L.id === 'equipe' ? 8 : ({ t_eco: 2, t_confort: 2, t_premium: 1, t_lodge: 2, t_cabane: 1 })[L.id] ?? L.max ?? 2); i++) { const u = E.visibleUnlocks(s).find(u => u.id === L.id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, L.id); for (let t = 0; t < 40 && E.lvl(s, L.id) === before; t += .05) E.stepCamping(s, .05, still); }
+  for (let g = 0; g < 80; g++) { crew(s); const u = E.visibleUnlocks(s).filter(u => !u.level)[0]; if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; for (let t = 0; t < 30 && !s.unlocked[u.id]; t += .05) E.stepCamping(s, .05, still); }
+  assert(['receptionist', 'cleaner', 'shop', 'shopkeeper', 'bakery', 'souvenirs', 'owners', 'borehole', 'kidsclub', 'resto', 'paddling', 'slides', 'lazy', 'lagoon', 'tech', 'beachbar', 'spa', 'laundry', 'wifi', 'bikes', 'playground', 'sports', 'shuttle', 'caravan', 'pool', 'stage', 'animateur', 'mobil', 'garden'].every(k => s.unlocked[k]), 'toutes les tuiles s’achètent en marchant dessus');
+  for (const L of E.LEVELS) for (let i = 0; i < (({ t_eco: 2, t_confort: 2, t_premium: 1, t_lodge: 2, t_cabane: 1 })[L.id] ?? L.max ?? 2); i++) { const u = E.visibleUnlocks(s).find(u => u.id === L.id); if (!u) break; s.player.x = u.pos[0]; s.player.z = u.pos[1]; const before = E.lvl(s, L.id); for (let t = 0; t < 40 && E.lvl(s, L.id) === before; t += .05) E.stepCamping(s, .05, still); }
+  crew(s); for (let i = 0; i < 6; i++) E.manage(s, 'hire', 'worker');
   s.player.x = 1.6; s.player.z = 6.2; s.money = 2000; E.manage(s, 'daypass', 'quota', 20);
   const basinsUsed = new Set(), incSeen = new Set(), spaSeen = new Set(), visSeen = new Set(); let sunSeen = 0, barSeen = 0, towelSeen = 0, maxPh = 0, minChlor = 1, issues = 0, closedSeen = 0;
   const clubJoy = new Set(), dineSeen = new Set(); let friesOut = 0, steakOut = 0, prevF = 0, prevS = 0;
@@ -188,7 +195,7 @@ const still = { x: 0, z: 0 };
 }
 
 // 5. Buying needs a deliberate stop: crossing a tile costs nothing, standing on it pays after BUY_DELAY seconds.
-{ const s = E.createCamping(); s.money = 500; const u = E.visibleUnlocks(s).find(x => x.id === 'receptionist');
+{ const s = E.createCamping(); s.money = 570; E.manage(s, 'hire', 'reception'); const u = E.visibleUnlocks(s).find(x => x.id === 'terminal');
   s.player.x = u.pos[0]; s.player.z = u.pos[1];
   for (let t = 0; t < E.BUY_DELAY * .7; t += .05) E.stepCamping(s, .05, still);
   assert(s.money === 500 && !(s.paid[u.key] > 0), 'traverser une case sans s’arrêter ne coûte rien');
@@ -196,7 +203,7 @@ const still = { x: 0, z: 0 };
   for (let t = 0; t < E.BUY_DELAY * .7; t += .05) E.stepCamping(s, .05, still);
   assert(s.money === 500, 'quitter la case remet la temporisation à zéro');
   for (let t = 0; t < E.BUY_DELAY + 3; t += .05) E.stepCamping(s, .05, still);
-  assert(s.unlocked.receptionist && s.money < 500, `rester sur la case l’achète (${Math.round(500 - s.money)} $)`);
+  assert(s.unlocked.terminal && s.money < 500, `rester sur la case l’achète (${Math.round(500 - s.money)} $)`);
 }
 
 // 9. Green spaces: they grow wild without care, the player works on what he stands next to, the gardener keeps it all tidy.
@@ -217,4 +224,31 @@ const still = { x: 0, z: 0 };
   const j = JSON.parse(JSON.stringify(s)); delete j.garden; const q = E.loadCamping(j);
   assert(q.garden && q.garden.lawn.length === E.GARDEN.lawns.length && q.garden.bed.length === E.GARDEN.beds.length, 'une ancienne sauvegarde reçoit pelouses, arbres et massifs');
 }
+
+// 10. The team: staff are hired and let go in the team panel, not on the floor.
+{ const s = E.createCamping(); s.eventTimer = 1e12;
+  const gone = ['receptionist', 'cleaner', 'shopkeeper', 'gardener', 'handyman', 'lifeguard', 'monitor', 'animateur'];
+  assert(!E.UNLOCKS.some(u => gone.includes(u.id)) && !E.LEVELS.some(l => ['guards', 'equipe'].includes(l.id)), 'plus aucune case de personnel sur le plateau');
+  assert(s.helpers.length === 0 && !s.posts.reception && E.hireBlock(s, 'reception') === '' && E.hireBlock(s, 'worker') !== '', 'on démarre seul : un réceptionniste d’abord');
+  s.money = 50; assert(!E.manage(s, 'hire', 'reception'), 'sans argent, pas d’embauche');
+  s.money = 500; assert(E.manage(s, 'hire', 'reception') && s.posts.reception && s.unlocked.receptionist && s.money === 430, 'réceptionniste embauché pour 70 $');
+  assert(E.visibleUnlocks(s).some(u => u.id === 'terminal') && E.visibleUnlocks(s).some(u => u.id === 'shop'), 'les cases suivantes apparaissent');
+  assert(!E.manage(s, 'hire', 'reception') && E.hireBlock(s, 'shop') !== '' && E.hireBlock(s, 'stage') !== '', 'un seul réceptionniste ; épicier et animateur attendent leur local');
+  const p1 = E.hirePrice(s, 'worker');
+  assert(E.manage(s, 'hire', 'worker') && s.helpers.length === 1 && s.unlocked.cleaner && E.hirePrice(s, 'worker') > p1, `un employé (${p1} $), le suivant coûte plus cher (${E.hirePrice(s, 'worker')} $)`);
+  assert(E.visibleUnlocks(s).some(u => u.id === 'sanit' || u.id === 'garden' || u.id === 'cart'), 'le premier employé ouvre les cases de confort');
+  s.money = 5000; s.unlocked.shop = true; s.unlocked.pool = true; s.unlocked.kidsclub = true;
+  assert(E.manage(s, 'hire', 'worker:pool') && s.helpers[1].loop === 'pool' && E.manage(s, 'hire', 'worker:club') && s.helpers[2].loop === 'club', 'embaucher directement sur une mission (maître-nageur, club)');
+  assert(E.manage(s, 'hire', 'worker:resto') && s.helpers[3].loop !== 'resto', 'une mission indisponible : l’employé va où ça manque');
+  assert(E.manage(s, 'hire', 'shop') && s.posts.shop && E.hireBlock(s, 'shop') === 'déjà en poste', 'épicier embauché une fois l’épicerie ouverte');
+  assert(E.STAR_RULES.find(r => r.label.startsWith('Piscine avec')).ok(s), 'la règle « piscine avec maître-nageur » compte l’employé au bassin');
+  const w = s.helpers[1], n0 = s.helpers.length, m0 = s.money; w.carry = [];
+  assert(E.manage(s, 'fire', 'worker', w.id) && s.helpers.length === n0 - 1 && s.money > m0 && !E.manage(s, 'fire', 'worker', w.id), 'employé renvoyé (remboursé en partie), pas deux fois');
+  const m1 = s.money; assert(E.manage(s, 'fire', 'shop') && !s.posts.shop && s.money > m1 && !E.manage(s, 'fire', 'shop'), 'épicier renvoyé et remboursé');
+  assert(!E.manage(s, 'hire', 'nimportequoi') && !E.manage(s, 'fire', 'worker', 'x'), 'demandes invalides ignorées');
+  for (let t = 0; t < 30; t += .05) E.stepCamping(s, .05, still);
+  const q = E.loadCamping(JSON.parse(JSON.stringify(s)));
+  assert(q.helpers.length === s.helpers.length && q.posts.reception && !q.posts.shop, 'save/load garde l’équipe');
+  const cap = E.createCamping(); cap.money = 1e7; E.manage(cap, 'hire', 'reception'); while (E.manage(cap, 'hire', 'worker'));
+  assert(cap.helpers.length === E.HIRE.worker.max && E.hireBlock(cap, 'worker') === 'équipe complète', `limite de ${E.HIRE.worker.max} employés`); }
 console.log('camping : tout est bon');

@@ -27,6 +27,7 @@ function input(){let x=stick.x,z=stick.z;for(const k of keys){x+=DIRS[k][0];z+=D
 function hint(){const s=state,p=me(),u=visibleUnlocks(s),queue=s.campers.some(c=>c.phase==='queue');
  if(s.arrivals===0&&!queue&&!p.carry.length)return 'Les premiers campeurs arrivent vers midi : attendez-les sur le carré bleu 🛎️ derrière l’accueil';
  if(queue&&!s.posts.reception&&s.arrivals<4)return 'Restez sur le carré bleu 🛎️ derrière l’accueil pour enregistrer les campeurs';
+ if(!s.posts.reception&&s.arrivals>=2&&s.money>=70)return 'Ouvrez 👷 Équipe pour embaucher un réceptionniste (70 $)';
  if(s.piles[0]>0&&s.arrivals<4)return 'Ramassez l’argent 💵 sur le carré vert, à côté de l’accueil';
  if(s.campers.some(c=>c.blocked&&c.phase==='queue'))return 'Un emplacement est sale : ramassez les sacs 🗑️ devant, puis jetez-les dans la benne verte';
  if(p.carry.includes('trash'))return 'Portez les sacs jusqu’à la benne 🚛 à l’entrée, côté épicerie';
@@ -39,11 +40,21 @@ function hint(){const s=state,p=me(),u=visibleUnlocks(s),queue=s.campers.some(c=
  if(s.pitches.some(q=>q.noisy))return 'Des campeurs font la fête : allez leur dire « chut ! » devant leur emplacement 🤫';
  if(u.length&&s.money>=Math.min(...u.map(x=>x.price-(s.paid[x.key]??0))))return 'Restez une seconde sur une zone en pointillé pour l’acheter';return '';}
 // Team panel: one row per staff member with a mission picker; rebuilt only when the team or the choices change.
-let teamKey='';function renderTeam(){const key=state.helpers.map(h=>h.id+h.loop+missionsFor(state,h).length).join();if(key===teamKey)return;teamKey=key;const list=$('teamlist');list.textContent='';
- for(const h of state.helpers){const row=document.createElement('div');row.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent='👷';const name=document.createElement('b');name.textContent=h.name;
-  const sel=document.createElement('select');sel.id='mission-'+h.id;sel.setAttribute('aria-label','Mission de '+h.name);for(const m of missionsFor(state,h)){const o=document.createElement('option');o.value=m.id;o.textContent=m.icon+'  '+m.label;o.selected=m.id===h.loop;sel.append(o);}
-  sel.onchange=()=>{if(guest())room.send({t:'mission',id:h.id,loop:sel.value});assignMission(state,h.id,sel.value);teamKey='';renderTeam();};row.append(ico,name,sel);list.append(row);}
- for(const [k,label] of [['reception','Réceptionniste'],['shop','Épicier'],['stage','Animateur']])if(state.posts[k]){const row=document.createElement('div');row.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent='🧑‍💼';const name=document.createElement('b');name.textContent=label;const sm=document.createElement('small');sm.textContent='tient son poste toute la journée';row.append(ico,name,sm);list.append(row);}}
+// Team panel: hire and let go of staff and give each a mission. Rebuilt only when the team, the choices or what is affordable change.
+const hireDirect=(a,k,n)=>{if(guest())room.send({t:'manage',a,k,n});return ENG.manage(state,a,k,n);};
+let teamKey='';function renderTeam(){const S=state,kinds=['reception','shop','stage','worker'],aff=kinds.map(k=>(ENG.hireBlock(S,k)||S.money<ENG.hirePrice(S,k)?0:1)+ENG.hireBlock(S,k)+ENG.hirePrice(S,k)).join();
+ const key=S.helpers.map(h=>h.id+h.loop+missionsFor(S,h).length).join()+'|'+['reception','shop','stage'].map(k=>S.posts[k]?1:0).join()+'|'+aff;if(key===teamKey)return;teamKey=key;const list=$('teamlist');list.textContent='';
+ const row=(icon,title,sub)=>{const r=document.createElement('div');r.className='worker';const ico=document.createElement('span');ico.className='ico';ico.textContent=icon;const name=document.createElement('b');name.textContent=title;r.append(ico,name);if(sub){const x=document.createElement('small');x.textContent=sub;r.append(x);}return r;};
+ const fireBtn=(label,onclick)=>{const b=document.createElement('button');b.type='button';b.className='fire';b.textContent='Renvoyer';b.title=label;b.setAttribute('aria-label',label);b.onclick=onclick;return b;};
+ for(const k of ['reception','shop','stage'])if(S.posts[k]){const r=row('🧑‍💼',ENG.HIRE.posts[k].label,'Tient son poste toute la journée');r.append(fireBtn('Renvoyer '+ENG.HIRE.posts[k].label,()=>{hireDirect('fire',k);teamKey='';renderTeam();}));list.append(r);}
+ for(const h of S.helpers){const r=row('👷',h.name);
+  const sel=document.createElement('select');sel.id='mission-'+h.id;sel.setAttribute('aria-label','Mission de '+h.name);for(const m of missionsFor(S,h)){const o=document.createElement('option');o.value=m.id;o.textContent=m.icon+'  '+m.label;o.selected=m.id===h.loop;sel.append(o);}
+  sel.onchange=()=>{if(guest())room.send({t:'mission',id:h.id,loop:sel.value});assignMission(state,h.id,sel.value);teamKey='';renderTeam();};
+  r.append(sel,fireBtn('Renvoyer '+h.name+(h.paid?' (remboursé '+Math.round(h.paid*ENG.HIRE.refund)+' $)':''),()=>{hireDirect('fire','worker',h.id);teamKey='';renderTeam();}));list.append(r);}
+ if(!list.children.length){const p=document.createElement('p');p.textContent='Personne pour l’instant : embauchez ci-dessous.';list.append(p);}
+ const bar=$('hirebar');bar.textContent='';
+ for(const k of kinds){const why=ENG.hireBlock(S,k),price=ENG.hirePrice(S,k),b=document.createElement('button');if(why==='déjà en poste')continue;b.type='button';b.className='hire';b.disabled=!!why||S.money<price;b.title=why||'';
+  b.textContent=`${k==='worker'?'👷 Employé':'🧑‍💼 '+ENG.HIRE.posts[k].label} · ${price.toLocaleString('fr-FR')} $`;if(why){const s=document.createElement('small');s.textContent=why;b.append(s);}b.onclick=()=>{if(hireDirect('hire',k)){teamKey='';renderTeam();}};bar.append(b);}}
 $('team').addEventListener('click',()=>{$('teampanel').hidden=!$('teampanel').hidden;$('handspanel').hidden=$('reviewspanel').hidden=$('gestionpanel').hidden=true;scene.setShowMissions(!$('teampanel').hidden);teamKey='';renderTeam();});$('teamclose').addEventListener('click',()=>{$('teampanel').hidden=true;scene.setShowMissions(false);});
 // Hands panel: empty the stack in one tap, and choose which kinds of goods the player picks up while walking.
 const PICK_ICON={potato:'🥔',raw:'🥩',fries:'🍟',steak:'🍖',ph:'⚗️',towel:'🧖',paper:'🧻',dough:'🍞',bread:'🥖',ice:'🍦',drink:'🥤',cream:'🧴',gas:'🔥',souv:'🧲',chlor:'🧪',trash:'🗑️'};
@@ -114,7 +125,7 @@ function frame(now){const dt=Math.min(.1,(now-last)/1000);last=now;
  scene.update(dt);
  if(now-hudAt>150){hudAt=now;const s=state;$('money').textContent=Math.floor(s.money).toLocaleString('fr-FR')+' $';$('cashwait').textContent=Math.round(s.piles[0]+s.piles[1]).toLocaleString('fr-FR')+' $';$('pitches').textContent=occupied(s)+'/'+openPitches(s);
   $('traffic').textContent='×'+traffic(s).toFixed(1);$('rep').textContent='★ '+s.rep.toFixed(1);const m=avgMood(s);$('mood').textContent=m==null?'—':Math.round(m)+' %';const f=m==null?0:m/100;$('gauge').style.width=(f*100)+'%';$('gauge').style.background=f>.6?'#4fbf5a':f>.35?'#f0a830':'#e8483a';
-  $('lost').textContent=s.lost+(s.lost>1?' partis':' parti');$('hint').textContent=hint();$('hint').hidden=!$('hint').textContent;$('team').hidden=!s.helpers.length&&!Object.keys(s.posts).length;hud2();if(room.net)room.renderMulti();if(!$('teampanel').hidden&&document.activeElement?.tagName!=='SELECT')renderTeam();if(!$('reviewspanel').hidden)renderReviews();if(!$('gestionpanel').hidden)renderGestion();}
+  $('lost').textContent=s.lost+(s.lost>1?' partis':' parti');$('hint').textContent=hint();$('hint').hidden=!$('hint').textContent;$('team').hidden=false;hud2();if(room.net)room.renderMulti();if(!$('teampanel').hidden&&document.activeElement?.tagName!=='SELECT')renderTeam();if(!$('reviewspanel').hidden)renderReviews();if(!$('gestionpanel').hidden)renderGestion();}
  if(now-saveAt>3000){saveAt=now;save();}requestAnimationFrame(frame);}
 // Clock, bills, current event and the report of the day that just ended.
 let reportKey='';function hud2(){const s=state,h=hourOf(s)%24,hh=Math.floor(h),mm=Math.floor((h-hh)*6)*10;$('clock').textContent=`${isDay(s)?(phone.matches?'':'🕐 '):'🌙 '}${hh}:${String(mm).padStart(2,'0')}`;$('day').textContent=`Épisode ${s.day} · ${SEASONS[seasonOf(s)].name.toLowerCase()}${isDay(s)?'':' · nuit'}`;document.querySelector('.brand small').textContent=`Camping du Paradis ${STAR_NAMES[s.stars-1]} · alpha`;
