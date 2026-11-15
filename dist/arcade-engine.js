@@ -60,9 +60,9 @@ export const UNLOCKS=[
  {id:'terminal1',name:'Terminal CB',price:90,pos:[8.4,-1.2],after:'cashier'},
  {id:'helper2',name:'Aide burgers',price:220,pos:[8.2,-11.2],after:'burger'},
  {id:'megaphone',name:'Mégaphone',price:50,pos:MEGAPHONE,after:'cashier'},
- {id:'ads1',name:'Pub niveau 1',price:80,pos:[13.6,4.4],after:'megaphone'},
- {id:'ads2',name:'Pub niveau 2',price:200,pos:[13.6,4.4],after:'ads1'},
- {id:'ads3',name:'Pub niveau 3',price:450,pos:[13.6,4.4],after:'ads2'},
+ {id:'ads1',name:'Pub niveau 1',price:80,pos:[11.8,5.8],after:'megaphone'},
+ {id:'ads2',name:'Pub niveau 2',price:200,pos:[11.8,5.8],after:'ads1'},
+ {id:'ads3',name:'Pub niveau 3',price:450,pos:[11.8,5.8],after:'ads2'},
  {id:'water',name:'Arrosage',price:120,pos:[-10.8,-10.4],after:'helper'},
  {id:'fastFryer',name:'Friteuse turbo',price:180,pos:[-5,-9.8],after:'helper'},
  {id:'helper3',name:'Aide frites 2',price:260,pos:[-5,-9.8],after:'fastFryer'},
@@ -111,7 +111,7 @@ export const UNLOCKS=[
 // Levelled upgrades: bought again and again, each level dearer (price = base × growth^level). This is the endless scale.
 export const LEVELS=[
  {id:'sac',name:'Sac',after:'bag',base:150,growth:1.6,pos:[-4.4,-1.6],tip:'+6 objets portés'},
- {id:'pub',name:'Pub',after:'ads3',base:700,growth:1.6,pos:[13.6,4.4],tip:'+20 % de clients'},
+ {id:'pub',name:'Pub',after:'ads3',base:700,growth:1.6,pos:[11.8,5.8],tip:'+20 % de clients'},
  {id:'prix',name:'Recettes premium',after:'burger',base:400,growth:1.8,pos:[13.6,-1],tip:'+10 % sur les prix'},
  {id:'stock',name:'Stockage',after:'shelf2',base:300,growth:1.7,pos:[-3.6,3],tip:'+50 % de stock partout'},
  {id:'cuisine',name:'Cuisine rapide',after:'fastKitchen',base:500,growth:1.7,pos:[.25,-10.8],tip:'Machines 15 % plus rapides'},
