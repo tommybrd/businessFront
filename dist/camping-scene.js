@@ -9,6 +9,8 @@ export function createCampingScene(canvas,getState){
  const scene=new THREE.Scene(),camera=new THREE.OrthographicCamera(-12,12,9,-9,.1,200),sun=new THREE.DirectionalLight('#fff4e0',2.6);const small=matchMedia('(max-width:700px),(pointer:coarse)').matches;sun.castShadow=true;sun.shadow.mapSize.set(small?1024:2048,small?1024:2048);Object.assign(sun.shadow.camera,{left:-30,right:30,top:30,bottom:-30,far:120});sun.shadow.normalBias=.03;const hemi=new THREE.HemisphereLight('#ffffff','#7a9a5a',2.1);scene.add(sun,sun.target,hemi);
  const mats=new Map(),mat=c=>{if(!mats.has(c))mats.set(c,new THREE.MeshStandardMaterial({color:c,roughness:.85}));return mats.get(c);};
  const geo={box:new THREE.BoxGeometry(1,1,1),cyl:new THREE.CylinderGeometry(1,1,1,16),sphere:new THREE.SphereGeometry(1,12,10),cap:new THREE.CapsuleGeometry(.28,.5,4,10),pyr:new THREE.ConeGeometry(1,1,4)};
+ // A see-through striped awning: shorter and clear enough to read the counter and the goods under it.
+ function awning(p,cx,c1,c2){for(let i=0;i<9;i++){const m=box(p,.5,.06,1.1,cx-2+i*.5,2.5,5.45,i%2?c1:c2,false);m.rotation.x=-.12;m.material=m.material.clone();m.material.transparent=true;m.material.opacity=.45;m.material.depthWrite=false;}}
  function box(p,w,h,d,x,y,z,c,shadow=true){const m=new THREE.Mesh(geo.box,mat(c));m.scale.set(w,h,d);m.position.set(x,y,z);m.castShadow=shadow;m.receiveShadow=true;p.add(m);return m;}
  function cyl(p,r,h,x,y,z,c){const m=new THREE.Mesh(geo.cyl,mat(c));m.scale.set(r,h,r);m.position.set(x,y,z);m.castShadow=true;p.add(m);return m;}
  function ball(p,r,x,y,z,c,sy=1){const m=new THREE.Mesh(geo.sphere,mat(c));m.scale.set(r,r*sy,r);m.position.set(x,y,z);m.castShadow=true;p.add(m);return m;}
@@ -96,7 +98,7 @@ export function createCampingScene(canvas,getState){
  // Shop: a wooden hut with a counter; bread and ice creams are displayed on it, and put there by whoever restocks the pads.
  const shop=new THREE.Group();scene.add(shop);{const g=shop;box(g,4.8,2,.95,-5.7,1,3.0,'#c98a4a');box(g,5.2,.2,1.4,-5.7,2.1,3.0,'#2f7d4f');const t=textPlane('ÉPICERIE DU PARADIS',3.3,.4,{bg:'#f4f1ea',fg:'#8a3a2a',font:'900 40px system-ui'});t.position.set(-5.7,1.55,3.5);g.add(t);
   box(g,4.8,1,.7,-5.75,.5,5.6,'#d9a35a');box(g,4.9,.08,.8,-5.75,1.04,5.6,'#eadcb8');for(const dx of [-2.3,2.3])box(g,.1,2.4,.1,-5.75+dx,1.2,6.0,'#8a5a35');
-  for(let i=0;i<10;i++)box(g,.5,.08,1.6,-8+i*.5+.25,2.45,5.3,i%2?'#ffffff':'#ff8fa3',false).rotation.x=-.12;
+  awning(g,-5.75,'#ffffff','#ff8fa3');
   box(g,.6,.4,.4,SHOP.till[0],1.28,SHOP.till[1],'#3d454b');
   box(g,1.2,.04,1.2,SHOP.serve[0],.06,SHOP.serve[1],'#7fb7d9',false);padIcon(g,'🛒',SHOP.serve[0],SHOP.serve[1],.09);
   box(g,1.3,.04,1.3,SHOP.cash[0],.06,SHOP.cash[1],'#5cc46a',false);padIcon(g,'💵',SHOP.cash[0],SHOP.cash[1],.09,.8);}
@@ -107,8 +109,8 @@ export function createCampingScene(canvas,getState){
   for(const [pad,ic,key] of [[OVEN.inPad,'🍞','in'],[OVEN.outPad,'🥖','out']]){box(g,1.1,.04,1.1,pad[0],.06,pad[1],key==='in'?'#f08a3a':'#5cc46a',false);padIcon(g,ic,pad[0],pad[1],.09);const st=new THREE.Group();st.position.set(pad[0],.1,pad[1]);g.add(st);bakery.userData[key]=st;}
   const tg=sprite(1.9,.42);tg.position.set(ox,2.9,oz);g.add(tg);bakery.userData.tag=tg;
   box(g,5,1,.7,-10.6,.5,5.6,'#d9a35a');box(g,5.1,.08,.8,-10.6,1.04,5.6,'#eadcb8');for(const dx of [-2.4,2.4])box(g,.1,2.4,.1,-10.6+dx,1.2,6.0,'#8a5a35');
-  for(let i=0;i<10;i++)box(g,.5,.08,1.6,-13+i*.5+.25,2.45,5.3,i%2?'#ffffff':'#f0c040',false).rotation.x=-.12;
-  const bs=textPlane('BOULANGERIE · PAIN CHAUD',3.4,.4,{bg:'#8a3a2a',fg:'#ffe9b8',font:'900 40px system-ui'});bs.position.set(-10.6,2.0,5.98);g.add(bs);
+  awning(g,-10.6,'#ffffff','#f0c040');
+  const bs=textPlane('BOULANGERIE · PAIN CHAUD',3.4,.4,{bg:'#8a3a2a',fg:'#ffe9b8',font:'900 40px system-ui'});bs.position.set(-10.6,2.95,5.5);g.add(bs);
   for(const dx of [-1.3,0,1.3]){const c=box(g,.8,.22,.5,-11.2+dx*.4,1.2,5.6,'#b98a52');c.visible=dx===0;}}
  const shopTerm=new THREE.Group();shopTerm.position.set(SHOP.till[0]+.7,1.08,SHOP.till[1]);scene.add(shopTerm);box(shopTerm,.18,.06,.3,0,.03,0,'#20262a');box(shopTerm,.16,.22,.05,0,.15,-.08,'#2b3a44').rotation.x=-.4;
  const shopPile=new THREE.Group();shopPile.position.set(SHOP.cash[0],.1,SHOP.cash[1]);scene.add(shopPile);
