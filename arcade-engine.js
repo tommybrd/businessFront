@@ -46,7 +46,9 @@ export const DRIVE={pad:[15.8,-3.4],road:18.6,stop:-3.4,gap:2.6,cap:12,maxCars:4
 export const MEAT=SOURCES.meat.pos,REGISTER=REGISTERS[0].pos,SERVE_SPOT=REGISTERS[0].serve,CASH_SPOT=REGISTERS[0].cash;
 export const inZone=([x,z])=>[x-1.25,z+1.55],outZone=([x,z])=>[x+1.25,z+1.55],shelfZone=([x,z])=>[x,z-1.3];
 export const CARD_FEE=.02,KIOSK_ORDER=3,PICKUP_STEP=.35;
-const plot=(i,x,z,zone)=>({id:i,x,z,zone,grow:Math.random(),ripe:false});
+const plot=(i,x,z,zone,tier)=>({id:i,x,z,zone,...(tier?{tier}:{}),grow:Math.random(),ripe:false});
+// The salad greenhouse: two more beds per level (they exist from the start, hidden until the level is bought).
+const SERRE=[[-12.8,-16.6,1],[-11.2,-16.6,1],[-12.8,-18.4,2],[-11.2,-18.4,2]];
 
 // One-off unlocks: dashed tiles on the floor, each shown once the previous step (`after`) is bought.
 export const UNLOCKS=[
@@ -98,6 +100,10 @@ export const LEVELS=[
  {id:'stock',name:'Stockage',after:'shelf2',base:300,growth:1.7,pos:[-3.6,3],tip:'+50 % de stock partout'},
  {id:'cuisine',name:'Cuisine rapide',after:'fastKitchen',base:500,growth:1.7,pos:[.25,-10.8],tip:'Machines 15 % plus rapides'},
  {id:'robotLvl',name:'Robots',after:'robotPotato',base:400,growth:1.7,pos:[4.2,-11.4],tip:'Robots plus rapides, plus chargés, batterie +'},
+ {id:'chickenFeed',name:'Alimentation du poulet',after:'nuggets',base:260,growth:1.6,max:6,pos:[-6,-14.2],tip:'Poulet livré plus vite, +3 en stock, friteuse à nuggets plus rapide'},
+ {id:'saladFert',name:'Engrais du potager',after:'salad',base:240,growth:1.6,max:6,pos:[-9.9,-14.7],tip:'Salades 15 % plus vite, bar à salades plus rapide'},
+ {id:'serre',name:'Serre à salades',after:'salad',base:520,growth:2,max:2,pos:[-9.9,-17.9],tip:'Deux carrés de salade en plus'},
+ {id:'beanRoast',name:'Café en grains',after:'coffee',base:280,growth:1.6,max:6,pos:[-5.3,-16.3],tip:'Grains livrés plus vite, +3 en stock, machine à café plus rapide'},
  {id:'cows',name:'Vache',after:'farm',base:250,growth:1.5,max:COWS.length-2,pos:[-6.2,1.6],tip:'Une vache de plus'},
  {id:'kiosk',name:'Borne',after:'register2',base:300,growth:2,max:KIOSKS.length,pos:s=>KIOSKS[lvl(s,'kiosk')],tip:'Commande et paiement CB en libre-service'}];
 export const lvl=(s,id)=>s.levels[id]??0;
@@ -111,13 +117,16 @@ export const stockMul=s=>1+.5*lvl(s,'stock');
 export const stationOpen=(s,id)=>!STATIONS[id].needs||!!s.unlocked[STATIONS[id].needs];
 export const shelfOpen=(s,k)=>!SHELVES[k].needs||!!s.unlocked[SHELVES[k].needs];
 export const sourceOpen=(s,k)=>!!s.unlocked[SOURCES[k].needs];
-export const stationTime=(s,id)=>{const b=baseOf(id);return STATIONS[id].time*((b==='fryer'&&s.unlocked.fastFryer)||((b==='grill'||b==='burger')&&s.unlocked.fastKitchen)?.55:1)*.85**lvl(s,'cuisine');};
+export const stationTime=(s,id)=>{const b=baseOf(id);return STATIONS[id].time*((b==='fryer'&&s.unlocked.fastFryer)||((b==='grill'||b==='burger')&&s.unlocked.fastKitchen)?.55:1)*.85**lvl(s,'cuisine')*(CHAIN_LEVEL[id]?.93**lvl(s,CHAIN_LEVEL[id]):1);};
+const CHAIN_LEVEL={nugget:'chickenFeed',coffee:'beanRoast',saladbar:'saladFert'};
 export const stationCaps=(s,id)=>({inCap:Math.round(STATIONS[id].inCap*stockMul(s)),outCap:Math.round(STATIONS[id].outCap*stockMul(s))});
 export const shelfCap=(s,k)=>Math.round(SHELVES[k].cap*(s.unlocked.shelf2?1.6:1)*stockMul(s));
-export const sourceCap=(s,k)=>Math.round((k==='meat'&&s.unlocked.meat2?16:SOURCES[k].cap)*stockMul(s));
-const sourceEvery=(s,k)=>k==='meat'&&s.unlocked.meat2?1.1:SOURCES[k].every;
-export const plotOpen=(s,p)=>p.zone===3?!!s.unlocked.salad:p.zone===1||!!s.unlocked.field2;
-export const growTime=s=>s.unlocked.water?3.5:6;
+// The chicken feed and the coffee beans each have a level that fills their delivery faster and holds more (and speeds up the machine, see stationTime).
+const FEED={chicken:'chickenFeed',beans:'beanRoast'};
+export const sourceCap=(s,k)=>Math.round(((k==='meat'&&s.unlocked.meat2?16:SOURCES[k].cap)+(FEED[k]?3*lvl(s,FEED[k]):0))*stockMul(s));
+const sourceEvery=(s,k)=>(k==='meat'&&s.unlocked.meat2?1.1:SOURCES[k].every)*(FEED[k]?.84**lvl(s,FEED[k]):1);
+export const plotOpen=(s,p)=>p.zone===3?!!s.unlocked.salad&&(!p.tier||lvl(s,'serre')>=p.tier):p.zone===1||!!s.unlocked.field2;
+export const growTime=(s,p)=>(s.unlocked.water?3.5:6)*(p?.zone===3?.85**lvl(s,'saladFert'):1);
 export const COW_TIME=14;
 export const cowCount=s=>s.unlocked.farm?2+lvl(s,'cows'):0;
 export const kioskCount=s=>lvl(s,'kiosk');
@@ -151,11 +160,12 @@ export function createArcade(){const s={schema:SAVE_SCHEMA,t:0,money:10,piles:[0
  for(let r=0;r<3;r++)for(let c=0;c<3;c++)s.plots.push(plot(s.plots.length,-12.4+c*1.6,-7.6+r*1.6,1));
  for(let r=0;r<2;r++)for(let c=0;c<3;c++)s.plots.push(plot(s.plots.length,-12.4+c*1.6,-2.8+r*1.6,2));
  for(const [x,z] of [[-12.8,-13],[-11.2,-13],[-12.8,-14.8],[-11.2,-14.8]])s.plots.push(plot(s.plots.length,x,z,3));
+ for(const [x,z,k] of SERRE)s.plots.push(plot(s.plots.length,x,z,3,k));
  COWS.forEach(([x,z],i)=>s.cows.push({id:i,x,z,grow:Math.random()*.5,ready:false}));
  return fill(s);}
 const newDay=()=>({revenue:0,served:0,tips:0,lost:0,bills:0});
 // Fields added since the first saves get their defaults here, for new games and loaded ones alike.
-function fill(s){s.guests=[];delete s.replica;if(!s.plots.some(p=>p.zone===3))for(const [x,z] of [[-12.8,-13],[-11.2,-13],[-12.8,-14.8],[-11.2,-14.8]])s.plots.push(plot(s.plots.length,x,z,3));for(const id of Object.keys(STATIONS))s.stations[id]??={in:0,out:0,timer:0,working:false};for(const k of Object.keys(SOURCES))s.sources[k]??={n:0,timer:0};
+function fill(s){s.guests=[];delete s.replica;if(!s.plots.some(p=>p.zone===3))for(const [x,z] of [[-12.8,-13],[-11.2,-13],[-12.8,-14.8],[-11.2,-14.8]])s.plots.push(plot(s.plots.length,x,z,3));if(!s.plots.some(p=>p.tier))for(const [x,z,k] of SERRE)s.plots.push(plot(s.plots.length,x,z,3,k));for(const id of Object.keys(STATIONS))s.stations[id]??={in:0,out:0,timer:0,working:false};for(const k of Object.keys(SOURCES))s.sources[k]??={n:0,timer:0};
  for(const k of Object.keys(SHELVES))s.shelves[k]??=0;for(const c of s.customers)for(const k of PRODUCTS){c.wants[k]??=0;c.got[k]??=0;}
  s.clock??=OPEN*.15;s.day??=1;s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=120;
  s.tables??=TABLES.map(()=>({by:null,dirty:false}));s.short??={};for(const k of PRODUCTS)s.short[k]??=0;s.safe??=0;s.capsules??=[];s.tubeTimer??=0;
@@ -518,7 +528,7 @@ export function stepArcade(s,dt,input){dt=Math.min(dt,.1);s.t+=dt;const p=s.play
  walk(s,p,p.input??STILL,dt);interact(s,p,dt);playerExtras(s,p,dt);
  for(const g of s.guests){g.cap=p.cap;g.speed=p.speed;walk(s,g,g.input,dt);interact(s,g,dt);playerExtras(s,g,dt);}
  for(const h of s.helpers)stepHelper(s,h,dt);
- for(const pl of s.plots)if(!pl.ripe){pl.grow+=dt/growTime(s);if(pl.grow>=1){pl.grow=1;pl.ripe=true;}}
+ for(const pl of s.plots)if(!pl.ripe){pl.grow+=dt/growTime(s,pl);if(pl.grow>=1){pl.grow=1;pl.ripe=true;}}
  for(let i=0;i<cowCount(s);i++){const c=s.cows[i];if(!c.ready){c.grow+=dt/COW_TIME;if(c.grow>=1){c.grow=1;c.ready=true;}}}
  for(const [id,def] of Object.entries(STATIONS)){const st=s.stations[id],y=def.yield??1;if(st.broken){st.working=false;continue;}if(def.baskets){stepBaskets(s,id,st,dt);continue;}st.working=stationOpen(s,id)&&st.in>0&&st.out+y<=stationCaps(s,id).outCap;if(st.working){st.timer+=dt;if(st.timer>=stationTime(s,id)){st.timer=0;st.in--;st.out+=y;}}else st.timer=0;}
  for(const k of Object.keys(SOURCES)){const src=s.sources[k];if(src.late>0){src.late-=dt;continue;}if(sourceOpen(s,k)&&src.n<sourceCap(s,k)){src.timer+=dt;if(src.timer>=sourceEvery(s,k)){src.timer=0;src.n++;s.supply+=SUPPLY[k];}}}
