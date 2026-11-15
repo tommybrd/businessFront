@@ -213,3 +213,9 @@ Mesuré ce jour-là (voir aussi les 30 idées ajoutées à la page d'idées, cat
   camping ≥3★ → affluence BurgerFront (+5 %/étoile au-dessus de 2), BurgerFront jour ≥3 → repas du resto camping (+3 %/jour, max +25 %).
 - Non testé : 2 appareils réels en réseau ; la boucle de jeu ne tourne pas dans le panneau navigateur masqué (rAF).
 - Restent les idées marquées « plus tard » sur la page des idées.
+
+## Équipe BurgerFront (15/11/2026)
+- Le personnel (employés, robots, caissiers) ne s'achète plus en case : panneau « 👷 Équipe » (`hirebar`), API `manage(s,'hire'|'fire',…)` dans `arcade-engine.js` (réutilise le message réseau `manage`).
+- Prix croissants (`HIRE`), remboursement 40 %, 12 robots max, drapeaux `unlocked.helper/helper2…/cashier/robotPotato` posés à l'embauche pour garder les enchaînements de cases.
+- `STAFF_IDS` : anciens ids de cases de personnel, rejoués uniquement par les vieilles sauvegardes schéma 1 et les tests.
+- Pas encore fait : même principe pour le personnel du camping (cases réceptionniste, agent d'entretien, etc.).
