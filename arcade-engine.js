@@ -50,64 +50,46 @@ const plot=(i,x,z,zone)=>({id:i,x,z,zone,grow:Math.random(),ripe:false});
 
 // One-off unlocks: dashed tiles on the floor, each shown once the previous step (`after`) is bought.
 export const UNLOCKS=[
- {id:'cashier',name:'Caissier',price:40,pos:[9.9,-6.5],after:null},
  {id:'field2',name:'Champ +6',price:30,pos:[-10.8,-2],after:null},
  {id:'bag',name:'Grand sac',price:45,pos:[-4.4,-1.6],after:'field2'},
  {id:'grill',name:'Grill + viande',price:90,pos:[2.2,-10.4],after:'cashier'},
- {id:'helper',name:'Aide frites',price:110,pos:[-5,-9.8],after:'field2'},
  {id:'burger',name:'Poste burger',price:140,pos:[6.2,-10.4],after:'grill'},
  {id:'shoes',name:'Baskets',price:70,pos:[-4.4,1.2],after:'bag'},
  {id:'terminal1',name:'Terminal CB',price:90,pos:[8.4,-1.2],after:'cashier'},
- {id:'helper2',name:'Aide burgers',price:220,pos:[8.2,-11.2],after:'burger'},
  {id:'megaphone',name:'Mégaphone',price:50,pos:MEGAPHONE,after:'cashier'},
  {id:'ads1',name:'Pub niveau 1',price:80,pos:[11.8,5.8],after:'megaphone'},
  {id:'ads2',name:'Pub niveau 2',price:200,pos:[11.8,5.8],after:'ads1'},
  {id:'ads3',name:'Pub niveau 3',price:450,pos:[11.8,5.8],after:'ads2'},
  {id:'water',name:'Arrosage',price:120,pos:[-10.8,-10.4],after:'helper'},
  {id:'fastFryer',name:'Friteuse turbo',price:180,pos:[-5,-9.8],after:'helper'},
- {id:'helper3',name:'Aide frites 2',price:260,pos:[-5,-9.8],after:'fastFryer'},
  {id:'meat2',name:'Livraison viande +',price:160,pos:[2.2,-10.4],after:'helper2'},
  {id:'fastKitchen',name:'Grill + burger turbo',price:320,pos:[8.2,-11.2],after:'helper2'},
- {id:'helper4',name:'Aide burgers 2',price:420,pos:[8.2,-11.2],after:'fastKitchen'},
  {id:'soda',name:'Machine à soda',price:250,pos:[10.8,-9.2],after:'burger'},
- {id:'sodaHelper',name:'Aide sodas',price:200,pos:[13.6,-8.3],after:'soda'},
  {id:'farm',name:'Ferme + boucherie',price:400,pos:[-6.2,1.6],after:'grill'},
- {id:'farmer',name:'Fermier',price:250,pos:[-6.2,3.6],after:'farm'},
  {id:'register2',name:'Caisse 2',price:260,pos:[10.4,-1.2],after:'cashier'},
- {id:'cashier2',name:'Caissier 2',price:160,pos:[13.6,-5.6],after:'register2'},
  {id:'terminal2',name:'Terminal CB 2',price:120,pos:[8.4,-1.2],after:'register2'},
  {id:'shelf2',name:'Grandes étagères',price:150,pos:[-3.6,3],after:'register2'},
  {id:'crewBags',name:'Sacs des aides',price:300,pos:[-5,-9.8],after:'helper3'},
  {id:'fryer2',name:'Friteuse 2',price:300,pos:[-2,BACK_ROW],after:'fastFryer'},
  {id:'grill2',name:'Grill 2',price:400,pos:[2.2,BACK_ROW],after:'fastKitchen'},
  {id:'burger2',name:'Poste burger 2',price:450,pos:[6.2,BACK_ROW],after:'grill2'},
- {id:'soda2',name:'Machine à soda 2',price:350,pos:[10.8,BACK_ROW],after:'sodaHelper'},
+ {id:'soda2',name:'Machine à soda 2',price:350,pos:[10.8,BACK_ROW],after:'soda'},
  {id:'fryer3',name:'Friteuse 3',price:900,pos:[-2,THIRD_ROW],after:'fryer2'},
  {id:'grill3',name:'Grill 3',price:1100,pos:[2.2,THIRD_ROW],after:'burger2'},
  {id:'burger3',name:'Poste burger 3',price:1200,pos:[6.2,THIRD_ROW],after:'grill3'},
  {id:'soda3',name:'Machine à soda 3',price:1000,pos:[10.8,THIRD_ROW],after:'soda2'},
  {id:'terrace',name:'Terrasse 4 tables',price:350,pos:[2.4,5.4],after:'register2'},
- {id:'busboy',name:'Aide plonge',price:250,pos:[6.6,6.4],after:'terrace'},
  {id:'dessert',name:'Glaces + lait',price:600,pos:[14.8,-8.4],after:'soda'},
- {id:'dessertHelper',name:'Aide glaces',price:300,pos:[15.8,-13.2],after:'dessert'},
  {id:'drive',name:'Drive',price:500,pos:DRIVE.pad,after:'register2'},
- {id:'driveHelper',name:'Aide drive',price:300,pos:[15.8,-5.6],after:'drive'},
  {id:'safe',name:'Coffre-fort',price:300,pos:SAFE,after:'register2'},
- {id:'collector',name:'Convoyeur de fonds',price:250,pos:[13.4,-17.6],after:'safe'},
- {id:'tubes',name:'Tubes à billets',price:700,pos:[13.4,-17.6],after:'collector'},
+ {id:'tubes',name:'Tubes à billets',price:700,pos:[13.4,-17.6],after:'safe'},
  {id:'bank',name:'Banque',price:400,pos:ATM,after:'safe'},
  {id:'nuggets',name:'Nuggets + poulet',price:450,pos:[-7.2,-9.9],after:'burger'},
  {id:'salad',name:'Potager + bar à salades',price:400,pos:[-11.4,-11.4],after:'field2'},
- {id:'coffee',name:'Machine à café',price:300,pos:[-6.4,-19],after:'cashier'},
- {id:'robotPotato',name:'Robot récolte',price:220,pos:[-6.6,-7.6],after:'helper'},
- {id:'robotFries',name:'Robot frites',price:200,pos:[-3,-3.4],after:'robotPotato'},
- {id:'robotMeat',name:'Robot viande',price:220,pos:[4.2,-11.4],after:'helper2'},
- {id:'robotSteak',name:'Robot steaks',price:240,pos:[4.2,-11.4],after:'robotMeat'},
- {id:'robotBurger',name:'Robot burgers',price:260,pos:[4.2,-11.4],after:'robotSteak'},
- {id:'robotCups',name:'Robot gobelets',price:260,pos:[10.8,-11.6],after:'sodaHelper'},
- {id:'robotSoda',name:'Robot sodas',price:280,pos:[10.8,-11.6],after:'robotCups'},
- {id:'robotMilk',name:'Robot lait',price:320,pos:[15.8,-13.2],after:'dessertHelper'},
- {id:'robotIce',name:'Robot glaces',price:340,pos:[15.8,-13.2],after:'robotMilk'}];
+ {id:'coffee',name:'Machine à café',price:300,pos:[-6.4,-19],after:'cashier'}];
+
+// Staff used to be bought as floor tiles; these ids are only kept so that the oldest saves (and the quick late-game saves of the checks) still replay them.
+export const STAFF_IDS=['cashier','helper','helper2','helper3','helper4','sodaHelper','farmer','cashier2','busboy','dessertHelper','driveHelper','collector','robotPotato','robotFries','robotMeat','robotSteak','robotBurger','robotCups','robotSoda','robotMilk','robotIce'];
 // Levelled upgrades: bought again and again, each level dearer (price = base × growth^level). This is the endless scale.
 export const LEVELS=[
  {id:'sac',name:'Sac',after:'bag',base:150,growth:1.6,pos:[-4.4,-1.6],tip:'+6 objets portés'},
@@ -115,7 +97,6 @@ export const LEVELS=[
  {id:'prix',name:'Recettes premium',after:'burger',base:400,growth:1.8,pos:[13.6,-1],tip:'+10 % sur les prix'},
  {id:'stock',name:'Stockage',after:'shelf2',base:300,growth:1.7,pos:[-3.6,3],tip:'+50 % de stock partout'},
  {id:'cuisine',name:'Cuisine rapide',after:'fastKitchen',base:500,growth:1.7,pos:[.25,-10.8],tip:'Machines 15 % plus rapides'},
- {id:'equipe',name:'Employé',after:'helper4',base:500,growth:1.45,pos:[8.2,-11.2],tip:'Un employé là où ça manque'},
  {id:'robotLvl',name:'Robots',after:'robotPotato',base:400,growth:1.7,pos:[4.2,-11.4],tip:'Robots plus rapides, plus chargés, batterie +'},
  {id:'cows',name:'Vache',after:'farm',base:250,growth:1.5,max:COWS.length-2,pos:[-6.2,1.6],tip:'Une vache de plus'},
  {id:'kiosk',name:'Borne',after:'register2',base:300,growth:2,max:KIOSKS.length,pos:s=>KIOSKS[lvl(s,'kiosk')],tip:'Commande et paiement CB en libre-service'}];
@@ -291,7 +272,8 @@ const LOOPS={fries:[{go:'field',until:'full'},{go:'in:fryer'},{go:'out:fryer',ta
  salad:[{go:'garden',until:'full'},{go:'in:saladbar'},{go:'out:saladbar',take:'salad',until:'full'},{go:'shelf:salad'}],
  coffee:[{go:'beans',take:'beans',until:'full'},{go:'in:coffee'},{go:'out:coffee',take:'coffee',until:'full'},{go:'shelf:coffee'}],
  trays:[{go:'tables',until:'full'},{go:'sink'}],drive:[{go:'driveTake'},{go:'drive'}],cashRun:[{go:'tills'},{go:'safe'}]};
-function robot(s,id){const r=ROBOTS[id],st=robotStats(s);return {...helper(s,r.loop),robot:id,name:UNLOCKS.find(u=>u.id===id).name,x:r.at[0],z:r.at[1],...st,batt:st.battMax};}
+const ROBOT_NAMES={robotPotato:'Robot récolte',robotFries:'Robot frites',robotMeat:'Robot viande',robotSteak:'Robot steaks',robotBurger:'Robot burgers',robotCups:'Robot gobelets',robotSoda:'Robot sodas',robotMilk:'Robot lait',robotIce:'Robot glaces'};
+function robot(s,id){const r=ROBOTS[id],st=robotStats(s);return {...helper(s,r.loop),robot:id,name:ROBOT_NAMES[id],x:r.at[0],z:r.at[1],...st,batt:st.battMax};}
 // Missions the player can give: humans can run a whole chain or one leg, robots only one leg; anyone can be put on pause.
 export const MISSIONS=[
  {id:'fries',label:'Chaîne frites complète',icon:'🥔→🍟→🛒',humans:true,needs:null},
@@ -321,6 +303,34 @@ export const missionsFor=(s,h)=>MISSIONS.filter(m=>(!m.humans||!h.robot)&&(!m.ne
 // Changing a mission restarts the loop; what the worker carries is put back where it was taken (field goods are dropped).
 export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if(!h||!MISSIONS.some(m=>m.id===loop))return false;
 if(h.cashAmt){s.safe+=h.cashAmt;h.cashAmt=0;h.carry=[];}putBack(s,h.carry);h.carry=[];h.loop=loop;h.step=0;h.idle=0;h.station=null;h.moving=false;return true;}
+// The team. Staff are hired and let go in the team panel, never on the floor: humans (a whole chain, or one leg), robots (one leg,
+// they charge at the dock) and cashiers (one per open till). Each new one costs more than the last; letting someone go gives part back.
+export const HIRE={human:{base:110,growth:1.3},robot:{base:200,growth:1.22,max:12},cashier:[40,160],refund:.4};
+const humansOf=s=>s.helpers.filter(h=>!h.robot),robotsOf=s=>s.helpers.filter(h=>h.robot),cashiersOn=s=>s.cashiers.filter(Boolean).length;
+export const hirePrice=(s,kind)=>kind==='human'?Math.round(HIRE.human.base*HIRE.human.growth**humansOf(s).length):kind==='robot'?Math.round(HIRE.robot.base*HIRE.robot.growth**robotsOf(s).length):HIRE.cashier[Math.min(1,cashiersOn(s))];
+const robotMissions=s=>MISSIONS.filter(m=>!m.humans&&m.id!=='rest'&&(!m.needs||s.unlocked[m.needs]));
+// Why a kind of staff cannot be hired yet ('' when it can).
+export function hireBlock(s,kind){
+ if(kind==='cashier')return REGISTERS.some((_,i)=>registerOpen(s,i)&&!s.cashiers[i])?'':'toutes les caisses ont un caissier';
+ if(kind==='human')return s.unlocked.field2?'':'achetez d’abord le champ +6';
+ if(kind==='robot'){if(!s.unlocked.helper)return 'embauchez d’abord un employé';if(robotsOf(s).length>=HIRE.robot.max)return 'équipe de robots complète';return robotMissions(s).length?'':'aucune mission pour un robot';}
+ return 'inconnu';}
+// The chain that needs hands most: the worst shortage on the shelves, else the chain with the fewest humans.
+function autoChain(s){const chains=['fries',...(s.unlocked.burger?['burger']:[]),...(s.unlocked.soda?['soda']:[]),...(s.unlocked.farm?['farm']:[]),...(s.unlocked.dessert?['dessert']:[]),...(s.unlocked.nuggets?['nuggets']:[]),...(s.unlocked.salad?['salad']:[]),...(s.unlocked.coffee?['coffee']:[])];
+ const worst=PRODUCTS.filter(k=>shelfOpen(s,k)).sort((a,b)=>s.short[b]-s.short[a])[0];if(s.short[worst]>.08&&chains.includes(CHAIN_OF[worst]))return CHAIN_OF[worst];
+ return chains.slice().sort((a,b)=>humansOf(s).filter(h=>h.loop===a).length-humansOf(s).filter(h=>h.loop===b).length)[0];}
+// A robot goes to the leg with the fewest robots on it.
+function autoLeg(s){const l=robotMissions(s);return l.slice().sort((a,b)=>robotsOf(s).filter(h=>h.loop===a.id).length-robotsOf(s).filter(h=>h.loop===b.id).length)[0].id;}
+function hire(s,kind,loop){if(hireBlock(s,kind))return false;const price=hirePrice(s,kind);if(s.money<price)return false;
+ if(kind==='cashier'){const r=REGISTERS.findIndex((_,i)=>registerOpen(s,i)&&!s.cashiers[i]);if(r<0)return false;s.money-=price;s.cashiers[r]={...cashierAt(r),paid:price};s.unlocked.cashier=true;if(cashiersOn(s)>=2)s.unlocked.cashier2=true;popup(s,'💁 Caissier embauché',REGISTERS[r].cashier[0],REGISTERS[r].cashier[1],'info');return true;}
+ if(kind==='human'){const l=loop&&MISSIONS.some(m=>m.id===loop&&m.humans&&(!m.needs||s.unlocked[m.needs]))?loop:autoChain(s);s.money-=price;const h=helper(s,l);h.paid=price;s.helpers.push(h);const n=humansOf(s).length;s.unlocked.helper=true;for(let i=2;i<=4;i++)if(n>=i)s.unlocked['helper'+i]=true;popup(s,'👷 Employé embauché',h.x,h.z,'info');return true;}
+ const l=loop&&robotMissions(s).some(m=>m.id===loop)?loop:autoLeg(s),st=robotStats(s);s.money-=price;const h={...helper(s,l),robot:'robot',name:'Robot '+(robotsOf(s).length+1),x:DOCK[0],z:DOCK[1]+1,...st,batt:st.battMax,paid:price};s.helpers.push(h);s.unlocked.robotPotato=true;popup(s,'🤖 Robot en service',h.x,h.z,'info');return true;}
+function fire(s,kind,id){
+ if(kind==='cashier'){const c=s.cashiers[id];if(!c)return false;s.money+=Math.round((c.paid??0)*HIRE.refund);s.cashiers[id]=null;return true;}
+ const i=s.helpers.findIndex(h=>h.id===id);if(i<0)return false;const h=s.helpers[i];if(h.cashAmt){s.safe+=h.cashAmt;h.cashAmt=0;h.carry=[];}putBack(s,h.carry);s.money+=Math.round((h.paid??0)*HIRE.refund);s.helpers.splice(i,1);return true;}
+// One entry point for the panel and for network guests: ('hire', 'human'|'robot'|'cashier' or 'human:fries'), ('fire', 'helper'|'cashier', id).
+export function manage(s,action,k,n){if(action==='hire'&&typeof k==='string'){const [kind,loop]=k.split(':');return ['human','robot','cashier'].includes(kind)&&hire(s,kind,loop);}
+ if(action==='fire'&&(k==='helper'||k==='cashier')&&Number.isInteger(n))return fire(s,k,n);return false;}
 function helper(s,loop){const n=s.helpers.filter(h=>!h.robot).length+1;return {id:s.nextId++,role:'helper',name:'Employé '+n,loop,step:0,x:-5,z:-9.8,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null};}
 function target(s,h){const st=LOOPS[h.loop][h.step],[kind,id]=st.go.split(':'),dist=p=>Math.hypot(p.x-h.x,p.z-h.z);
  if(kind==='garden'){let ripe=null,best=Infinity;for(const p of s.plots)if(p.zone===3&&p.ripe&&s.unlocked.salad){const d=dist(p);if(d<best){best=d;ripe=p;}}return ripe?[ripe.x,ripe.z]:[-12,-13.9];}
@@ -526,7 +536,7 @@ export function loadArcade(json){const o=typeof json==='string'?JSON.parse(json)
  if(o.schema===SAVE_SCHEMA){o.popups=[];return fill(o);}
  if(o.schema!==1)throw Error('Sauvegarde illisible.');
  const s=createArcade();s.money=(o.money??0)+(Array.isArray(o.piles)?o.piles.reduce((a,b)=>a+b,0):o.pile??0);s.served=o.served??0;s.rep=o.rep??2.5;s.lost=o.lost??0;
- for(const u of UNLOCKS)if(o.unlocked?.[u.id]){s.unlocked[u.id]=true;applyUnlock(s,u.id);}
+ for(const id of [...STAFF_IDS,...UNLOCKS.map(u=>u.id)])if(o.unlocked?.[id]){s.unlocked[id]=true;applyUnlock(s,id);}
  s.shelves.fries=Math.min(o.shelves?.fries??0,shelfCap(s,'fries'));s.shelves.burger=Math.min(o.shelves?.burger??0,shelfCap(s,'burger'));
  s.player.x=-6.4;s.player.z=-4.6;return s;}
 export const carried=count;
