@@ -18,10 +18,11 @@ export const STATIONS={
  saladbar:{name:'Bar à salades',in:'lettuce',out:'salad',time:1.2,inCap:20,outCap:16,pos:[-8.6,-14.8],needs:'salad'},
  coffee:{name:'Machine à café',in:'beans',out:'coffee',time:1,inCap:24,outCap:20,pos:[-8.6,-18],needs:'coffee'},
  icecream:{name:'Machine à glaces',in:'milk',out:'icecream',time:1.8,inCap:20,outCap:16,pos:[14.8,-8.4],needs:'dessert'}};
-// Second and third machines, in the back rows of the kitchen: same recipe as their model (`base`), each opened by its own unlock.
-export const BACK_ROW=-14.2,THIRD_ROW=-18.2;
-for(const [n,z] of [[2,BACK_ROW],[3,THIRD_ROW]])for(const [base,x] of [['fryer',-2],['grill',2.2],['burger',6.2],['soda',10.8]])
- STATIONS[base+n]={...STATIONS[base],name:STATIONS[base].name+' '+n,base,pos:[x,z],needs:base+n};
+// One machine of each kind, never a second one: it grows through levels (capacity and speed, +25 % each, up to 8) bought on the floor behind it.
+export const BACK_ROW=-14.2;
+const LINE={fryer:'lvFryer',grill:'lvGrill',burger:'lvBurger',soda:'lvSoda'};
+// Saves from the time of "Friteuse 2", "Grill 3"…: those extra machines are folded into levels (one extra machine = 4 levels).
+const EXTRA={fryer:['fryer2','fryer3'],grill:['grill2','grill3'],burger:['burger2','burger3'],soda:['soda2','soda3']};
 export const baseOf=id=>STATIONS[id].base??id;
 export const SHELVES={fries:{name:'Frites',pos:[1,-3.2],cap:24},burger:{name:'Burgers',pos:[3.4,-3.2],cap:20,needs:'burger'},soda:{name:'Sodas',pos:[-.4,-3.2],cap:20,needs:'soda'},icecream:{name:'Glaces',pos:[4.8,-3.2],cap:16,needs:'dessert'},
  nuggets:{name:'Nuggets',pos:[-2.2,-3.2],cap:16,needs:'nuggets'},salad:{name:'Salades',pos:[-3.5,-3.2],cap:12,needs:'salad'},coffee:{name:'Cafés',pos:[-4.8,-3.2],cap:14,needs:'coffee'}};
@@ -72,14 +73,6 @@ export const UNLOCKS=[
  {id:'terminal2',name:'Terminal CB 2',price:120,pos:[8.4,-1.2],after:'register2'},
  {id:'shelf2',name:'Grandes étagères',price:150,pos:[-3.6,3],after:'register2'},
  {id:'crewBags',name:'Sacs des aides',price:300,pos:[-5,-9.8],after:'helper3'},
- {id:'fryer2',name:'Friteuse 2',price:300,pos:[-2,BACK_ROW],after:'fastFryer'},
- {id:'grill2',name:'Grill 2',price:400,pos:[2.2,BACK_ROW],after:'fastKitchen'},
- {id:'burger2',name:'Poste burger 2',price:450,pos:[6.2,BACK_ROW],after:'grill2'},
- {id:'soda2',name:'Machine à soda 2',price:350,pos:[10.8,BACK_ROW],after:'soda'},
- {id:'fryer3',name:'Friteuse 3',price:900,pos:[-2,THIRD_ROW],after:'fryer2'},
- {id:'grill3',name:'Grill 3',price:1100,pos:[2.2,THIRD_ROW],after:'burger2'},
- {id:'burger3',name:'Poste burger 3',price:1200,pos:[6.2,THIRD_ROW],after:'grill3'},
- {id:'soda3',name:'Machine à soda 3',price:1000,pos:[10.8,THIRD_ROW],after:'soda2'},
  {id:'terrace',name:'Terrasse 4 tables',price:350,pos:[2.4,5.4],after:'register2'},
  {id:'dessert',name:'Glaces + lait',price:600,pos:[14.8,-8.4],after:'soda'},
  {id:'drive',name:'Drive',price:500,pos:DRIVE.pad,after:'register2'},
@@ -100,6 +93,10 @@ export const LEVELS=[
  {id:'stock',name:'Stockage',after:'shelf2',base:300,growth:1.7,pos:[-3.6,3],tip:'+50 % de stock partout'},
  {id:'cuisine',name:'Cuisine rapide',after:'fastKitchen',base:500,growth:1.7,pos:[.25,-10.8],tip:'Machines 15 % plus rapides'},
  {id:'robotLvl',name:'Robots',after:'robotPotato',base:400,growth:1.7,pos:[4.2,-11.4],tip:'Robots plus rapides, plus chargés, batterie +'},
+ {id:'lvFryer',name:'Friteuse',after:'fastFryer',base:300,growth:1.45,max:8,pos:[-2,BACK_ROW],tip:'+25 % de capacité et de cadence'},
+ {id:'lvGrill',name:'Grill',after:'fastKitchen',base:400,growth:1.45,max:8,pos:[2.2,BACK_ROW],tip:'+25 % de capacité et de cadence'},
+ {id:'lvBurger',name:'Poste burger',after:'fastKitchen',base:450,growth:1.45,max:8,pos:[6.2,BACK_ROW],tip:'+25 % de capacité et de cadence'},
+ {id:'lvSoda',name:'Machine à soda',after:'soda',base:350,growth:1.45,max:8,pos:[10.8,BACK_ROW],tip:'+25 % de capacité et de cadence'},
  {id:'chickenFeed',name:'Alimentation du poulet',after:'nuggets',base:260,growth:1.6,max:6,pos:[-6,-14.2],tip:'Poulet livré plus vite, +3 en stock, friteuse à nuggets plus rapide'},
  {id:'saladFert',name:'Engrais du potager',after:'salad',base:240,growth:1.6,max:6,pos:[-9.9,-14.7],tip:'Salades 15 % plus vite, bar à salades plus rapide'},
  {id:'serre',name:'Serre à salades',after:'salad',base:520,growth:2,max:2,pos:[-9.9,-17.9],tip:'Deux carrés de salade en plus'},
@@ -117,9 +114,10 @@ export const stockMul=s=>1+.5*lvl(s,'stock');
 export const stationOpen=(s,id)=>!STATIONS[id].needs||!!s.unlocked[STATIONS[id].needs];
 export const shelfOpen=(s,k)=>!SHELVES[k].needs||!!s.unlocked[SHELVES[k].needs];
 export const sourceOpen=(s,k)=>!!s.unlocked[SOURCES[k].needs];
-export const stationTime=(s,id)=>{const b=baseOf(id);return STATIONS[id].time*((b==='fryer'&&s.unlocked.fastFryer)||((b==='grill'||b==='burger')&&s.unlocked.fastKitchen)?.55:1)*.85**lvl(s,'cuisine')*(CHAIN_LEVEL[id]?.93**lvl(s,CHAIN_LEVEL[id]):1);};
+export const stationTime=(s,id)=>{const b=baseOf(id);return STATIONS[id].time*((b==='fryer'&&s.unlocked.fastFryer)||((b==='grill'||b==='burger')&&s.unlocked.fastKitchen)?.55:1)*.85**lvl(s,'cuisine')/lineMul(s,id)*(CHAIN_LEVEL[id]?.93**lvl(s,CHAIN_LEVEL[id]):1);};
 const CHAIN_LEVEL={nugget:'chickenFeed',coffee:'beanRoast',saladbar:'saladFert'};
-export const stationCaps=(s,id)=>({inCap:Math.round(STATIONS[id].inCap*stockMul(s)),outCap:Math.round(STATIONS[id].outCap*stockMul(s))});
+const lineMul=(s,id)=>1+.25*(LINE[id]?lvl(s,LINE[id]):0);
+export const stationCaps=(s,id)=>({inCap:Math.round(STATIONS[id].inCap*stockMul(s)*lineMul(s,id)),outCap:Math.round(STATIONS[id].outCap*stockMul(s)*lineMul(s,id))});
 export const shelfCap=(s,k)=>Math.round(SHELVES[k].cap*(s.unlocked.shelf2?1.6:1)*stockMul(s));
 // The chicken feed and the coffee beans each have a level that fills their delivery faster and holds more (and speeds up the machine, see stationTime).
 const FEED={chicken:'chickenFeed',beans:'beanRoast'};
@@ -166,6 +164,8 @@ export function createArcade(){const s={schema:SAVE_SCHEMA,t:0,money:10,piles:[0
 const newDay=()=>({revenue:0,served:0,tips:0,lost:0,bills:0});
 // Fields added since the first saves get their defaults here, for new games and loaded ones alike.
 function fill(s){s.guests=[];delete s.replica;if(!s.plots.some(p=>p.zone===3))for(const [x,z] of [[-12.8,-13],[-11.2,-13],[-12.8,-14.8],[-11.2,-14.8]])s.plots.push(plot(s.plots.length,x,z,3));if(!s.plots.some(p=>p.tier))for(const [x,z,k] of SERRE)s.plots.push(plot(s.plots.length,x,z,3,k));for(const id of Object.keys(STATIONS))s.stations[id]??={in:0,out:0,timer:0,working:false};for(const k of Object.keys(SOURCES))s.sources[k]??={n:0,timer:0};
+ for(const [base,ids] of Object.entries(EXTRA)){const k=ids.filter(id=>s.unlocked[id]).length;if(k)s.levels[LINE[base]]=Math.max(s.levels[LINE[base]]??0,4*k);
+  for(const id of ids){const o=s.stations[id];if(o){const b=s.stations[base],c=stationCaps(s,base);b.in=Math.min(c.inCap,b.in+(o.in??0));b.out=Math.min(c.outCap,b.out+(o.out??0));delete s.stations[id];}for(const h of s.helpers)if(h.station===id)h.station=null;if(s.event?.id===id)s.event=null;}}
  for(const k of Object.keys(SHELVES))s.shelves[k]??=0;for(const c of s.customers)for(const k of PRODUCTS){c.wants[k]??=0;c.got[k]??=0;}
  s.clock??=OPEN*.15;s.day??=1;s.today??=newDay();s.lastDay??=null;s.report??=0;s.bills??=[];s.supply??=0;s.deskCool??=0;s.event??=null;s.eventTimer??=120;
  s.tables??=TABLES.map(()=>({by:null,dirty:false}));s.short??={};for(const k of PRODUCTS)s.short[k]??=0;s.safe??=0;s.capsules??=[];s.tubeTimer??=0;
@@ -445,7 +445,7 @@ function stepDay(s,dt){const was=isOpen(s);s.clock+=dt;s.report=Math.max(0,s.rep
  if(was&&!isOpen(s))popup(s,'🌙 Fermeture, plus de nouveaux clients',s.player.x,s.player.z,'info');
  if(s.clock>=DAY){s.clock-=DAY;bankNight(s);s.lastDay={day:s.day,...s.today};s.report=10;s.day++;s.today=newDay();issueBills(s);popup(s,`☀️ Jour ${s.day}`,s.player.x,s.player.z,'info');}
  for(const b of s.bills)if(!b.late&&s.t>b.due){b.late=true;b.amount=Math.round(b.amount*LATE_FEE);s.rep=Math.max(0,s.rep-.3);popup(s,`🧾 Retard : ${b.label} +25 %`,DESK[0],DESK[1],'bad');}}
-export const machinesCount=s=>Object.keys(STATIONS).filter(id=>stationOpen(s,id)).length+openRegisters(s).length+kioskCount(s);
+export const machinesCount=s=>Object.keys(STATIONS).filter(id=>stationOpen(s,id)).length+Math.round(Object.values(LINE).reduce((n,l)=>n+lvl(s,l),0)/2)+openRegisters(s).length+kioskCount(s);
 function issueBills(s){const L=s.lastDay,list=[['Loyer',Math.round(15+.04*(L?.revenue??0))],['Électricité',4*machinesCount(s)],['Fournisseurs',Math.round(s.supply)]];s.supply=0;
  for(const [label,amount] of list)if(amount>0)s.bills.push({id:s.nextId++,label,amount,due:s.t+BILL_DELAY,late:false});}
 export const billsDue=s=>s.bills.reduce((t,b)=>t+b.amount,0);

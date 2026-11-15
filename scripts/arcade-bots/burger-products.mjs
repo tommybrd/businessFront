@@ -53,4 +53,24 @@ assert(t3.plots.filter(p => p.zone === 3 && !p.tier).length === 4 && t3.plots.fi
   // An old save that never had the greenhouse gets its beds (hidden until bought).
   const old = JSON.parse(JSON.stringify(g)); old.plots = old.plots.filter(p => !p.tier); old.levels.serre = 0; const o = E.loadArcade(old);
   assert(o.plots.filter(p => p.tier).length === 4 && o.plots.filter(p => p.zone === 3 && E.plotOpen(o, p)).length === open0, 'une ancienne sauvegarde reçoit les carrés de serre, fermés'); }
+
+// One machine per kind: no more "Friteuse 2", "Grill 3"… ; each kind grows through eight levels, and old saves with extra machines are folded into levels.
+{ assert(Object.keys(E.STATIONS).every(id => !/[23]$/.test(id)) && !E.UNLOCKS.some(u => /^(fryer|grill|burger|soda)[23]$/.test(u.id)), 'plus de machines numérotées ni de cases « Friteuse 2 », « Grill 3 »…');
+  const g = E.loadArcade({ schema: 1, player: {}, plots: [], money: 0, unlocked: Object.fromEntries([...E.STAFF_IDS, ...E.UNLOCKS.map(u => u.id)].map(id => [id, true])) }); g.eventTimer = 1e12; g.money = 1e7;
+  const LN = { fryer: 'lvFryer', grill: 'lvGrill', burger: 'lvBurger', soda: 'lvSoda' };
+  assert(Object.values(LN).every(id => E.visibleUnlocks(g).some(u => u.id === id && u.level === 1)), 'une case de niveau par machine : friteuse, grill, poste burger, soda');
+  const t1 = Object.fromEntries(Object.keys(LN).map(k => [k, [E.stationTime(g, k), E.stationCaps(g, k).outCap]]));
+  const buy = id => { const u = E.visibleUnlocks(g).find(x => x.id === id); if (!u) return false; g.player.x = u.pos[0]; g.player.z = u.pos[1]; const b = E.lvl(g, id); for (let t = 0; t < 40 && E.lvl(g, id) === b; t += .05) E.stepArcade(g, .05, still); return E.lvl(g, id) === b + 1; };
+  for (const [k, id] of Object.entries(LN)) { assert(buy(id), `${id} niveau 1 acheté`); assert(Math.abs(E.stationTime(g, k) / t1[k][0] - .8) < 1e-9 && E.stationCaps(g, k).outCap > t1[k][1], `${k} : cadence +25 %, capacité en hausse`); }
+  for (const id of Object.values(LN)) for (let i = 0; i < 9; i++) buy(id);
+  assert(Object.values(LN).every(id => E.lvl(g, id) === 8 && !E.visibleUnlocks(g).some(u => u.id === id)), 'huit niveaux par machine, pas un de plus');
+  assert(Math.abs(E.stationTime(g, 'fryer') / t1.fryer[0] - 1 / 3) < 1e-9, 'niveau 8 = trois machines de débit');
+  // An old save that owned the second and third fryer and the second grill.
+  const old = E.createArcade(); old.unlocked.fryer2 = old.unlocked.fryer3 = old.unlocked.grill2 = true; old.stations.fryer2 = { in: 5, out: 7, timer: 0, working: false }; old.stations.grill2 = { in: 3, out: 0, timer: 0, working: false };
+  old.helpers.push({ id: 50, role: 'helper', name: 'x', loop: 'fries', step: 1, x: 0, z: 0, heading: 0, carry: [], cap: 6, speed: 3, cool: 0, moving: false, idle: 0, wants: null, station: 'fryer2' });
+  const o = E.loadArcade(JSON.parse(JSON.stringify(old)));
+  assert(E.lvl(o, 'lvFryer') === 8 && E.lvl(o, 'lvGrill') === 4 && E.lvl(o, 'lvBurger') === 0, 'ancienne partie : deux friteuses en plus = niveau 8, un grill en plus = niveau 4');
+  assert(!o.stations.fryer2 && !o.stations.grill2 && o.stations.fryer.in >= 5 && o.stations.fryer.out >= 7 && o.stations.grill.in >= 3, 'le contenu des machines supprimées passe dans la machine restante');
+  assert(o.helpers[0].station === null, 'un employé qui visait la friteuse 2 est libéré');
+  for (let i = 0; i < 400; i++) E.stepArcade(o, .05, still); assert(true, 'la partie convertie tourne'); }
 console.log('burger-products : tout est bon');
