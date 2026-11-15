@@ -101,11 +101,8 @@ export const ELEC=[2,-10.8],DESK=[6.9,2.3];
 
 // One-off unlocks: dashed tiles on the ground, each shown once the previous step (`after`) is bought.
 export const UNLOCKS=[
- {id:'receptionist',name:'Réceptionniste',price:70,pos:[2.4,4.4],after:null},
- {id:'cleaner',name:'Agent d’entretien',price:110,pos:[-10.2,7.2],after:'receptionist'},
  {id:'terminal',name:'Terminal CB',price:90,pos:[2.6,6.7],after:'receptionist'},
  {id:'shop',name:'Épicerie',price:150,pos:[-5.75,4.9],after:'receptionist'},
- {id:'shopkeeper',name:'Épicier',price:160,pos:[-2,2.9],after:'shop'},
  {id:'bakery',name:'Boulangerie : four + stand',price:180,pos:[-11.6,6.5],after:'shop'},
  {id:'laundry',name:'Laverie à jetons',price:260,pos:[20.5,1.1],after:'shop'},
  {id:'wifi',name:'Wifi du camping',price:180,pos:[24.8,1.1],after:'shop'},
@@ -116,12 +113,9 @@ export const UNLOCKS=[
  {id:'souvenirs',name:'Rayon souvenirs',price:220,pos:[-9.6,6.6],after:'shop'},
  {id:'freezer',name:'Glaces',price:200,pos:[-9.4,4.4],after:'shop'},
  {id:'garden',name:'Espaces verts : pelouse, arbres, fleurs',price:220,pos:[-1.8,7],after:'cleaner'},
- {id:'gardener',name:'Jardinier',price:200,pos:[-1.8,5.8],after:'garden'},
  {id:'cart',name:'Voiturette',price:180,pos:[-2.1,-11.8],after:'cleaner'},
  {id:'caravan',name:'Caravanes + bornes',price:280,pos:[4.5,-7.8],after:'shop'},
- {id:'handyman',name:'Homme à tout faire',price:300,pos:[3.2,.6],after:'caravan'},
  {id:'pool',name:'Piscine',price:650,pos:[11.2,-17.6],after:'caravan'},
- {id:'lifeguard',name:'Maître-nageur',price:320,pos:[15.4,-14.5],after:'pool'},
  {id:'paddling',name:'Pataugeoire',price:450,pos:[18.3,-12.6],after:'pool'},
  {id:'slides',name:'Toboggans',price:800,pos:[22.4,-12.6],after:'paddling'},
  {id:'lazy',name:'Rivière lente',price:950,pos:[29.6,-12.6],after:'slides'},
@@ -131,10 +125,8 @@ export const UNLOCKS=[
  {id:'spa',name:'Espace bien-être',price:1100,pos:[22.2,-7.8],after:'slides'},
  {id:'borehole',name:'Forage + château d’eau',price:500,pos:[32.4,2.3],after:'shop'},
  {id:'kidsclub',name:'Club enfants',price:400,pos:[17.4,4.4],after:'playground'},
- {id:'monitor',name:'Animateur du club',price:250,pos:[21.4,1.0],after:'kidsclub'},
  {id:'resto',name:'Bar-restaurant',price:900,pos:[16,-24.4],after:'slides'},
  {id:'stage',name:'Scène + sono',price:480,pos:[4.2,-17.7],after:'pool'},
- {id:'animateur',name:'Animateur',price:350,pos:[1.4,-18.2],after:'stage'},
  {id:'mobil',name:'Quartier des locatifs',price:900,pos:[-5.4,-17.8],after:'pool'},
  {id:'owners',name:'Parcelles à l’année',price:600,pos:[-3.4,-26.6],after:'mobil'}];
 // Levelled upgrades: bought again and again, each level dearer (price = base × growth^level).
@@ -153,9 +145,7 @@ export const LEVELS=[
  {id:'solar',name:'Panneaux solaires',after:'transfo',base:400,growth:1.6,max:3,pos:[14.8,1.6],tip:'+7 kW de jour, facture d’électricité −15 %'},
  {id:'tank',name:'Réservoir du château d’eau',after:'borehole',base:300,growth:1.5,max:3,pos:[32.4,4.6],tip:'+50 % de réserve d’eau'},
  {id:'transats',name:'Transats',after:'pool',base:120,growth:1.4,max:3,pos:[15.2,-12.2],tip:'+2 transats au bord de l’eau'},
- {id:'heating',name:'Chauffage de l’eau',after:'tech',base:300,growth:1.6,max:2,pos:[32,-4.4],tip:'Eau plus chaude, facture plus lourde'},
- {id:'guards',name:'Maître-nageur',after:'lifeguard',base:300,growth:1.6,max:3,pos:[15.2,-9.9],tip:'Surveille 2 bassins de plus'},
- {id:'equipe',name:'Saisonnier',after:'handyman',base:400,growth:1.45,pos:[12.8,5.7],tip:'Un saisonnier là où ça manque'}];
+ {id:'heating',name:'Chauffage de l’eau',after:'tech',base:300,growth:1.6,max:2,pos:[32,-4.4],tip:'Eau plus chaude, facture plus lourde'}];
 export const lvl=(s,id)=>s.levels[id]??0;
 export const levelPrice=(s,L)=>Math.round(L.base*L.growth**lvl(s,L.id));
 export const ownerCount=s=>s.unlocked.owners?2+lvl(s,'owners'):0;
@@ -311,9 +301,22 @@ export const MISSIONS=[
  {id:'rest',label:'Pause',icon:'💤',needs:null}];
 export const missionsFor=(s,h)=>MISSIONS.filter(m=>!m.needs||s.unlocked[m.needs]);
 export function assignMission(s,id,loop){const h=s.helpers.find(x=>x.id===id);if(!h||!MISSIONS.some(m=>m.id===loop))return false;putBack(s,h.carry);h.carry=[];h.loop=loop;h.phase=null;h.idle=0;h.moving=false;return true;}
+// The team. Staff are hired and let go of in the team panel, never on the floor. Three posts are held by one person each (reception, shop till,
+// stage); everyone else is an "Employé" who takes any mission (cleaning, the pool, the club, the garden…) and can be moved from one to another.
+export const HIRE={posts:{reception:{label:'Réceptionniste',price:70,flag:'receptionist'},shop:{label:'Épicier',price:160,needs:'shop',flag:'shopkeeper',why:'ouvrez d’abord l’épicerie'},stage:{label:'Animateur',price:350,needs:'stage',flag:'animateur',why:'installez d’abord la scène'}},worker:{base:110,growth:1.3,max:14},refund:.4};
+export const hirePrice=(s,kind)=>HIRE.posts[kind]?.price??Math.round(HIRE.worker.base*HIRE.worker.growth**s.helpers.length);
+export function hireBlock(s,kind){const P=HIRE.posts[kind];
+ if(P){if(s.posts[kind])return 'déjà en poste';return P.needs&&!s.unlocked[P.needs]?P.why:'';}
+ if(kind!=='worker')return 'inconnu';if(!s.unlocked.receptionist)return 'embauchez d’abord un réceptionniste';return s.helpers.length>=HIRE.worker.max?'équipe complète':'';}
+function hire(s,kind,loop){if(hireBlock(s,kind))return false;const price=hirePrice(s,kind);if(s.money<price)return false;
+ const P=HIRE.posts[kind];if(P){s.money-=price;s.posts[kind]=true;(s.postPaid??={})[kind]=price;s.unlocked[P.flag]=true;popup(s,`🧑‍💼 ${P.label} embauché`,s.player.x,s.player.z,'info');return true;}
+ const l=loop&&loop!=='rest'&&MISSIONS.some(m=>m.id===loop&&(!m.needs||s.unlocked[m.needs]))?loop:mostNeeded(s);s.money-=price;const h=helper(s,l,'Employé '+(s.helpers.length+1));h.paid=price;s.helpers.push(h);s.unlocked.cleaner=true;popup(s,`👷 → ${MISSIONS.find(m=>m.id===l).icon}`,h.x,h.z,'info');return true;}
+function fire(s,kind,id){
+ if(HIRE.posts[kind]){if(!s.posts[kind])return false;s.money+=Math.round((s.postPaid?.[kind]??0)*HIRE.refund);s.posts[kind]=false;return true;}
+ const i=s.helpers.findIndex(h=>h.id===id);if(i<0)return false;const h=s.helpers[i];putBack(s,h.carry);s.money+=Math.round((h.paid??0)*HIRE.refund);s.helpers.splice(i,1);return true;}
 function helper(s,loop,name){return {id:s.nextId++,role:'helper',name,loop,x:1.2,z:7.6,heading:0,carry:[],cap:helperCap(s),speed:3.2,cool:0,moving:false,idle:0,wants:null,phase:null,ax:(Math.random()-.5)*1.2};}
 // A new seasonal worker takes the job with the fewest hands among those the campsite has, the busiest jobs first.
-function mostNeeded(s){const jobs=['sanit','clean',...(s.unlocked.shop?['shop']:[]),'fix',...(s.unlocked.pool?['pool']:[]),...(s.unlocked.resto?['resto']:[]),...(s.unlocked.garden?['garden']:[])],n=j=>s.helpers.filter(h=>h.loop===j).length;return jobs.slice().sort((a,b)=>n(a)-n(b))[0];}
+function mostNeeded(s){const jobs=['sanit','clean',...(s.unlocked.shop?['shop']:[]),'fix',...(s.unlocked.pool?['pool']:[]),...(s.unlocked.resto?['resto']:[]),...(s.unlocked.garden?['garden']:[]),...(s.unlocked.kidsclub?['club']:[])],n=j=>s.helpers.filter(h=>h.loop===j).length;return jobs.slice().sort((a,b)=>n(a)-n(b))[0];}
 function move(a,[x,z],dt,stop=.1){const dx=x-a.x,dz=z-a.z,d=Math.hypot(dx,dz);if(d<=stop){a.moving=false;return true;}const step=Math.min(d,a.speed*dt);a.x+=dx/d*step;a.z+=dz/d*step;a.heading=Math.atan2(dx,dz);a.moving=true;return d-step<=stop;}
 // Tidy walk: along the current lane to the main alley, up or down the alley, then along the lane of the destination.
 function route(a,[x,z],dt,stop=.1){const ax=a.ax??0;
@@ -785,7 +788,7 @@ export const STAR_RULES=[
  {star:2,label:'Épicerie et boulangerie',ok:s=>!!(s.unlocked.shop&&s.unlocked.bakery)},
  {star:2,label:'Accueil tenu par un réceptionniste',ok:s=>!!s.posts.reception},
  {star:2,label:'12 emplacements ouverts',ok:s=>openPitches(s)>=12},
- {star:3,label:'Piscine avec maître-nageur',ok:s=>!!(s.unlocked.pool&&s.unlocked.lifeguard)},
+ {star:3,label:'Piscine avec maître-nageur',ok:s=>!!(s.unlocked.pool&&s.helpers.some(h=>h.loop==='pool'))},
  {star:3,label:'Un service (laverie, wifi, vélos, jeux, navette)',ok:s=>servicesCount(s)>=1},
  {star:3,label:'Réputation de 3 ★',ok:s=>s.rep>=3},
  {star:3,label:'16 emplacements ouverts',ok:s=>openPitches(s)>=16},
@@ -814,7 +817,10 @@ function stepInspect(s,dt){const I=s.inspect;if(s.replica)return;
    else if(!I.why)popup(s,'📋 Inspection : rien de nouveau à classer',DESK[0],DESK[1],'info');
    else{s.rep=Math.max(0,s.rep-.2);popup(s,`📋 Inspection ratée : ${I.why}`,DESK[0],DESK[1],'bad');}}}}
 // ---- The director's choices (price, overbooking, promotion, inspection). Every player has the same rights.
-export function manage(s,a,k,n){const P=s.pricing;n=Number(n);
+export function manage(s,a,k,n){const P=s.pricing;
+ if(a==='hire'&&typeof k==='string'){const [kind,loop]=k.split(':');return (kind==='worker'||!!HIRE.posts[kind])&&hire(s,kind,loop);}
+ if(a==='fire'&&typeof k==='string'&&(k==='worker'||HIRE.posts[k]))return fire(s,k,Number(n));
+ n=Number(n);
  if(a==='price'&&['tent','caravan','mobil','low','high'].includes(k)&&Number.isFinite(n)){P[k]=clamp(Math.round(n*20)/20,.6,1.8);return true;}
  if(a==='overbook'&&Number.isFinite(n)){P.overbook=clamp(Math.round(n/5)*5,0,40);return true;}
  if(a==='promo'){if(s.promo>0||s.money<30)return false;s.money-=30;s.promo=2;popup(s,'📣 Promotion de dernière minute : −20 % pendant 2 jours',s.player.x,s.player.z,'info');return true;}
