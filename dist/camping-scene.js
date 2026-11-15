@@ -314,7 +314,7 @@ export function createCampingScene(canvas,getState){
   bakery.visible=!!s.unlocked.bakery;if(bakery.visible){const O=s.oven;stackOf(bakery.userData.in,repeat('dough',O.in),{cols:3,rows:3,step:.32,dstep:.32,max:18});stackOf(bakery.userData.out,repeat('bread',O.out),{cols:3,rows:3,step:.32,dstep:.32,max:18});
    bakery.userData.glow.material.emissiveIntensity=O.working?.5+.5*Math.sin(time*9):.05;const tg=bakery.userData.tag;tg.visible=O.in>0||O.out>0;if(tg.visible)pill(tg,O.working?`🔥 cuit ${Math.round(O.timer/OVEN.time*100)} % · ${O.in} → ${O.out}`:`🍞 ${O.in} · 🥖 ${O.out}`,O.working?{bg:'#ffb070ee'}:{});}
   for(const [k,v] of Object.entries(sources)){const open=sourceOpen(s,k);v.g.visible=open;if(!open)continue;const n=s.sources[k].n;stackOf(v.st,repeat(SOURCES[k].item,n),{cols:4,rows:3,step:.34,dstep:.3,max:24});
-   v.tag.visible=n===0;if(n===0)pill(v.tag,`${ICON[SOURCES[k].item]} épuisé`,{bg:'#f6b94aee'});}
+   v.tag.visible=n===0&&Math.hypot(s.player.x-SOURCES[k].pos[0],s.player.z-SOURCES[k].pos[1])<7;if(v.tag.visible)pill(v.tag,`${ICON[SOURCES[k].item]} épuisé`,{bg:'#f6b94aee'});}
   // Toilet block.
   const nc=cabins(s),inside=s.campers.filter(c=>c.act?.kind==='wc'&&c.act.step===1).length;doors.forEach((d,i)=>{d.d.visible=d.lamp.visible=i<nc;d.d.position.x=d.lamp.position.x=(i-(nc-1)/2)*.54;d.lamp.material=mat(i<inside?'#e8483a':'#4fbf5a');});
   const cap=sanitCap(s),pp=s.sanit.paper;pill(paperTag,`🧻 ${Math.round(pp)}/${cap}`,pp<2?{bg:'#e8483aee',fg:'#fff'}:pp<4?{bg:'#f6b94aee'}:{});
